@@ -1,0 +1,127 @@
+import React, { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import MobileLayout from '@/components/layout/MobileLayout';
+import PageHeader from '@/components/layout/PageHeader';
+import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
+import CategoryBadge from '@/components/common/CategoryBadge';
+import { Schedule } from '@/types/types';
+import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
+
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const CalendarPage: React.FC = () => {
+  const { data: schedules = [] } = useSchedules();
+  const updateMutation = useUpdateSchedule();
+  const today = new Date();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
+  const [detailSchedule, setDetailSchedule] = useState<Schedule | null>(null);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const calendarDays = useMemo(() => {
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  }, [firstDay, daysInMonth]);
+
+  const getSchedulesForDay = (day: number) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return schedules.filter(s => s.startTime.slice(0, 10) === dateStr);
+  };
+
+  const prevMonth = () => {
+    const d = new Date(year, month - 1, 1);
+    setCurrentDate(d);
+    setSelectedDay(d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() ? today.getDate() : 1);
+  };
+  const nextMonth = () => {
+    const d = new Date(year, month + 1, 1);
+    setCurrentDate(d);
+    setSelectedDay(d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() ? today.getDate() : 1);
+  };
+
+  const isToday = (day: number) => day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  const selectedSchedules = selectedDay ? getSchedulesForDay(selectedDay) : [];
+
+  const handleUpdate = (id: string, updates: Partial<Schedule>) => {
+    updateMutation.mutate({ id, data: updates });
+  };
+
+  return (
+    <MobileLayout>
+      <div className="flex flex-col h-full">
+        <div className="flex-shrink-0 bg-background">
+          <PageHeader title="캘린더" />
+          <div className="flex items-center justify-between px-4 py-3">
+            <button onClick={prevMonth} className="p-2 text-muted-foreground hover:text-foreground"><ChevronLeft className="w-5 h-5" /></button>
+            <h2 className="text-base font-bold text-foreground">{year}년 {month + 1}월</h2>
+            <button onClick={nextMonth} className="p-2 text-muted-foreground hover:text-foreground"><ChevronRight className="w-5 h-5" /></button>
+          </div>
+          <div className="grid grid-cols-7 px-2">
+            {DAYS.map(d => (<div key={d} className="text-center text-[11px] font-medium text-muted-foreground py-1">{d}</div>))}
+          </div>
+          <div className="grid grid-cols-7 px-2 gap-y-0.5">
+            {calendarDays.map((day, idx) => {
+              if (day === null) return <div key={idx} />;
+              const daySchedules = getSchedulesForDay(day);
+              const isSelected = selectedDay === day;
+              return (
+                <button key={idx} onClick={() => setSelectedDay(day)}
+                  className={`flex flex-col items-center py-1.5 rounded-lg transition-colors min-h-[60px] ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}`}>
+                  <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>{day}</span>
+                  <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5">
+                    {daySchedules.slice(0, 2).map(s => (
+                      <div key={s.id} className={`h-1 rounded-full ${
+                        s.isImportant ? 'bg-category-important' : s.category === 'task' ? 'bg-category-task' : s.category === 'appointment' ? 'bg-category-appointment' : s.category === 'group' ? 'bg-category-group' : 'bg-category-repeat'
+                      }`} />
+                    ))}
+                    {daySchedules.length > 2 && <span className="text-[8px] text-muted-foreground text-center">+{daySchedules.length - 2}</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {selectedDay && (
+            <div className="px-4 pt-4 pb-24 animate-fade-in">
+              <h3 className="text-sm font-semibold text-foreground mb-2">{month + 1}월 {selectedDay}일 일정</h3>
+              {selectedSchedules.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">일정이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {selectedSchedules.map(s => (
+                    <button key={s.id} onClick={() => setDetailSchedule(s)}
+                      className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border text-left hover:border-muted-foreground/20 transition-all">
+                      <div className={`w-1 h-8 rounded-full ${
+                        s.isImportant ? 'bg-category-important' : s.category === 'task' ? 'bg-category-task' : s.category === 'appointment' ? 'bg-category-appointment' : s.category === 'group' ? 'bg-category-group' : 'bg-category-repeat'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <CategoryBadge category={s.category} />
+                          {s.isImportant && <CategoryBadge category="important" />}
+                        </div>
+                        <p className="text-sm font-medium text-foreground">{s.title}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {new Date(s.startTime).getHours()}:{String(new Date(s.startTime).getMinutes()).padStart(2, '0')} - {new Date(s.endTime).getHours()}:{String(new Date(s.endTime).getMinutes()).padStart(2, '0')}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <ScheduleDetailModal schedule={detailSchedule} open={!!detailSchedule} onClose={() => setDetailSchedule(null)} onUpdate={handleUpdate} />
+    </MobileLayout>
+  );
+};
+
+export default CalendarPage;

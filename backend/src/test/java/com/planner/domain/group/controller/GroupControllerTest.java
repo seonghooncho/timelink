@@ -1,0 +1,128 @@
+package com.planner.domain.group.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planner.domain.group.dto.req.GroupCreateReqDTO;
+import com.planner.domain.group.dto.res.GroupDetailResDTO;
+import com.planner.domain.group.dto.res.GroupResDTO;
+import com.planner.domain.group.error.GroupErrorCode;
+import com.planner.domain.group.error.GroupException;
+import com.planner.domain.group.service.GroupService;
+import com.planner.global.config.JwtProperties;
+import com.planner.global.error.GlobalExceptionHandler;
+import com.planner.global.security.JwtAuthenticationFilter;
+import com.planner.global.security.JwtTokenProvider;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(GroupController.class)
+@Import(GlobalExceptionHandler.class)
+class GroupControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+
+    @MockBean private GroupService service;
+    @MockBean private JwtTokenProvider jwtTokenProvider;
+    @MockBean private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean private JwtProperties jwtProperties;
+
+    private static final String BASE = "/api/planner/v1/groups";
+
+    @Test
+    @DisplayName("GET /groups — 인증 없으면 401")
+    void getMyGroups_unauthenticated() throws Exception {
+        mockMvc.perform(get(BASE))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups — 내 그룹 목록 200")
+    void getMyGroups_returns200() throws Exception {
+        GroupResDTO dto = GroupResDTO.builder().id("g1").name("Study").memberCount(3).build();
+        when(service.getMyGroups("user1")).thenReturn(List.of(dto));
+
+        mockMvc.perform(get(BASE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].name").value("Study"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/{id} — 상세 조회 200")
+    void getDetail_returns200() throws Exception {
+        GroupDetailResDTO dto = GroupDetailResDTO.builder()
+                .id("g1").name("Study").members(List.of()).build();
+        when(service.getDetail("user1", "g1")).thenReturn(dto);
+
+        mockMvc.perform(get(BASE + "/g1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value("g1"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/{id} — 멤버 아니면 403")
+    void getDetail_notMember_returns403() throws Exception {
+        when(service.getDetail("user1", "g1"))
+                .thenThrow(new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+
+        mockMvc.perform(get(BASE + "/g1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /groups — 생성 201")
+    void create_returns201() throws Exception {
+        GroupCreateReqDTO req = new GroupCreateReqDTO();
+        req.setName("New Group");
+
+        GroupDetailResDTO res = GroupDetailResDTO.builder()
+                .id("g2").name("New Group").members(List.of()).build();
+        when(service.create(eq("user1"), any())).thenReturn(res);
+
+        mockMvc.perform(post(BASE).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.name").value("New Group"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /groups — name 누락 시 400")
+    void create_invalid_returns400() throws Exception {
+        GroupCreateReqDTO req = new GroupCreateReqDTO(); // name blank
+
+        mockMvc.perform(post(BASE).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("DELETE /groups/{id} — 삭제 204")
+    void delete_returns204() throws Exception {
+        doNothing().when(service).delete("user1", "g1");
+
+        mockMvc.perform(delete(BASE + "/g1").with(csrf()))
+                .andExpect(status().isNoContent());
+    }
+}

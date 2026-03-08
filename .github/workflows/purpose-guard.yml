@@ -1,0 +1,51 @@
+name: purpose-guard
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  verify-issue-body:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify issue body
+        shell: bash
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          printf '%s' "${ISSUE_BODY}" | bash .ai/scripts/verify-purpose-focus.sh issue
+
+  verify-pr-body:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify PR body
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "${PR_BODY}" | bash .ai/scripts/verify-purpose-focus.sh pr
+
+  verify-doc-markdown:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify markdown purpose focus
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          bash .ai/scripts/verify-purpose-focus.sh docs --base-ref "origin/${{ github.base_ref }}"

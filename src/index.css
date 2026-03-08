@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 2026 Soft Neutral — warm, airy, editorial */
+    --background: 40 20% 98%;
+    --foreground: 225 20% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 225 20% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 20% 13%;
+
+    --primary: 160 50% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 225 12% 96%;
+    --secondary-foreground: 225 20% 13%;
+
+    --muted: 225 12% 96%;
+    --muted-foreground: 225 8% 52%;
+
+    --accent: 225 12% 93%;
+    --accent-foreground: 225 20% 13%;
+
+    --destructive: 0 65% 54%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 225 12% 92%;
+    --input: 225 12% 92%;
+    --ring: 160 50% 40%;
+
+    --radius: 1rem;
+
+    /* Category — refined, desaturated pastels with legible accents */
+    --category-task: 220 65% 58%;
+    --category-task-light: 220 40% 95%;
+    --category-task-strong: 220 65% 44%;
+
+    --category-appointment: 160 50% 44%;
+    --category-appointment-light: 160 35% 94%;
+    --category-appointment-strong: 160 50% 32%;
+
+    --category-important: 0 60% 56%;
+    --category-important-light: 0 45% 95%;
+    --category-important-strong: 0 60% 42%;
+
+    --category-group: 260 45% 58%;
+    --category-group-light: 260 35% 95%;
+    --category-group-strong: 260 45% 42%;
+
+    --category-repeat: 30 60% 52%;
+    --category-repeat-light: 30 40% 95%;
+    --category-repeat-strong: 30 60% 38%;
+
+    /* Coordination */
+    --coord-gray: 225 12% 44%;
+    --coord-green: 160 55% 34%;
+    --coord-blue: 220 70% 42%;
+    --coord-best: 45 90% 50%;
+    --coord-alt: 275 55% 58%;
+
+    --sidebar-background: 40 20% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Noto Sans KR', 'Outfit', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+  }
+
+  /* Smooth number rendering */
+  .font-num {
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Glass morphism utility */
+  .glass {
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
+
+  /* Subtle press effect */
+  .pressable {
+    @apply transition-all duration-150 active:scale-[0.97] active:opacity-90;
+  }
+}

@@ -1,0 +1,4 @@
+project_id = "tegqrckygptphlmmiium"
+
+[functions.extract-schedule]
+verify_jwt = false

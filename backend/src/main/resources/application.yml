@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: planner-backend
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+aws:
+  region: ap-northeast-2
+  dynamodb:
+    endpoint: http://localhost:8000
+    table-prefix: planner_
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-for-local-dev-only-change-in-production}
+  expiration: 86400000
+
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000
+
+logging:
+  level:
+    com.planner: DEBUG
+    software.amazon.awssdk: INFO
