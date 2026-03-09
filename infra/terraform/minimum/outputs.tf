@@ -42,3 +42,23 @@ output "ai_lambda_function_name" {
   description = "AI Lambda function name"
   value       = aws_lambda_function.ai.function_name
 }
+
+output "backend_ssm_prefix" {
+  description = "SSM prefix for backend runtime configuration"
+  value       = local.backend_ssm_prefix
+}
+
+output "ai_ssm_prefix" {
+  description = "SSM prefix for AI runtime configuration"
+  value       = local.ai_ssm_prefix
+}
+
+output "backend_jwt_secret_parameter_name" {
+  description = "Backend JWT secret parameter name"
+  value       = aws_ssm_parameter.backend_jwt_secret.name
+}
+
+output "ai_gemini_api_key_parameter_name" {
+  description = "AI Gemini API key parameter name"
+  value       = aws_ssm_parameter.ai_gemini_api_key.name
+}

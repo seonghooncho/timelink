@@ -17,7 +17,7 @@
 ├── fe/         # React + Vite + Tailwind 프론트엔드
 ├── backend/    # Spring Boot 백엔드
 ├── ai/         # FastAPI 기반 AI 서비스
-├── infra/      # Terraform 인프라 정의
+├── infra/      # Terraform 문서와 init/minimum 스택
 ├── docs/       # 설계/운영 문서
 └── package.json
 ```
@@ -66,17 +66,23 @@ uvicorn app.main:app --reload --port 8000
 ### Infra
 
 ```sh
-cd infra
+cd infra/terraform/init
 terraform init
+terraform apply
+
+cd ../minimum
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
 
-루트에서 보조 명령으로 `npm run infra:fmt`, `npm run infra:validate`를 사용할 수 있습니다.
+루트에서 보조 명령으로 `npm run infra:init:fmt`, `npm run infra:init:validate`, `npm run infra:fmt`, `npm run infra:validate`를 사용할 수 있습니다.
 
 ## 환경 변수
 
-- 프론트엔드: 기본값은 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
-- AI 서비스: `ai/.env`
+- 프론트엔드: 빌드 타임 환경변수 없이 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
+- 백엔드/AI 런타임 설정: AWS SSM Parameter Store에서 읽습니다. Terraform은 비밀값용 placeholder와 일반 설정을 SSM에 적재하고 Lambda에는 `APP_CONFIG_PREFIX`만 전달합니다.
+- 로컬 개발용 민감값은 `ai/.env`, Terraform `terraform.tfvars` 또는 `TF_VAR_*`로만 주입하고 Git에는 올리지 않습니다.
 
 상세 구조와 아키텍처 설명은 [docs/README.md](docs/README.md)를 참고하면 됩니다.

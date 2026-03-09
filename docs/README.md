@@ -44,16 +44,19 @@
 │   └── app/
 │       ├── routers/        # AI 엔드포인트
 │       └── services/       # Gemini 연동 서비스
-├── infra/                  # Terraform
-│   ├── main.tf             # provider/backend 설정
-│   ├── variables.tf        # 환경별 입력 변수
-│   ├── api_gateway.tf      # HTTP API, route, Lambda invoke permission
-│   ├── lambda.tf           # 백엔드 Lambda 및 IAM
-│   ├── lambda_ai.tf        # AI Lambda, ECR 및 IAM
-│   ├── dynamodb.tf         # Single Table Design
-│   ├── s3_cloudfront.tf    # 프론트 정적 호스팅
-│   ├── s3_storage.tf       # 업로드 이미지 버킷
-│   └── outputs.tf          # 배포 결과 출력
+├── infra/
+│   └── terraform/
+│       ├── init/                # tfstate S3 + lock DynamoDB bootstrap
+│       ├── minimum/             # 현재 운영 최소 스택
+│       │   ├── api_gateway.tf   # Backend/AI 라우팅용 HTTP API
+│       │   ├── lambda.tf        # Backend Lambda 및 IAM
+│       │   ├── lambda_ai.tf     # AI Lambda, ECR 및 IAM
+│       │   ├── dynamodb.tf      # Single Table Design
+│       │   ├── s3_cloudfront.tf # 프론트 CloudFront + S3
+│       │   ├── s3_storage.tf    # 업로드 이미지 버킷
+│       │   ├── ssm.tf           # 런타임 설정 SSM Parameter Store
+│       │   └── outputs.tf       # 배포 결과 출력
+│       └── README.md
 ├── docs/                   # 설계/운영 문서
 └── README.md
 ```
@@ -79,9 +82,10 @@
 
 ## 인프라 구조 원칙
 
-- `api_gateway.tf`에는 HTTP API, integration, route, invoke permission을 모아 라우팅 흐름을 한 파일에서 읽을 수 있게 유지
-- `lambda.tf`, `lambda_ai.tf`는 각 런타임별 Lambda/IAM/ECR 책임만 가진다
-- 런타임 환경 변수는 `variables.tf` + file-local `locals`로 선언해 하드코딩을 줄인다
+- `infra/terraform/init`은 Terraform 상태 저장소만 관리하고 앱 스택과 분리한다
+- `infra/terraform/minimum`은 현재 운영 최소 스택만 포함해 이후 상위 구조 변경 시 비교 기준점 역할을 한다
+- `api_gateway.tf`에는 Backend/AI Lambda 라우팅을 모아 `CloudFront -> API Gateway -> Lambda` 경로를 한 파일에서 읽을 수 있게 유지한다
+- 앱 런타임 설정은 SSM Parameter Store에서 읽고, Lambda에는 SSM prefix만 전달한다
 
 ## 기술 스택
 
@@ -123,21 +127,26 @@ uvicorn app.main:app --reload --port 8000
 
 ### Infra
 ```bash
-cd infra
+cd infra/terraform/init
 terraform init
+terraform apply
+
+cd ../minimum
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
 
-보조 명령: `npm run infra:fmt`, `npm run infra:validate`
+보조 명령: `npm run infra:init:fmt`, `npm run infra:init:validate`, `npm run infra:fmt`, `npm run infra:validate`
 
 ## 환경별 설정
 
 | 환경 | Frontend | Backend | AI |
 |------|----------|---------|-----|
 | Local | `localhost:5173` (Vite proxy) | `localhost:8080` | `localhost:8000` |
-| Dev | CloudFront + API Gateway | Lambda | Lambda |
-| Prod | CloudFront + API Gateway | Lambda | Lambda |
+| Dev | CloudFront + S3, `/api/* -> API Gateway` | Lambda | Lambda |
+| Prod | CloudFront + S3, `/api/* -> API Gateway` | Lambda | Lambda |
 
 ## 환경변수
 
@@ -148,7 +157,14 @@ terraform apply
 배포는 CloudFront가 /api/* 를 API Gateway 로 전달합니다.
 ```
 
-### AI Service (ai/.env)
+### Backend / AI
+```
+운영 런타임 설정은 SSM Parameter Store를 사용합니다.
+Terraform은 /planner/{environment}/backend, /planner/{environment}/ai prefix 아래에 값을 적재합니다.
+Lambda에는 APP_CONFIG_PREFIX만 주입합니다.
+```
+
+### AI Service Local (ai/.env)
 ```
 GEMINI_API_KEY=your_key   # https://aistudio.google.com/apikey
 CORS_ORIGINS=http://localhost:5173

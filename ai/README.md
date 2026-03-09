@@ -21,7 +21,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # 의존성 설치
 pip install -r requirements.txt
 
-# 환경변수 설정
+# 로컬 전용 환경변수 설정
 cp .env.example .env
 # .env 파일에서 GEMINI_API_KEY 설정
 
@@ -65,11 +65,13 @@ uvicorn app.main:app --reload --port 8000
 | `CORS_ORIGINS` | CORS 허용 오리진 (콤마 구분) | ❌ |
 | `LOG_LEVEL` | 로그 레벨 (기본: INFO) | ❌ |
 
-## Docker (로컬)
+운영 배포에서는 위 값을 직접 Lambda env로 넣지 않고, SSM Parameter Store를 통해 읽습니다. Lambda에는 `APP_CONFIG_PREFIX`만 전달됩니다.
+
+## Lambda 이미지 빌드
 
 ```bash
 docker build -t planner-ai .
-docker run -p 8000:8000 --env-file .env planner-ai
+docker run --rm -p 9000:8080 planner-ai
 ```
 
 ## AWS Lambda 배포

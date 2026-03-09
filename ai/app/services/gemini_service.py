@@ -10,11 +10,11 @@ from io import BytesIO
 
 import google.generativeai as genai
 
+from app.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 # ── 설정 ──
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MAX_IMAGE_DIMENSION = 1024  # 비용·속도 최적화: 긴 변 기준 리사이즈
 MAX_BASE64_LENGTH = 10 * 1024 * 1024  # 10 MB 원본 제한
 REQUEST_TIMEOUT = 30  # seconds
@@ -49,9 +49,10 @@ Rules:
 @lru_cache(maxsize=1)
 def _get_model() -> genai.GenerativeModel:
     """Gemini 모델을 한 번만 초기화하고 캐시합니다."""
-    if not GEMINI_API_KEY:
+    gemini_api_key = get_settings().gemini_api_key
+    if not gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=gemini_api_key)
     return genai.GenerativeModel(
         "gemini-2.0-flash",
         generation_config=genai.GenerationConfig(

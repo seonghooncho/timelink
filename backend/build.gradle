@@ -34,6 +34,7 @@ dependencies {
     implementation 'software.amazon.awssdk:dynamodb:2.29.51'
     implementation 'software.amazon.awssdk:dynamodb-enhanced:2.29.51'
     implementation 'software.amazon.awssdk:s3:2.29.51'
+    implementation 'software.amazon.awssdk:ssm:2.29.51'
 
     // AWS Lambda (for deployment)
     implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'

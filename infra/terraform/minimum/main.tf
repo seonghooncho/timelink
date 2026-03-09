@@ -8,11 +8,7 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket = "planner-terraform-state"
-    key    = "prod/terraform.tfstate"
-    region = "ap-northeast-2"
-  }
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -20,9 +16,11 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "planner"
+      Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
     }
   }
 }
+
+data "aws_caller_identity" "current" {}

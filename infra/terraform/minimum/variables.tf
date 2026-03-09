@@ -16,12 +16,6 @@ variable "project_name" {
   default     = "planner"
 }
 
-variable "jwt_secret" {
-  description = "JWT signing secret"
-  type        = string
-  sensitive   = true
-}
-
 variable "lambda_memory" {
   description = "Lambda memory in MB"
   type        = number
@@ -34,24 +28,31 @@ variable "lambda_timeout" {
   default     = 30
 }
 
-variable "spring_profiles_active" {
-  description = "Spring profile for backend lambda"
+variable "frontend_origin_override" {
+  description = "Optional custom frontend origin. Leave blank to use the CloudFront domain."
   type        = string
-  default     = "prod"
+  default     = ""
 }
 
-variable "api_cors_origins" {
-  description = "CORS origins for backend API"
+variable "backend_log_level" {
+  description = "Application log level for the backend Lambda."
   type        = string
-  default     = "https://your-domain.com"
+  default     = "INFO"
 }
 
 # ── AI Lambda ──
 
-variable "gemini_api_key" {
-  description = "Google Gemini API key"
+variable "ai_log_level" {
+  description = "Application log level for the AI Lambda."
+  type        = string
+  default     = "INFO"
+}
+
+variable "jwt_secret_placeholder" {
+  description = "Initial placeholder for the backend JWT secret SSM parameter. Replace it in SSM after apply."
   type        = string
   sensitive   = true
+  default     = "CHANGE_ME_IN_SSM"
 }
 
 variable "ai_lambda_memory" {
@@ -66,8 +67,9 @@ variable "ai_lambda_timeout" {
   default     = 60
 }
 
-variable "ai_cors_origins" {
-  description = "CORS origins for AI service"
+variable "gemini_api_key_placeholder" {
+  description = "Initial placeholder for the AI Gemini API key SSM parameter. Replace it in SSM after apply."
   type        = string
-  default     = "https://your-domain.com"
+  sensitive   = true
+  default     = "CHANGE_ME_IN_SSM"
 }

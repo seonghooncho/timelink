@@ -1,7 +1,7 @@
 import { clearStoredSession, getAccessToken } from '@/services/session';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/planner/v1';
-const AI_BASE = import.meta.env.VITE_AI_BASE_URL || '/api/ai/v1';
+const API_BASE = '/api/planner/v1';
+const AI_BASE = '/api/ai/v1';
 
 function getAuthHeaders(contentType = 'application/json'): Record<string, string> {
   const token = getAccessToken();

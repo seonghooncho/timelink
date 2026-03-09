@@ -4,13 +4,7 @@
 
 locals {
   api_lambda_environment = {
-    SPRING_PROFILES_ACTIVE = var.spring_profiles_active
-    AWS_REGION_OVERRIDE    = var.aws_region
-    DYNAMODB_TABLE_PREFIX  = "${var.project_name}_${var.environment}_"
-    AWS_S3_BUCKET_NAME     = aws_s3_bucket.public_assets.bucket
-    AWS_S3_PUBLIC_BASE_URL = "https://${aws_s3_bucket.public_assets.bucket}.s3.${var.aws_region}.amazonaws.com"
-    JWT_SECRET             = var.jwt_secret
-    CORS_ORIGINS           = var.api_cors_origins
+    APP_CONFIG_PREFIX = local.backend_ssm_prefix
   }
 }
 
@@ -22,8 +16,8 @@ resource "aws_lambda_function" "api" {
   timeout       = var.lambda_timeout
   architectures = ["arm64"] # Graviton2 — 최소 비용
 
-  filename         = "${path.module}/../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar"
-  source_code_hash = filebase64sha256("${path.module}/../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar")
+  filename         = "${path.module}/../../../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar"
+  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar")
 
   role = aws_iam_role.lambda_exec.arn
 
@@ -106,6 +100,17 @@ resource "aws_iam_role_policy" "dynamodb_access" {
         ]
         Resource = [
           "${aws_s3_bucket.public_assets.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.backend_ssm_prefix}/*"
         ]
       }
     ]

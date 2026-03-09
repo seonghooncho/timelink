@@ -12,11 +12,15 @@
 
 - 프론트 인증은 기존 외부 인증 의존을 제거하고 백엔드 `auth` API 기반 세션으로 전환했다.
 - 프로필/그룹 이미지 업로드는 프론트 직접 저장소 호출이 아니라 백엔드 `storage` API로 통일했다.
+- 프론트는 `CloudFront + S3`, 백엔드와 AI는 `API Gateway + Lambda` 경로가 되도록 인프라 라우팅을 명시적으로 정리했다.
 - 로컬 개발은 Vite proxy, 배포는 CloudFront `/api/* -> API Gateway` 라우팅으로 경로를 맞췄다.
 - 인프라는 프론트 정적 호스팅 버킷과 업로드 이미지 버킷을 분리했다.
+- Terraform은 `infra/terraform/init`에서 remote state(S3 + DynamoDB lock)를 먼저 만들고, `infra/terraform/minimum`에서 앱 스택을 관리하도록 분리했다.
+- 백엔드와 AI의 런타임 설정은 Lambda env 직접 주입 대신 SSM Parameter Store에서 읽도록 전환했다.
 - DynamoDB 문서는 PartiQL 기준 운영 예시를 함께 남기고, 런타임 hot path는 단일 테이블 키 조회를 유지한다.
 - 그룹 초대 링크는 `inviteCode` 기반 join 라우트와 로그인 후 복귀 경로까지 연결했다.
 - 그룹 일정 생성은 `groupId`를 전달하도록 정리했고, 그룹 목록 멤버 수는 백엔드 값과 맞췄다.
+- AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
 
 ## 즉시 수정이 필요한 항목
 

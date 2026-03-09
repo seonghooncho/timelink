@@ -4,9 +4,7 @@
 
 locals {
   ai_lambda_environment = {
-    GEMINI_API_KEY = var.gemini_api_key
-    CORS_ORIGINS   = var.ai_cors_origins
-    LOG_LEVEL      = "INFO"
+    APP_CONFIG_PREFIX = local.ai_ssm_prefix
   }
 }
 
@@ -95,6 +93,28 @@ resource "aws_iam_role" "ai_lambda_exec" {
 resource "aws_iam_role_policy_attachment" "ai_lambda_basic" {
   role       = aws_iam_role.ai_lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "ai_parameter_store_access" {
+  name = "${var.project_name}-ai-parameter-store-access"
+  role = aws_iam_role.ai_lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ai_ssm_prefix}/*"
+        ]
+      }
+    ]
+  })
 }
 
 # CloudWatch Log Group

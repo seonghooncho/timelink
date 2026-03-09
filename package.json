@@ -22,7 +22,9 @@
     "backend:run": "cd backend && ./gradlew bootRun",
     "backend:test": "cd backend && ./gradlew test",
     "ai:run": "cd ai && uvicorn app.main:app --reload --port 8000",
-    "infra:fmt": "cd infra && terraform fmt -recursive",
-    "infra:validate": "cd infra && terraform validate"
+    "infra:init:fmt": "cd infra/terraform/init && terraform fmt -recursive",
+    "infra:init:validate": "cd infra/terraform/init && terraform validate",
+    "infra:fmt": "cd infra/terraform && terraform fmt -recursive",
+    "infra:validate": "cd infra/terraform/minimum && terraform validate"
   }
 }

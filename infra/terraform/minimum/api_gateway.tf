@@ -49,9 +49,21 @@ resource "aws_apigatewayv2_integration" "lambda" {
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_route" "proxy" {
+resource "aws_apigatewayv2_route" "backend_root" {
   api_id    = aws_apigatewayv2_api.api.id
-  route_key = "$default"
+  route_key = "ANY /api/planner"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "backend_proxy" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "ANY /api/planner/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "backend_health" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "GET /health"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
@@ -61,6 +73,12 @@ resource "aws_apigatewayv2_integration" "ai_lambda" {
   integration_uri        = aws_lambda_alias.ai_live.invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "ai_root" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "ANY /api/ai"
+  target    = "integrations/${aws_apigatewayv2_integration.ai_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "ai_proxy" {

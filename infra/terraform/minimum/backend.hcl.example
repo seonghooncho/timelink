@@ -1,0 +1,5 @@
+bucket         = "planner-terraform-state-<account-id>-ap-northeast-2"
+key            = "minimum/prod/terraform.tfstate"
+region         = "ap-northeast-2"
+dynamodb_table = "planner-terraform-lock"
+encrypt        = true

@@ -1,18 +1,17 @@
 import logging
-import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from mangum import Mangum
 
+from app.config import get_settings
 from app.routers import extract
 
-load_dotenv()
+settings = get_settings()
 
 # ── 로깅 ──
 logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
+    level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 
@@ -22,7 +21,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+cors_origins = settings.cors_origins.split(",")
 
 app.add_middleware(
     CORSMiddleware,

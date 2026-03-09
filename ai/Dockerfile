@@ -5,18 +5,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --target /app/deps -r requirements.txt
 
-# ── Stage 2: 런타임 (Lambda 호환) ──
-FROM python:3.12-slim
+# ── Stage 2: 런타임 (Lambda Container Image) ──
+FROM public.ecr.aws/lambda/python:3.12
 
-WORKDIR /app
+WORKDIR ${LAMBDA_TASK_ROOT}
 
-# 의존성 복사
-COPY --from=builder /app/deps /app/deps
-ENV PYTHONPATH="/app/deps:${PYTHONPATH}"
+COPY --from=builder /app/deps ${LAMBDA_TASK_ROOT}
+COPY app ${LAMBDA_TASK_ROOT}/app
 
-COPY . .
-
-EXPOSE 8000
-
-# 로컬: uvicorn / Lambda: handler (mangum)
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["app.main.handler"]

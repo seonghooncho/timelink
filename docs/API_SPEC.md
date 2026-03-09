@@ -916,9 +916,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 13. 데이터베이스 스키마
 
-> **저장소**: Amazon DynamoDB (Single Table Design)  
-> **테이블명**: `planner_main`  
-> 상세 스키마는 `infra/SCHEMA.md` 참고
+> **저장소**: Amazon DynamoDB (Single Table Design)
+> **테이블명**: `planner_{environment}_main`
+> 상세 스키마는 `infra/terraform/minimum/SCHEMA.md` 참고
 
 ### 엔티티 관계
 ```
@@ -940,7 +940,7 @@ auth-session (JWT subject = userId)
 
 ### 운영 메모
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
-- 운영 점검이나 비정형 lookup은 `infra/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
+- 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
 - 업로드 이미지는 S3 public assets bucket에 저장되고, 프론트는 해당 URL만 저장합니다.
 
 ---

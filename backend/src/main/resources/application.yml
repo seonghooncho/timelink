@@ -17,11 +17,11 @@ aws:
     endpoint: http://localhost:8000
     table-prefix: planner_
   s3:
-    bucket-name: ${AWS_S3_BUCKET_NAME:}
-    public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+    bucket-name:
+    public-base-url:
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-local-dev-only-change-in-production}
+  secret: your-256-bit-secret-key-for-local-dev-only-change-in-production
   expiration: 86400000
 
 cors:

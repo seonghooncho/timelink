@@ -1,6 +1,18 @@
 # ──────────────────────────────────────
 # S3 bucket for frontend static assets
 # ──────────────────────────────────────
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.environment}"
 }
@@ -31,6 +43,34 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "spa_rewrite" {
+  name    = "${var.project_name}-${var.environment}-spa-rewrite"
+  runtime = "cloudfront-js-1.0"
+  publish = true
+  comment = "Rewrite SPA routes while keeping /api/* on API Gateway."
+  code    = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+
+      if (uri.startsWith('/api/')) {
+        return request;
+      }
+
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+        return request;
+      }
+
+      if (uri.indexOf('.') === -1) {
+        request.uri = '/index.html';
+      }
+
+      return request;
+    }
+  EOT
+}
+
 # ──────────────────────────────────────
 # CloudFront Distribution
 # ──────────────────────────────────────
@@ -38,7 +78,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
   comment             = "${var.project_name} frontend (${var.environment})"
-  price_class         = "PriceClass_200" # Asia + NA + EU
+  price_class         = "PriceClass_200"
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -64,20 +104,14 @@ resource "aws_cloudfront_distribution" "frontend" {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_rewrite.arn
     }
-
-    min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
   }
 
-  # Cache static assets aggressively
   ordered_cache_behavior {
     path_pattern           = "/assets/*"
     target_origin_id       = "s3-frontend"
@@ -85,53 +119,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl     = 86400
-    default_ttl = 604800
-    max_ttl     = 31536000
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   ordered_cache_behavior {
-    path_pattern           = "/api/*"
-    target_origin_id       = "http-api"
-    viewer_protocol_policy = "https-only"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods         = ["GET", "HEAD", "OPTIONS"]
-    compress               = true
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization", "Content-Type", "Origin", "Accept"]
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  # SPA fallback: return index.html for 403/404
-  custom_error_response {
-    error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 10
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 10
+    path_pattern             = "/api/*"
+    target_origin_id         = "http-api"
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+    cached_methods           = ["GET", "HEAD", "OPTIONS"]
+    compress                 = true
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
   }
 
   restrictions {
