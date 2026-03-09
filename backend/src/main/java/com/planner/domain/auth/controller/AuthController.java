@@ -67,7 +67,7 @@ public class AuthController {
             @RequestParam(required = false) String error,
             HttpServletRequest request) {
         URI location = (error != null)
-                ? socialAuthService.buildFailureRedirect(provider, state, error)
+                ? socialAuthService.buildFailureRedirect(provider, state, error, request)
                 : socialAuthService.buildCallbackRedirect(provider, code, state, request);
 
         return ResponseEntity.status(302)

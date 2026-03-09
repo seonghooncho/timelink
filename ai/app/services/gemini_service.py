@@ -9,6 +9,7 @@ from functools import lru_cache
 from io import BytesIO
 
 import google.generativeai as genai
+from google.api_core.exceptions import GoogleAPICallError, InvalidArgument, ResourceExhausted
 
 from app.config import get_settings
 
@@ -168,6 +169,12 @@ async def extract_schedule_from_image(image_base64: str) -> dict:
         )
     except asyncio.TimeoutError:
         raise RuntimeError(f"Gemini API 응답 시간 초과 ({REQUEST_TIMEOUT}초)")
+    except InvalidArgument as exc:
+        raise ValueError("이미지를 해석할 수 없습니다. 더 선명한 이미지나 다른 캡처로 다시 시도해주세요.") from exc
+    except ResourceExhausted as exc:
+        raise RuntimeError("AI 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.") from exc
+    except GoogleAPICallError as exc:
+        raise RuntimeError("AI 서비스와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.") from exc
 
     content = response.text
     logger.debug(f"Gemini 원본 응답: {content[:300]}")

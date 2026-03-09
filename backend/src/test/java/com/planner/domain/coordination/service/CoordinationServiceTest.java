@@ -11,6 +11,8 @@ import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.global.cursor.CursorCodec;
+import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ class CoordinationServiceTest {
 
     @Mock
     private GroupRepository groupRepository;
+
+    @Mock
+    private CursorCodec cursorCodec;
 
     @InjectMocks
     private CoordinationService service;
@@ -95,6 +100,32 @@ class CoordinationServiceTest {
 
             assertThatThrownBy(() -> service.create(USER_ID, GROUP_ID, req))
                     .isInstanceOf(GroupException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("getByGroupIdPaged")
+    class GetByGroupIdPaged {
+
+        @Test
+        @DisplayName("목록 조회는 각 조율의 응답 수를 함께 반환한다")
+        void shouldReturnResponseCount() {
+            Coordination coordination = createCoordination(USER_ID);
+
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findByGroupIdPaged(GROUP_ID, 20, null))
+                    .willReturn(CursorPageResult.<Coordination>builder()
+                            .items(List.of(coordination))
+                            .build());
+            given(repository.findResponses(COORD_ID)).willReturn(List.of(
+                    CoordinationResponse.builder().userId("user-1").date("2025-03-15").hour(10).build(),
+                    CoordinationResponse.builder().userId("user-2").date("2025-03-15").hour(11).build()
+            ));
+
+            CursorPageResult<CoordinationResDTO> result = service.getByGroupIdPaged(USER_ID, GROUP_ID, "active", 20, null);
+
+            assertThat(result.getItems()).hasSize(1);
+            assertThat(result.getItems().get(0).getResponseCount()).isEqualTo(2);
         }
     }
 

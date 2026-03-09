@@ -34,7 +34,7 @@ async def extract_schedule(req: ExtractRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         logger.error(f"추출 실패 (서버 오류): {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         logger.exception("예상치 못한 오류")
         raise HTTPException(status_code=500, detail="일정 추출 중 오류가 발생했습니다")

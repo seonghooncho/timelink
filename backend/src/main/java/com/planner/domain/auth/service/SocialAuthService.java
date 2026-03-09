@@ -26,6 +26,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -112,13 +113,15 @@ public class SocialAuthService {
         return URI.create(destination);
     }
 
-    public URI buildFailureRedirect(String providerName, String stateToken, String errorMessage) {
+    public URI buildFailureRedirect(String providerName, String stateToken, String errorMessage, HttpServletRequest request) {
         Provider provider = Provider.from(providerName);
-        OAuthState state = parseState(provider, stateToken);
+        OAuthState state = parseStateOrNull(provider, stateToken);
+        String frontendOrigin = state != null ? state.frontendOrigin() : defaultFrontendOrigin(request);
+        String redirectPath = state != null ? state.redirectPath() : "/";
 
         String destination = UriComponentsBuilder
-                .fromUriString(state.frontendOrigin() + "/login")
-                .queryParam("redirect", state.redirectPath())
+                .fromUriString(frontendOrigin + "/login")
+                .queryParam("redirect", redirectPath)
                 .queryParam("error", provider.id())
                 .queryParam("message", errorMessage)
                 .build(true)
@@ -229,6 +232,18 @@ public class SocialAuthService {
         }
     }
 
+    private OAuthState parseStateOrNull(Provider provider, String stateToken) {
+        if (!StringUtils.hasText(stateToken)) {
+            return null;
+        }
+
+        try {
+            return parseState(provider, stateToken);
+        } catch (CustomException e) {
+            return null;
+        }
+    }
+
     private SecretKey signingKey() {
         return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
@@ -303,6 +318,51 @@ public class SocialAuthService {
         }
 
         return trimmed;
+    }
+
+    private String defaultFrontendOrigin(HttpServletRequest request) {
+        if (StringUtils.hasText(corsProperties.getAllowedOrigins())) {
+            return Arrays.stream(corsProperties.getAllowedOrigins().split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .map(this::normalizeFrontendOrigin)
+                    .findFirst()
+                    .orElseGet(() -> inferFrontendOriginFromRequest(request));
+        }
+
+        return inferFrontendOriginFromRequest(request);
+    }
+
+    private String inferFrontendOriginFromRequest(HttpServletRequest request) {
+        ArrayList<String> candidates = new ArrayList<>();
+        candidates.add(request.getHeader(HttpHeaders.ORIGIN));
+        candidates.add(extractOrigin(request.getHeader(HttpHeaders.REFERER)));
+
+        return candidates.stream()
+                .filter(StringUtils::hasText)
+                .map(this::normalizeFrontendOrigin)
+                .findFirst()
+                .orElseGet(() -> buildApiBaseUrl(request));
+    }
+
+    private String extractOrigin(String referer) {
+        if (!StringUtils.hasText(referer)) {
+            return null;
+        }
+
+        try {
+            URI uri = URI.create(referer);
+            if (!StringUtils.hasText(uri.getScheme()) || !StringUtils.hasText(uri.getHost())) {
+                return null;
+            }
+
+            int port = uri.getPort();
+            return port > 0
+                    ? "%s://%s:%d".formatted(uri.getScheme(), uri.getHost(), port)
+                    : "%s://%s".formatted(uri.getScheme(), uri.getHost());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String readRequired(JsonNode node, String fieldName, String message) {

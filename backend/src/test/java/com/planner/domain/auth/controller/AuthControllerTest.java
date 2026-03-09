@@ -144,7 +144,19 @@ class AuthControllerTest {
 
         mockMvc.perform(get(BASE + "/oauth/google/callback")
                         .queryParam("code", "oauth-code")
-                        .queryParam("state", "signed-state"))
+                .queryParam("state", "signed-state"))
+                .andExpect(status().isFound());
+    }
+
+    @Test
+    @DisplayName("GET /auth/oauth/google/callback 은 state 없이 실패해도 로그인 화면으로 복귀시킨다")
+    void oauthCallback_error_redirectsWithoutState() throws Exception {
+        when(socialAuthService.buildFailureRedirect(eq("google"), eq(""), eq("access_denied"), any()))
+                .thenReturn(URI.create("https://frontend.example.com/login?error=google"));
+
+        mockMvc.perform(get(BASE + "/oauth/google/callback")
+                        .queryParam("error", "access_denied")
+                        .queryParam("state", ""))
                 .andExpect(status().isFound());
     }
 }

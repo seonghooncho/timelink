@@ -104,7 +104,9 @@ const GroupDetailPage: React.FC = () => {
             <h2 className="text-base font-bold text-foreground">{group.name}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{group.description}</p>
           </div>
-          <span className="text-xs text-muted-foreground">수정</span>
+          <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+            멤버 {group.memberCount}명
+          </span>
         </div>
       </div>
 

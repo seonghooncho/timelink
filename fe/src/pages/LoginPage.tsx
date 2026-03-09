@@ -7,16 +7,33 @@ import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/a
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+type LoginMode = SocialAuthProvider | 'guest' | null;
+
+function createGuestUserId(nickname: string) {
+  const sanitized = nickname
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 12);
+  const prefix = sanitized || 'guest';
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.slice(0, 8);
+  return `${prefix}_${suffix}`.slice(0, 32);
+}
+
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState<SocialAuthProvider | null>(null);
+  const { isAuthenticated, signIn } = useAuth();
+  const [isLoading, setIsLoading] = useState<LoginMode>(null);
   const [providers, setProviders] = useState<AuthProvidersResponse | null>(null);
+  const [providerFetchFailed, setProviderFetchFailed] = useState(false);
+  const [guestNickname, setGuestNickname] = useState('');
 
   const redirectPath = new URLSearchParams(location.search).get('redirect') || '/';
   const providerError = new URLSearchParams(location.search).get('error');
   const errorMessage = new URLSearchParams(location.search).get('message');
+  const hasConfiguredProvider = Boolean(providers?.google || providers?.kakao);
+  const showGuestFallback = providerFetchFailed || (providers !== null && !hasConfiguredProvider);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -26,9 +43,14 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     authApi.getProviders()
-      .then(setProviders)
+      .then((data) => {
+        setProviders(data);
+        setProviderFetchFailed(false);
+      })
       .catch((err) => {
-        toast.error('로그인 설정을 불러오지 못했습니다');
+        setProviders({ google: false, kakao: false });
+        setProviderFetchFailed(true);
+        toast.error('소셜 로그인 설정을 확인하지 못했습니다. 임시 로그인으로 계속할 수 있습니다.');
         console.error(err);
       });
   }, []);
@@ -51,6 +73,23 @@ const LoginPage: React.FC = () => {
     window.location.href = authApi.getOAuthStartUrl(provider, window.location.origin, redirectPath);
   };
 
+  const handleGuestLogin = async () => {
+    const nickname = guestNickname.trim() || 'Timelink 게스트';
+    setIsLoading('guest');
+    try {
+      await signIn({
+        userId: createGuestUserId(nickname),
+        nickname,
+      });
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      console.error(err);
+      toast.error('임시 로그인에 실패했습니다');
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
   return (
     <MobileLayout hideNav>
       <div className="flex flex-col items-center justify-center min-h-screen px-8">
@@ -66,7 +105,7 @@ const LoginPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleSocialLogin('kakao')}
-            disabled={!providers || isLoading !== null}
+            disabled={!providers || !providers.kakao || isLoading !== null}
             className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-sm font-bold transition-all pressable disabled:opacity-50"
             style={{ backgroundColor: '#FEE500', color: '#191919' }}
           >
@@ -79,7 +118,7 @@ const LoginPage: React.FC = () => {
           <button
             type="button"
             onClick={() => handleSocialLogin('google')}
-            disabled={!providers || isLoading !== null}
+            disabled={!providers || !providers.google || isLoading !== null}
             className="w-full flex items-center justify-center gap-2.5 py-4 bg-card border border-border rounded-2xl text-sm font-bold text-foreground hover:bg-muted transition-all pressable disabled:opacity-50"
           >
             {isLoading === 'google' ? (
@@ -95,6 +134,41 @@ const LoginPage: React.FC = () => {
             {isLoading === 'google' ? 'Google 로그인 중...' : 'Google로 시작하기'}
           </button>
         </div>
+
+        {showGuestFallback ? (
+          <div className="w-full max-w-sm mt-6 rounded-2xl border border-border bg-card/80 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">임시 로그인</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {providerFetchFailed
+                    ? '소셜 로그인 설정을 확인하지 못했습니다. 키를 적용하기 전까지 임시 계정으로 계속할 수 있습니다.'
+                    : '소셜 로그인 키를 받으면 바로 활성화할 수 있습니다. 현재는 임시 계정으로 서비스를 사용할 수 있습니다.'}
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">
+                OAuth 대기
+              </span>
+            </div>
+
+            <input
+              value={guestNickname}
+              onChange={(event) => setGuestNickname(event.target.value)}
+              placeholder="표시할 닉네임"
+              maxLength={20}
+              className="mt-4 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
+            />
+
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              disabled={isLoading !== null}
+              className="mt-3 w-full rounded-xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity disabled:opacity-50"
+            >
+              {isLoading === 'guest' ? '입장 중...' : '임시로 시작하기'}
+            </button>
+          </div>
+        ) : null}
 
         <p className="mt-10 text-[11px] text-muted-foreground/60 text-center">
           로그인 시 서비스 이용약관에 동의합니다

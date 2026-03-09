@@ -61,7 +61,7 @@ public class CoordinationService {
 
         List<CoordinationResDTO> filtered = page.getItems().stream()
                 .filter(c -> status == null || c.getStatus().equals(status))
-                .map(CoordinationConverter::toResponse)
+                .map(c -> CoordinationConverter.toResponseWithCount(c, repository.findResponses(c.getId()).size()))
                 .collect(Collectors.toList());
 
         return CursorPageResult.<CoordinationResDTO>builder()
