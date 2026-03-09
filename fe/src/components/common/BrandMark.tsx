@@ -20,8 +20,8 @@ const BrandMark: React.FC<BrandMarkProps> = ({
   return (
     <div className={`inline-flex items-center gap-3 ${className}`.trim()}>
       <img
-        src="/applogo.png"
-        alt="Timelink app logo"
+        src="/applogo.svg"
+        alt="Timelink"
         className={`${sizeClasses[size]} shadow-[0_12px_30px_rgba(27,127,245,0.14)]`}
       />
       {showWordmark ? (
