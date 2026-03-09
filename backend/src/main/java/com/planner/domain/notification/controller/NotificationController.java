@@ -1,8 +1,8 @@
 package com.planner.domain.notification.controller;
 
-import com.planner.domain.notification.dto.res.NotificationResDTO;
+import com.planner.domain.notification.dto.NotificationResDTO;
 import com.planner.domain.notification.service.NotificationService;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;
 import lombok.RequiredArgsConstructor;

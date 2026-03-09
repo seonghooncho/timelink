@@ -1,21 +1,26 @@
 package com.planner.domain.schedule.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.planner.domain.schedule.dto.req.ScheduleCreateReqDTO;
-import com.planner.domain.schedule.dto.req.ScheduleUpdateReqDTO;
-import com.planner.domain.schedule.dto.res.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.error.ScheduleErrorCode;
 import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.global.config.JwtProperties;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -43,6 +48,18 @@ class ScheduleControllerTest {
 
     private static final String BASE = "/api/planner/v1/schedules";
 
+    @BeforeEach
+    void setUp() throws Exception {
+        doAnswer(invocation -> {
+            FilterChain chain = invocation.getArgument(2, FilterChain.class);
+            chain.doFilter(
+                    invocation.getArgument(0, ServletRequest.class),
+                    invocation.getArgument(1, ServletResponse.class)
+            );
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
     private ScheduleResDTO sampleRes() {
         return ScheduleResDTO.builder()
                 .id("s1").title("Meeting").category("work")
@@ -62,7 +79,8 @@ class ScheduleControllerTest {
     @WithMockUser(username = "user1")
     @DisplayName("GET /schedules — 전체 조회 200")
     void getAll_authenticated_returns200() throws Exception {
-        when(service.getAll("user1")).thenReturn(List.of(sampleRes()));
+        when(service.getAllPaged("user1", 20, null))
+                .thenReturn(CursorPageResult.<ScheduleResDTO>builder().items(List.of(sampleRes())).build());
 
         mockMvc.perform(get(BASE))
                 .andExpect(status().isOk())
@@ -74,8 +92,8 @@ class ScheduleControllerTest {
     @WithMockUser(username = "user1")
     @DisplayName("GET /schedules?startDate&endDate — 기간 조회")
     void getByRange_returns200() throws Exception {
-        when(service.getByTimeRange("user1", "2025-03-01", "2025-03-31"))
-                .thenReturn(List.of(sampleRes()));
+        when(service.getByTimeRangePaged("user1", "2025-03-01", "2025-03-31", 20, null))
+                .thenReturn(CursorPageResult.<ScheduleResDTO>builder().items(List.of(sampleRes())).build());
 
         mockMvc.perform(get(BASE).param("startDate", "2025-03-01").param("endDate", "2025-03-31"))
                 .andExpect(status().isOk())
@@ -98,7 +116,7 @@ class ScheduleControllerTest {
     @DisplayName("GET /schedules/{id} — 존재하지 않으면 404")
     void getById_notFound_returns404() throws Exception {
         when(service.getById("user1", "none"))
-                .thenThrow(new ScheduleException(ScheduleErrorCode.NOT_FOUND));
+                .thenThrow(new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
         mockMvc.perform(get(BASE + "/none"))
                 .andExpect(status().isNotFound())

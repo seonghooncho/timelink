@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ToggleSwitch from '@/components/common/ToggleSwitch';
-import { supabase } from '@/integrations/supabase/client';
-import { profileApi, settingsApi } from '@/services/api';
+import { settingsApi, storageApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, Camera, Pencil, Check, X } from 'lucide-react';
@@ -74,23 +73,9 @@ const MyPage: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const fileName = `avatar.${ext}`;
-      const { data: signedData, error: signedError } = await supabase.functions.invoke('signed-url', {
-        body: { action: 'upload', bucket: 'profile-images', path: fileName },
-      });
-      if (signedError) throw signedError;
-
-      const uploadRes = await fetch(signedData.signedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-      if (!uploadRes.ok) throw new Error('Upload failed');
-
-      const { data: dlData, error: dlError } = await supabase.functions.invoke('signed-url', {
-        body: { action: 'download', bucket: 'profile-images', path: signedData.path },
-      });
-      if (dlError) throw dlError;
-
-      await updateProfileMutation.mutateAsync({ avatarUrl: dlData.signedUrl });
-      setProfileImage(dlData.signedUrl);
+      const uploadResult = await storageApi.uploadProfileImage(file);
+      await updateProfileMutation.mutateAsync({ avatarUrl: uploadResult.url });
+      setProfileImage(uploadResult.url);
       toast.success('프로필 이미지가 변경되었습니다');
     } catch (err) {
       console.error(err);

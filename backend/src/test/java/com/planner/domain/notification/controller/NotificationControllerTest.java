@@ -1,17 +1,22 @@
 package com.planner.domain.notification.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.planner.domain.notification.dto.res.NotificationResDTO;
+import com.planner.domain.notification.dto.NotificationResDTO;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.global.config.JwtProperties;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +43,18 @@ class NotificationControllerTest {
 
     private static final String BASE = "/api/planner/v1/notifications";
 
+    @BeforeEach
+    void setUp() throws Exception {
+        doAnswer(invocation -> {
+            FilterChain chain = invocation.getArgument(2, FilterChain.class);
+            chain.doFilter(
+                    invocation.getArgument(0, ServletRequest.class),
+                    invocation.getArgument(1, ServletResponse.class)
+            );
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
     @Test
     @DisplayName("GET /notifications — 인증 없으면 401")
     void getAll_unauthenticated() throws Exception {
@@ -51,7 +68,8 @@ class NotificationControllerTest {
     void getAll_returns200() throws Exception {
         NotificationResDTO dto = NotificationResDTO.builder()
                 .id("n1").type("schedule").title("Reminder").isRead(false).build();
-        when(service.getAll("user1", null, null)).thenReturn(List.of(dto));
+        when(service.getAllPaged("user1", null, null, 20, null))
+                .thenReturn(CursorPageResult.<NotificationResDTO>builder().items(List.of(dto)).build());
 
         mockMvc.perform(get(BASE))
                 .andExpect(status().isOk())
@@ -62,7 +80,8 @@ class NotificationControllerTest {
     @WithMockUser(username = "user1")
     @DisplayName("GET /notifications?type=schedule&isRead=false — 필터링")
     void getAll_withFilters() throws Exception {
-        when(service.getAll("user1", "schedule", false)).thenReturn(List.of());
+        when(service.getAllPaged("user1", "schedule", false, 20, null))
+                .thenReturn(CursorPageResult.<NotificationResDTO>builder().items(List.of()).build());
 
         mockMvc.perform(get(BASE).param("type", "schedule").param("isRead", "false"))
                 .andExpect(status().isOk())
@@ -83,11 +102,11 @@ class NotificationControllerTest {
     @WithMockUser(username = "user1")
     @DisplayName("PATCH /notifications/read-all — 전체 읽음 200")
     void markAllRead_returns200() throws Exception {
-        when(service.markAllRead("user1")).thenReturn(Map.of("updated", 5));
+        when(service.markAllRead("user1")).thenReturn(Map.of("updatedCount", 5));
 
         mockMvc.perform(patch(BASE + "/read-all").with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.updated").value(5));
+                .andExpect(jsonPath("$.data.updatedCount").value(5));
     }
 
     @Test

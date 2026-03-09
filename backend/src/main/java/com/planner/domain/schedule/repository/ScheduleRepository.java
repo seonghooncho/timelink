@@ -2,8 +2,8 @@ package com.planner.domain.schedule.repository;
 
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.global.config.AwsProperties;
-import com.planner.global.pagination.Cursor;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.Cursor;
+import com.planner.global.cursor.CursorPageResult;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;

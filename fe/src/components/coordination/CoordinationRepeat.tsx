@@ -26,10 +26,26 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
   const [isCreating, setIsCreating] = useState(false);
 
   const toggleDay = (idx: number) => {
-    setSelectedDays(prev => { const next = new Set(prev); next.has(idx) ? next.delete(idx) : next.add(idx); return next; });
+    setSelectedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
   };
   const toggleMember = (id: string) => {
-    setSelectedMembers(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const handleCreate = async () => {

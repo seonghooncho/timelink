@@ -18,6 +18,13 @@
     "fe:lint": "npm --workspace fe run lint",
     "fe:preview": "npm --workspace fe run preview",
     "fe:test": "npm --workspace fe run test",
-    "fe:test:watch": "npm --workspace fe run test:watch"
+    "fe:test:watch": "npm --workspace fe run test:watch",
+    "backend:run": "cd backend && ./gradlew bootRun",
+    "backend:test": "cd backend && ./gradlew test",
+    "ai:run": "cd ai && uvicorn app.main:app --reload --port 8000",
+    "infra:init:fmt": "cd infra/terraform/init && terraform fmt -recursive",
+    "infra:init:validate": "cd infra/terraform/init && terraform validate",
+    "infra:fmt": "cd infra/terraform && terraform fmt -recursive",
+    "infra:validate": "cd infra/terraform/minimum && terraform validate"
   }
 }

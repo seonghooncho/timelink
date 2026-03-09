@@ -11,6 +11,27 @@ node_modules
 dist
 dist-ssr
 *.local
+backend/.gradle
+backend/build
+ai/.venv
+ai/venv
+ai/__pycache__
+ai/.pytest_cache
+ai/.env
+infra/.terraform
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform/**/.terraform
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/backend.hcl
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/terraform.tfvars.json
+infra/terraform/**/*.auto.tfvars
+infra/terraform/**/*.auto.tfvars.json
+infra/terraform/**/backend.hcl
+fe/.env.local
+fe/.env.*.local
 
 # Editor directories and files
 .vscode/*

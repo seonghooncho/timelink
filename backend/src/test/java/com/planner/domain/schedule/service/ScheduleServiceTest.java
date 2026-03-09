@@ -1,12 +1,13 @@
 package com.planner.domain.schedule.service;
 
 import com.planner.domain.schedule.converter.ScheduleConverter;
-import com.planner.domain.schedule.dto.req.ScheduleCreateReqDTO;
-import com.planner.domain.schedule.dto.req.ScheduleUpdateReqDTO;
-import com.planner.domain.schedule.dto.res.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -92,34 +93,35 @@ class ScheduleServiceTest {
     }
 
     @Nested
-    @DisplayName("getAll")
+    @DisplayName("getAllPaged")
     class GetAll {
 
         @Test
         @DisplayName("사용자의 모든 일정을 조회한다")
         void shouldReturnAllSchedules() {
             // given
-            given(repository.findByUserId(USER_ID))
-                    .willReturn(List.of(
+            given(repository.findByUserIdPaged(USER_ID, 20, null))
+                    .willReturn(CursorPageResult.<Schedule>builder().items(List.of(
                             createSampleSchedule("s1"),
                             createSampleSchedule("s2")
-                    ));
+                    )).build());
 
             // when
-            List<ScheduleResDTO> result = service.getAll(USER_ID);
+            CursorPageResult<ScheduleResDTO> result = service.getAllPaged(USER_ID, null, null);
 
             // then
-            assertThat(result).hasSize(2);
+            assertThat(result.getItems()).hasSize(2);
         }
 
         @Test
         @DisplayName("일정이 없으면 빈 리스트를 반환한다")
         void shouldReturnEmptyList() {
-            given(repository.findByUserId(USER_ID)).willReturn(List.of());
+            given(repository.findByUserIdPaged(USER_ID, 20, null))
+                    .willReturn(CursorPageResult.<Schedule>builder().items(List.of()).build());
 
-            List<ScheduleResDTO> result = service.getAll(USER_ID);
+            CursorPageResult<ScheduleResDTO> result = service.getAllPaged(USER_ID, null, null);
 
-            assertThat(result).isEmpty();
+            assertThat(result.getItems()).isEmpty();
         }
     }
 

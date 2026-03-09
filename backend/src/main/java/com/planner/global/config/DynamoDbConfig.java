@@ -23,7 +23,9 @@ public class DynamoDbConfig {
                 .credentialsProvider(DefaultCredentialsProvider.create());
 
         String endpoint = awsProperties.getDynamodb().getEndpoint();
-        if (endpoint != null && !endpoint.isBlank()) {
+        if (endpoint != null && !endpoint.isBlank()
+                && !"aws".equalsIgnoreCase(endpoint)
+                && !"none".equalsIgnoreCase(endpoint)) {
             builder.endpointOverride(URI.create(endpoint));
         }
 

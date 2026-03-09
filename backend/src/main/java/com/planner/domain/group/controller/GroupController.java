@@ -1,11 +1,11 @@
 package com.planner.domain.group.controller;
 
-import com.planner.domain.group.dto.req.GroupCreateReqDTO;
-import com.planner.domain.group.dto.req.GroupJoinReqDTO;
-import com.planner.domain.group.dto.req.GroupUpdateReqDTO;
-import com.planner.domain.group.dto.res.GroupDetailResDTO;
-import com.planner.domain.group.dto.res.GroupMemberResDTO;
-import com.planner.domain.group.dto.res.GroupResDTO;
+import com.planner.domain.group.dto.GroupCreateReqDTO;
+import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupJoinReqDTO;
+import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupResDTO;
+import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.service.GroupService;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;

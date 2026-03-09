@@ -27,7 +27,7 @@ const GroupDetailPage: React.FC = () => {
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
 
   const group = groups.find(g => g.id === id);
-  const groupSchedules = schedules.filter(s => s.groupId === id || s.category === 'group');
+  const groupSchedules = schedules.filter(s => s.groupId === id);
   const groupedSchedules = useGroupedSchedules(groupSchedules);
 
   useEffect(() => {
@@ -35,7 +35,9 @@ const GroupDetailPage: React.FC = () => {
     coordinationApi.getAll(id, 'active').then(setCoordinations).catch(() => setCoordinations([]));
   }, [id]);
 
-  const inviteLink = `${window.location.origin}/groups/join/${id}`;
+  const inviteLink = group?.inviteCode
+    ? `${window.location.origin}/groups/join/${group.inviteCode}`
+    : '';
 
   const handleCopyLink = async () => {
     try {
@@ -48,8 +50,17 @@ const GroupDetailPage: React.FC = () => {
 
   const handleShare = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: `${group?.name} 그룹 초대`, text: `${group?.name} 그룹에 참여하세요!`, url: inviteLink }); } catch {}
-    } else { handleCopyLink(); }
+      try {
+        await navigator.share({ title: `${group?.name} 그룹 초대`, text: `${group?.name} 그룹에 참여하세요!`, url: inviteLink });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        toast.error('공유에 실패했습니다');
+      }
+    } else {
+      handleCopyLink();
+    }
   };
 
   const handleLeave = async () => {
@@ -144,7 +155,12 @@ const GroupDetailPage: React.FC = () => {
 
       <div className="mx-4 mt-6 space-y-2.5">
         <button onClick={() => navigate(`/groups/${id}/coordination`)} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">시간 조율하기</button>
-        <button onClick={() => navigate('/schedule/new')} className="w-full py-3.5 bg-category-group text-primary-foreground rounded-xl text-sm font-bold hover:opacity-90 transition-opacity">그룹 일정 생성</button>
+        <button
+          onClick={() => navigate('/schedule/new', { state: { groupId: id, groupName: group.name } })}
+          className="w-full py-3.5 bg-category-group text-primary-foreground rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+        >
+          그룹 일정 생성
+        </button>
       </div>
 
       <div className="h-24" />

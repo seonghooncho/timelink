@@ -1,17 +1,17 @@
 package com.planner.domain.notification.service;
 
 import com.planner.domain.notification.converter.NotificationConverter;
-import com.planner.domain.notification.dto.req.NotificationSettingsUpdateReqDTO;
-import com.planner.domain.notification.dto.res.NotificationResDTO;
-import com.planner.domain.notification.dto.res.NotificationSettingsResDTO;
+import com.planner.domain.notification.dto.NotificationResDTO;
+import com.planner.domain.notification.dto.NotificationSettingsResDTO;
+import com.planner.domain.notification.dto.NotificationSettingsUpdateReqDTO;
 import com.planner.domain.notification.error.NotificationErrorCode;
 import com.planner.domain.notification.error.NotificationException;
 import com.planner.domain.notification.model.Notification;
 import com.planner.domain.notification.model.NotificationSettings;
 import com.planner.domain.notification.repository.NotificationRepository;
-import com.planner.global.pagination.Cursor;
-import com.planner.global.pagination.CursorCodec;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.Cursor;
+import com.planner.global.cursor.CursorCodec;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

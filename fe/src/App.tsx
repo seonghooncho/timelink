@@ -12,6 +12,7 @@ import ScheduleFormPage from "./pages/ScheduleFormPage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupFormPage from "./pages/GroupFormPage";
 import GroupDetailPage from "./pages/GroupDetailPage";
+import GroupJoinPage from "./pages/GroupJoinPage";
 import TimeCoordinationPage from "./pages/TimeCoordinationPage";
 import CoordinationTimetablePage from "./pages/CoordinationTimetablePage";
 import MyPage from "./pages/MyPage";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/schedule/new" element={<ProtectedRoute><ScheduleFormPage /></ProtectedRoute>} />
               <Route path="/groups" element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
+              <Route path="/groups/join/:inviteCode" element={<ProtectedRoute><GroupJoinPage /></ProtectedRoute>} />
               <Route path="/groups/new" element={<ProtectedRoute><GroupFormPage /></ProtectedRoute>} />
               <Route path="/groups/:id" element={<ProtectedRoute><GroupDetailPage /></ProtectedRoute>} />
               <Route path="/groups/:id/coordination" element={<ProtectedRoute><TimeCoordinationPage /></ProtectedRoute>} />

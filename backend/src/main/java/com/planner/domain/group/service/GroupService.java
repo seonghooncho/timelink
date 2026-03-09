@@ -1,11 +1,11 @@
 package com.planner.domain.group.service;
 
 import com.planner.domain.group.converter.GroupConverter;
-import com.planner.domain.group.dto.req.GroupCreateReqDTO;
-import com.planner.domain.group.dto.req.GroupUpdateReqDTO;
-import com.planner.domain.group.dto.res.GroupDetailResDTO;
-import com.planner.domain.group.dto.res.GroupMemberResDTO;
-import com.planner.domain.group.dto.res.GroupResDTO;
+import com.planner.domain.group.dto.GroupCreateReqDTO;
+import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupResDTO;
+import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
@@ -49,7 +49,7 @@ public class GroupService {
                 .build();
         repository.saveMember(member);
 
-        return getDetail(userId, groupId);
+        return GroupConverter.toDetailResponse(group, List.of(member));
     }
 
     public List<GroupResDTO> getMyGroups(String userId) {
@@ -57,7 +57,11 @@ public class GroupService {
                 .map(m -> {
                     String groupId = m.getGsi2sk().replace("GROUP#", "");
                     return repository.findGroupById(groupId)
-                            .map(group -> GroupConverter.toListResponse(group, m))
+                            .map(group -> GroupConverter.toListResponse(
+                                    group,
+                                    m,
+                                    repository.findMembersByGroupId(groupId).size()
+                            ))
                             .orElse(null);
                 })
                 .filter(Objects::nonNull)

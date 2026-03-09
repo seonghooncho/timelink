@@ -1,7 +1,7 @@
 package com.planner.domain.notification.converter;
 
-import com.planner.domain.notification.dto.res.NotificationResDTO;
-import com.planner.domain.notification.dto.res.NotificationSettingsResDTO;
+import com.planner.domain.notification.dto.NotificationResDTO;
+import com.planner.domain.notification.dto.NotificationSettingsResDTO;
 import com.planner.domain.notification.model.Notification;
 import com.planner.domain.notification.model.NotificationSettings;
 

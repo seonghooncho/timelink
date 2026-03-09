@@ -1,8 +1,8 @@
 package com.planner.domain.group.converter;
 
-import com.planner.domain.group.dto.res.GroupDetailResDTO;
-import com.planner.domain.group.dto.res.GroupMemberResDTO;
-import com.planner.domain.group.dto.res.GroupResDTO;
+import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 
@@ -13,13 +13,14 @@ public final class GroupConverter {
 
     private GroupConverter() {}
 
-    public static GroupResDTO toListResponse(Group group, GroupMember membership) {
+    public static GroupResDTO toListResponse(Group group, GroupMember membership, int memberCount) {
         return GroupResDTO.builder()
                 .id(group.getId())
                 .name(group.getName())
                 .description(group.getDescription())
                 .imageUrl(group.getImageUrl())
                 .inviteCode(group.getInviteCode())
+                .memberCount(memberCount)
                 .myRole(membership.getRole())
                 .createdAt(group.getCreatedAt())
                 .build();

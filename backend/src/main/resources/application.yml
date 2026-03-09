@@ -16,9 +16,12 @@ aws:
   dynamodb:
     endpoint: http://localhost:8000
     table-prefix: planner_
+  s3:
+    bucket-name:
+    public-base-url:
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-local-dev-only-change-in-production}
+  secret: your-256-bit-secret-key-for-local-dev-only-change-in-production
   expiration: 86400000
 
 cors:
@@ -28,3 +31,7 @@ logging:
   level:
     com.planner: DEBUG
     software.amazon.awssdk: INFO
+
+spring.servlet.multipart:
+  max-file-size: 5MB
+  max-request-size: 5MB

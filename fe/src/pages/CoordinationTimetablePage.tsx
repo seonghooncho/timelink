@@ -34,7 +34,7 @@ const CoordinationTimetablePage: React.FC = () => {
     }).catch(() => {}).finally(() => setIsLoading(false));
   }, [groupId, coordId]);
 
-  const dates = coordination?.dates ?? [];
+  const dates = useMemo(() => coordination?.dates ?? [], [coordination?.dates]);
   const startHour = coordination?.startHour ?? 9;
   const endHour = coordination?.endHour ?? 18;
   const title = coordination?.title || '시간 조율';
@@ -67,7 +67,15 @@ const CoordinationTimetablePage: React.FC = () => {
 
   const toggleSlot = (dateIdx: number, hour: number) => {
     const key = `${dateIdx}-${hour}`;
-    setSelectedSlots(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+    setSelectedSlots(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async () => {

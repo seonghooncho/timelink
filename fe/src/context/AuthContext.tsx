@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { authApi, AuthLoginRequest } from '@/services/api';
+import { clearStoredSession, getStoredSession, setStoredSession } from '@/services/session';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   userId: string | null;
+  signIn: (credentials: AuthLoginRequest) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -16,29 +18,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-      setUserId(session?.user?.id ?? null);
+    const storedSession = getStoredSession();
+    if (!storedSession) {
       setIsLoading(false);
-    });
+      return;
+    }
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      setUserId(session?.user?.id ?? null);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    authApi.getMe()
+      .then((session) => {
+        setStoredSession(session);
+        setIsAuthenticated(true);
+        setUserId(session.userId);
+      })
+      .catch(() => {
+        clearStoredSession();
+        setIsAuthenticated(false);
+        setUserId(null);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, []);
 
+  const signIn = async (credentials: AuthLoginRequest) => {
+    const session = await authApi.login(credentials);
+    setStoredSession(session);
+    setIsAuthenticated(true);
+    setUserId(session.userId);
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    clearStoredSession();
+    setIsAuthenticated(false);
+    setUserId(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, userId, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, userId, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

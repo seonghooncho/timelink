@@ -1,0 +1,33 @@
+# 아키텍처 정합성 점검
+
+## 근본 목적
+
+프론트엔드, 백엔드, 인프라가 같은 호출 경로와 데이터 계약을 바라보도록 맞춰서, 개발 중에는 로컬 실행이 끊기지 않고 배포 후에는 경로 불일치 때문에 기능이 죽는 상황을 줄이는 것이 목적입니다.
+
+## 비목적
+
+이 문서는 모든 세부 구현을 다시 설명하거나 당장 하지 않을 리팩터링까지 강제로 수행하기 위한 문서가 아니며, 현재 구조와 직접 연결되지 않은 미관성 정리를 나열하는 것도 목적이 아닙니다.
+
+## 현재 반영된 정리
+
+- 프론트 인증은 기존 외부 인증 의존을 제거하고 백엔드 `auth` API 기반 세션으로 전환했다.
+- 프로필/그룹 이미지 업로드는 프론트 직접 저장소 호출이 아니라 백엔드 `storage` API로 통일했다.
+- 프론트는 `CloudFront + S3`, 백엔드와 AI는 `API Gateway + Lambda` 경로가 되도록 인프라 라우팅을 명시적으로 정리했다.
+- 로컬 개발은 Vite proxy, 배포는 CloudFront `/api/* -> API Gateway` 라우팅으로 경로를 맞췄다.
+- 인프라는 프론트 정적 호스팅 버킷과 업로드 이미지 버킷을 분리했다.
+- Terraform은 `infra/terraform/init`에서 remote state(S3 + DynamoDB lock)를 먼저 만들고, `infra/terraform/minimum`에서 앱 스택을 관리하도록 분리했다.
+- 백엔드와 AI의 런타임 설정은 Lambda env 직접 주입 대신 SSM Parameter Store에서 읽도록 전환했다.
+- DynamoDB 문서는 PartiQL 기준 운영 예시를 함께 남기고, 런타임 hot path는 단일 테이블 키 조회를 유지한다.
+- 그룹 초대 링크는 `inviteCode` 기반 join 라우트와 로그인 후 복귀 경로까지 연결했다.
+- 그룹 일정 생성은 `groupId`를 전달하도록 정리했고, 그룹 목록 멤버 수는 백엔드 값과 맞췄다.
+- AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
+
+## 즉시 수정이 필요한 항목
+
+- 목록 API의 `meta.nextCursor`는 프론트 공통 request 레이어에서 버려져 페이징이 확장되지 않는다.
+
+## 추후 구조 개선 후보
+
+- 조율 화면의 멤버 선택과 `responseCount`는 현재 DTO/훅/화면이 완전히 연결돼 있지 않아서 API 계약 재정리가 필요하다.
+- 백엔드 컨트롤러의 `AuthUtil.getCurrentUserId()` 반복은 `@CurrentUserId` 같은 argument resolver로 줄일 수 있다.
+- 그룹/알림/조율 목록은 cursor pagination을 실제 프론트 훅까지 연결해야 대량 데이터에서 화면 일관성이 유지된다.

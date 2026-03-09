@@ -1,0 +1,64 @@
+output "api_endpoint" {
+  description = "API Gateway endpoint URL"
+  value       = aws_apigatewayv2_api.api.api_endpoint
+}
+
+output "dynamodb_table_name" {
+  description = "DynamoDB table name"
+  value       = aws_dynamodb_table.main.name
+}
+
+output "lambda_function_name" {
+  description = "Lambda function name"
+  value       = aws_lambda_function.api.function_name
+}
+
+output "frontend_bucket" {
+  description = "S3 bucket for frontend assets"
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "public_assets_bucket" {
+  description = "S3 bucket for uploaded public assets"
+  value       = aws_s3_bucket.public_assets.bucket
+}
+
+output "cloudfront_domain" {
+  description = "CloudFront distribution domain"
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID (for cache invalidation)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "ai_ecr_repository_url" {
+  description = "ECR repository URL for AI service"
+  value       = aws_ecr_repository.ai.repository_url
+}
+
+output "ai_lambda_function_name" {
+  description = "AI Lambda function name"
+  value       = aws_lambda_function.ai.function_name
+}
+
+output "backend_ssm_prefix" {
+  description = "SSM prefix for backend runtime configuration"
+  value       = local.backend_ssm_prefix
+}
+
+output "ai_ssm_prefix" {
+  description = "SSM prefix for AI runtime configuration"
+  value       = local.ai_ssm_prefix
+}
+
+output "backend_jwt_secret_parameter_name" {
+  description = "Backend JWT secret parameter name"
+  value       = aws_ssm_parameter.backend_jwt_secret.name
+}
+
+output "ai_gemini_api_key_parameter_name" {
+  description = "AI Gemini API key parameter name"
+  value       = aws_ssm_parameter.ai_gemini_api_key.name
+}

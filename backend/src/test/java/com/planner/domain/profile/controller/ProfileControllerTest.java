@@ -1,18 +1,22 @@
 package com.planner.domain.profile.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.planner.domain.profile.dto.req.ProfileUpdateReqDTO;
-import com.planner.domain.profile.dto.res.ProfileResDTO;
+import com.planner.domain.profile.dto.ProfileResDTO;
+import com.planner.domain.profile.dto.ProfileUpdateReqDTO;
 import com.planner.domain.profile.service.ProfileService;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.error.GlobalExceptionHandler;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -37,6 +41,18 @@ class ProfileControllerTest {
     @MockBean private JwtProperties jwtProperties;
 
     private static final String BASE = "/api/planner/v1/profiles";
+
+    @BeforeEach
+    void setUp() throws Exception {
+        doAnswer(invocation -> {
+            FilterChain chain = invocation.getArgument(2, FilterChain.class);
+            chain.doFilter(
+                    invocation.getArgument(0, ServletRequest.class),
+                    invocation.getArgument(1, ServletResponse.class)
+            );
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
 
     private ProfileResDTO sampleProfile() {
         return ProfileResDTO.builder()
