@@ -4,6 +4,14 @@
 > **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)  
 > **Content-Type**: `application/json`
 
+## 근본 목적
+
+프론트엔드와 백엔드가 동일한 계약을 기준으로 개발되고 검증되도록 API 형태와 데이터 계약을 명확히 고정하는 것이 목적입니다.
+
+## 비목적
+
+구현체 내부 로직이나 인프라 세부 설정을 모두 설명하려는 문서는 아니며, 실제 코드와 분리된 중복 설계 문서를 늘리는 것이 목적도 아닙니다.
+
 ---
 
 ## 목차
@@ -927,8 +935,8 @@ auth.users (Supabase 내장 - 인증 전용)
 ```
 
 ### 프론트엔드 연동
-- `src/services/api.ts`: 모든 API 호출을 관리하는 서비스 레이어
-- `src/context/AppContext.tsx`: 인증 상태 감지 후 자동으로 백엔드에서 데이터 로드
+- `fe/src/services/api.ts`: 모든 API 호출을 관리하는 서비스 레이어
+- `fe/src/context/AppContext.tsx`: 인증 상태 감지 후 자동으로 백엔드에서 데이터 로드
 - Mock 데이터 의존성 제거, 모든 CRUD는 백엔드 API 경유
 
 ### Enum 타입

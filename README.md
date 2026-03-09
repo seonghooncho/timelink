@@ -1,73 +1,76 @@
-# Welcome to your Lovable project
+# timelink
 
-## Project info
+프론트엔드, 백엔드, AI 서비스, 인프라를 한 저장소에서 관리하는 모노레포입니다.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 근본 목적
 
-## How can I edit this code?
+프론트엔드, 백엔드, AI, 인프라의 책임 경계를 디렉터리 수준에서 분명히 나눠 탐색 비용과 변경 영향 범위 파악 비용을 줄이는 것이 목적입니다.
 
-There are several ways of editing your application.
+## 비목적
 
-**Use Lovable**
+기능 동작이나 제품 경험을 바꾸기 위한 문서가 아니며, 과도한 계층 추가나 불필요한 추상화를 정당화하기 위한 구조 문서도 아닙니다.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 프로젝트 구조
 
-Changes made via Lovable will be committed automatically to this repo.
+```text
+.
+├── fe/         # React + Vite + Tailwind 프론트엔드
+├── backend/    # Spring Boot 백엔드
+├── ai/         # FastAPI 기반 AI 서비스
+├── infra/      # Terraform 인프라 정의
+├── docs/       # 설계/운영 문서
+└── package.json
+```
 
-**Use your preferred IDE**
+## 로컬 개발
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Frontend
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+프론트엔드 코드는 `fe/` 아래에 있고, 루트 `package.json`이 워크스페이스 진입점 역할을 합니다.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+개별 워크스페이스 명령을 직접 실행하려면 아래처럼 사용할 수 있습니다.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+npm run fe:build
+npm run fe:test
+npm run fe:lint
+```
 
-**Use GitHub Codespaces**
+### Backend
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```sh
+cd backend
+./gradlew bootRun
+```
 
-## What technologies are used for this project?
+### AI
 
-This project is built with:
+```sh
+cd ai
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Infra
 
-## How can I deploy this project?
+```sh
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 환경 변수
 
-## Can I connect a custom domain to my Lovable project?
+- 프론트엔드: `fe/.env`
+- AI 서비스: `ai/.env`
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+상세 구조와 아키텍처 설명은 [docs/README.md](docs/README.md)를 참고하면 됩니다.
