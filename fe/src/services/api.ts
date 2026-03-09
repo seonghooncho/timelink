@@ -3,6 +3,16 @@ import { clearStoredSession, getAccessToken } from '@/services/session';
 const API_BASE = '/api/planner/v1';
 const AI_BASE = '/api/ai/v1';
 
+export interface ApiPageMeta {
+  perPage: number;
+  nextCursor?: string | null;
+}
+
+export interface ApiEnvelope<T> {
+  data: T;
+  meta?: ApiPageMeta;
+}
+
 function getAuthHeaders(contentType = 'application/json'): Record<string, string> {
   const token = getAccessToken();
   return {
@@ -12,6 +22,16 @@ function getAuthHeaders(contentType = 'application/json'): Record<string, string
 }
 
 async function request<T>(method: string, path: string, body?: unknown, requiresAuth = true): Promise<T> {
+  const envelope = await requestEnvelope<T>(method, path, body, requiresAuth);
+  return envelope.data;
+}
+
+async function requestEnvelope<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  requiresAuth = true,
+): Promise<ApiEnvelope<T>> {
   const headers = requiresAuth ? getAuthHeaders() : { 'Content-Type': 'application/json' };
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -19,7 +39,7 @@ async function request<T>(method: string, path: string, body?: unknown, requires
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return { data: undefined as T };
 
   const json = await res.json();
   if (!res.ok) {
@@ -28,7 +48,10 @@ async function request<T>(method: string, path: string, body?: unknown, requires
     }
     throw new Error(json?.error?.message || `API Error ${res.status}`);
   }
-  return json.data as T;
+  return {
+    data: json.data as T,
+    meta: json.meta as ApiPageMeta | undefined,
+  };
 }
 
 async function uploadFile<T>(path: string, file: File): Promise<T> {
@@ -50,6 +73,41 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   }
 
   return json.data as T;
+}
+
+function withCursor(path: string, cursor?: string | null) {
+  const [pathname, search = ''] = path.split('?');
+  const params = new URLSearchParams(search);
+
+  if (cursor) {
+    params.set('cursor', cursor);
+  } else {
+    params.delete('cursor');
+  }
+
+  const qs = params.toString();
+  return `${pathname}${qs ? `?${qs}` : ''}`;
+}
+
+async function requestAllPages<T>(path: string, requiresAuth = true): Promise<T[]> {
+  const items: T[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null | undefined;
+
+  while (true) {
+    const response = await requestEnvelope<T[]>('GET', withCursor(path, cursor), undefined, requiresAuth);
+    items.push(...response.data);
+
+    const nextCursor = response.meta?.nextCursor;
+    if (!nextCursor || seenCursors.has(nextCursor)) {
+      break;
+    }
+
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  return items;
 }
 
 // ── Auth ──
@@ -132,7 +190,7 @@ export const scheduleApi = {
     if (params?.startDate) query.set('startDate', params.startDate);
     if (params?.endDate) query.set('endDate', params.endDate);
     const qs = query.toString();
-    return request<ScheduleResponse[]>('GET', `/schedules${qs ? `?${qs}` : ''}`);
+    return requestAllPages<ScheduleResponse>(`/schedules${qs ? `?${qs}` : ''}`);
   },
   getById: (id: string) => request<ScheduleResponse>('GET', `/schedules/${id}`),
   create: (data: ScheduleCreateRequest) => request<ScheduleResponse>('POST', '/schedules', data),
@@ -244,7 +302,7 @@ export interface CoordinationDetailResponse {
 export const coordinationApi = {
   getAll: (groupId: string, status?: string) => {
     const qs = status ? `?status=${status}` : '';
-    return request<CoordinationResponse[]>('GET', `/groups/${groupId}/coordinations${qs}`);
+    return requestAllPages<CoordinationResponse>(`/groups/${groupId}/coordinations${qs}`);
   },
   getById: (groupId: string, coordId: string) =>
     request<CoordinationDetailResponse>('GET', `/groups/${groupId}/coordinations/${coordId}`),
@@ -281,7 +339,7 @@ export const notificationApi = {
     if (params?.type) query.set('type', params.type);
     if (params?.isRead !== undefined) query.set('isRead', String(params.isRead));
     const qs = query.toString();
-    return request<NotificationResponse[]>('GET', `/notifications${qs ? `?${qs}` : ''}`);
+    return requestAllPages<NotificationResponse>(`/notifications${qs ? `?${qs}` : ''}`);
   },
   markRead: (id: string) => request<void>('PATCH', `/notifications/${id}/read`),
   markAllRead: () => request<{ updatedCount: number }>('PATCH', '/notifications/read-all'),
