@@ -16,12 +16,16 @@ public class AuthService {
 
     public AuthSessionResDTO login(AuthLoginReqDTO req) {
         String userId = req.getUserId().trim().toLowerCase();
-        profileService.getOrCreate(userId, req.getNickname());
-        return buildSession(userId);
+        return loginSocial(userId, req.getNickname(), null);
     }
 
     public AuthSessionResDTO getSession(String userId) {
         profileService.getOrCreate(userId);
+        return buildSession(userId);
+    }
+
+    public AuthSessionResDTO loginSocial(String userId, String nicknameHint, String avatarUrlHint) {
+        profileService.getOrCreate(userId, nicknameHint, avatarUrlHint);
         return buildSession(userId);
     }
 

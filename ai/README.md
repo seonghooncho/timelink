@@ -1,4 +1,4 @@
-# Planner AI Service
+# Timelink AI Service
 
 Google Gemini 기반 AI 일정 추출 서비스 (FastAPI)
 

@@ -48,13 +48,6 @@ variable "ai_log_level" {
   default     = "INFO"
 }
 
-variable "jwt_secret_placeholder" {
-  description = "Initial placeholder for the backend JWT secret SSM parameter. Replace it in SSM after apply."
-  type        = string
-  sensitive   = true
-  default     = "CHANGE_ME_IN_SSM"
-}
-
 variable "ai_lambda_memory" {
   description = "AI Lambda memory in MB"
   type        = number
@@ -65,11 +58,4 @@ variable "ai_lambda_timeout" {
   description = "AI Lambda timeout in seconds"
   type        = number
   default     = 60
-}
-
-variable "gemini_api_key_placeholder" {
-  description = "Initial placeholder for the AI Gemini API key SSM parameter. Replace it in SSM after apply."
-  type        = string
-  sensitive   = true
-  default     = "CHANGE_ME_IN_SSM"
 }

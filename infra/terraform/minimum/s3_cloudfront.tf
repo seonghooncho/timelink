@@ -14,7 +14,7 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
 }
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${var.project_name}-frontend-${var.environment}"
+  bucket = "${var.project_name}-frontend-${var.environment}-${data.aws_caller_identity.current.account_id}"
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
@@ -87,6 +87,12 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   origin {
+    domain_name              = aws_s3_bucket.public_assets.bucket_regional_domain_name
+    origin_id                = "s3-public-assets"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
     domain_name = replace(aws_apigatewayv2_api.api.api_endpoint, "https://", "")
     origin_id   = "http-api"
 
@@ -115,6 +121,16 @@ resource "aws_cloudfront_distribution" "frontend" {
   ordered_cache_behavior {
     path_pattern           = "/assets/*"
     target_origin_id       = "s3-frontend"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/uploads/*"
+    target_origin_id       = "s3-public-assets"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]

@@ -40,7 +40,7 @@ class AuthServiceTest {
 
         assertThat(result.getUserId()).isEqualTo("cho_user");
         assertThat(result.getAccessToken()).isEqualTo("jwt-token");
-        then(profileService).should().getOrCreate("cho_user", "초");
+        then(profileService).should().getOrCreate("cho_user", "초", null);
     }
 
     @Test
@@ -53,5 +53,17 @@ class AuthServiceTest {
         assertThat(result.getUserId()).isEqualTo("user-1");
         assertThat(result.getAccessToken()).isEqualTo("new-token");
         then(profileService).should().getOrCreate("user-1");
+    }
+
+    @Test
+    @DisplayName("loginSocial은 프로필 힌트를 반영하고 JWT를 발급한다")
+    void loginSocial_issuesTokenWithProfileHints() {
+        given(jwtTokenProvider.generateToken("google_123")).willReturn("social-token");
+
+        AuthSessionResDTO result = authService.loginSocial("google_123", "홍길동", "https://example.com/avatar.png");
+
+        assertThat(result.getUserId()).isEqualTo("google_123");
+        assertThat(result.getAccessToken()).isEqualTo("social-token");
+        then(profileService).should().getOrCreate("google_123", "홍길동", "https://example.com/avatar.png");
     }
 }

@@ -24,6 +24,10 @@ public class ProfileService {
     }
 
     public ProfileResDTO getOrCreate(String userId, String nicknameHint) {
+        return getOrCreate(userId, nicknameHint, null);
+    }
+
+    public ProfileResDTO getOrCreate(String userId, String nicknameHint, String avatarUrlHint) {
         Profile profile = repository.findByUserId(userId).orElseGet(() -> {
             Profile p = ProfileConverter.createDefault(userId, nicknameHint);
             repository.save(p);
@@ -32,6 +36,12 @@ public class ProfileService {
 
         if (shouldApplyNicknameHint(profile, nicknameHint)) {
             profile.setNickname(ProfileConverter.resolveNickname(nicknameHint));
+            profile.setUpdatedAt(Instant.now().toString());
+            repository.save(profile);
+        }
+
+        if (shouldApplyAvatarHint(profile, avatarUrlHint)) {
+            profile.setAvatarUrl(avatarUrlHint.trim());
             profile.setUpdatedAt(Instant.now().toString());
             repository.save(profile);
         }
@@ -58,5 +68,13 @@ public class ProfileService {
 
         String currentNickname = profile.getNickname();
         return !StringUtils.hasText(currentNickname) || "사용자".equals(currentNickname);
+    }
+
+    private boolean shouldApplyAvatarHint(Profile profile, String avatarUrlHint) {
+        if (!StringUtils.hasText(avatarUrlHint)) {
+            return false;
+        }
+
+        return !StringUtils.hasText(profile.getAvatarUrl());
     }
 }

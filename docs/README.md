@@ -1,6 +1,6 @@
-# 일정관리 앱 (Planner)
+# Timelink
 
-모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프라를 관리합니다.
+Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프라를 관리합니다.
 
 ## 근본 목적
 
@@ -56,6 +56,12 @@
 │       │   ├── s3_storage.tf    # 업로드 이미지 버킷
 │       │   ├── ssm.tf           # 런타임 설정 SSM Parameter Store
 │       │   └── outputs.tf       # 배포 결과 출력
+│       ├── cloudflare_free/     # Workers.dev 기반 무료 프론트 서빙
+│       │   ├── main.tf
+│       │   ├── variables.tf
+│       │   ├── outputs.tf
+│       │   ├── worker.js
+│       │   └── README.md
 │       └── README.md
 ├── docs/                   # 설계/운영 문서
 └── README.md
@@ -84,6 +90,7 @@
 
 - `infra/terraform/init`은 Terraform 상태 저장소만 관리하고 앱 스택과 분리한다
 - `infra/terraform/minimum`은 현재 운영 최소 스택만 포함해 이후 상위 구조 변경 시 비교 기준점 역할을 한다
+- `infra/terraform/cloudflare_free`는 도메인 없이 `workers.dev`로 프론트를 무료 서빙할 때 쓰는 선택 스택이다
 - `api_gateway.tf`에는 Backend/AI Lambda 라우팅을 모아 `CloudFront -> API Gateway -> Lambda` 경로를 한 파일에서 읽을 수 있게 유지한다
 - 앱 런타임 설정은 SSM Parameter Store에서 읽고, Lambda에는 SSM prefix만 전달한다
 
@@ -93,7 +100,7 @@
 |------|------|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, react-query |
 | Backend | Spring Boot 3.3, Java 21, AWS SDK DynamoDB |
-| AI | FastAPI, Python 3.12, Google Gemini 2.0 Flash (무료) |
+| AI | FastAPI, Python 3.12, Google Gemini 2.5 Flash |
 | Infra | Terraform, AWS API Gateway, Lambda, DynamoDB |
 | CI/CD | GitHub Actions (추후) |
 
@@ -140,6 +147,14 @@ terraform apply
 
 보조 명령: `npm run infra:init:fmt`, `npm run infra:init:validate`, `npm run infra:fmt`, `npm run infra:validate`
 
+### Optional: Cloudflare Free Frontend
+```bash
+cd infra/terraform/cloudflare_free
+terraform init
+terraform plan
+terraform apply
+```
+
 ## 환경별 설정
 
 | 환경 | Frontend | Backend | AI |
@@ -160,8 +175,15 @@ terraform apply
 ### Backend / AI
 ```
 운영 런타임 설정은 SSM Parameter Store를 사용합니다.
-Terraform은 /planner/{environment}/backend, /planner/{environment}/ai prefix 아래에 값을 적재합니다.
+Terraform은 /planner/{environment}/backend, /planner/{environment}/ai prefix 아래에 일반 설정만 적재합니다.
+secret 값은 SSM에 별도로 넣습니다.
 Lambda에는 APP_CONFIG_PREFIX만 주입합니다.
+```
+
+### Cloudflare Free Frontend
+```
+cloudflare_api_token, cloudflare_account_id, api_origin이 필요합니다.
+api_origin에는 AWS minimum 스택의 api_endpoint 값을 사용하면 됩니다.
 ```
 
 ### AI Service Local (ai/.env)
