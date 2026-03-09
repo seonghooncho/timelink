@@ -2,6 +2,14 @@
 
 > 모바일 퍼스트 일정관리 앱의 전체 컴포넌트 구조와 디자인 시스템 문서입니다.
 
+## 근본 목적
+
+프론트엔드 디자인 토큰과 컴포넌트 책임을 일관되게 유지해 UI 변경 시 중복 구현과 해석 차이를 줄이는 것이 목적입니다.
+
+## 비목적
+
+모든 화면 픽셀 단위 결과를 고정하는 문서가 아니며, 컴포넌트 내부 구현 세부사항을 소스코드 대신 장황하게 복제하려는 문서도 아닙니다.
+
 ---
 
 ## 1. 디자인 시스템
@@ -77,7 +85,7 @@
 
 ---
 
-## 3. 공통 컴포넌트 (`src/components/common/`)
+## 3. 공통 컴포넌트 (`fe/src/components/common/`)
 
 ### `CategoryBadge`
 > 카테고리를 표시하는 작은 뱃지
@@ -134,7 +142,7 @@
 
 ---
 
-## 4. 일정 컴포넌트 (`src/components/schedule/`)
+## 4. 일정 컴포넌트 (`fe/src/components/schedule/`)
 
 ### `ScheduleCard`
 > 풀사이즈 일정 카드 (캘린더 페이지 목록용)
@@ -171,7 +179,7 @@
 
 ---
 
-## 5. 조율 컴포넌트 (`src/components/coordination/`)
+## 5. 조율 컴포넌트 (`fe/src/components/coordination/`)
 
 ### `CoordinationOneTime`
 > 일회성 시간 조율 폼 (캘린더 날짜 선택)
@@ -181,7 +189,7 @@
 
 ---
 
-## 6. 커스텀 훅 (`src/hooks/`)
+## 6. 커스텀 훅 (`fe/src/hooks/`)
 
 ### `useGroupedSchedules` ✨ NEW
 > 일정 배열을 날짜별로 그룹화하는 훅
@@ -198,7 +206,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-## 7. 유틸리티 (`src/utils/`)
+## 7. 유틸리티 (`fe/src/utils/`)
 
 | 함수 | 파일 | 설명 |
 |------|------|------|

@@ -2,10 +2,18 @@
 
 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프라를 관리합니다.
 
+## 근본 목적
+
+저장소의 상위 구조와 각 서브시스템의 책임 범위를 한눈에 보여줘서, 개발자가 어느 디렉터리에서 어떤 변경을 해야 하는지 빠르게 판단할 수 있게 하는 것이 목적입니다.
+
+## 비목적
+
+세부 구현을 이 문서 하나에 모두 담으려는 것이 아니며, 각 영역의 세밀한 API나 컴포넌트 동작을 중복 설명하는 문서가 되려는 것도 아닙니다.
+
 ## 프로젝트 구조
 
 ```
-├── frontend/          # React + Vite + Tailwind (Lovable)
+├── fe/                # React + Vite + Tailwind
 │   ├── src/
 │   │   ├── components/    # UI 컴포넌트
 │   │   ├── context/       # AuthContext, AppContext
@@ -148,7 +156,7 @@ terraform apply
 
 ## 환경변수
 
-### Frontend (.env)
+### Frontend (fe/.env)
 ```
 VITE_API_BASE_URL=/api/planner/v1    # 백엔드 API
 VITE_AI_BASE_URL=http://localhost:8000/api/ai/v1  # AI 서비스
