@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planner.domain.auth.dto.AuthLoginReqDTO;
 import com.planner.domain.auth.dto.AuthSessionResDTO;
 import com.planner.domain.auth.service.AuthService;
+import com.planner.domain.auth.service.SocialAuthService;
 import com.planner.global.config.CorsProperties;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.config.SecurityConfig;
@@ -22,6 +23,9 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.net.URI;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,6 +46,7 @@ class AuthControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     @MockBean private AuthService authService;
+    @MockBean private SocialAuthService socialAuthService;
     @MockBean private CorsProperties corsProperties;
     @MockBean private JwtTokenProvider jwtTokenProvider;
     @MockBean private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -105,5 +110,41 @@ class AuthControllerTest {
         mockMvc.perform(get(BASE + "/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value("user-1"));
+    }
+
+    @Test
+    @DisplayName("GET /auth/providers 는 활성화된 provider 목록을 반환한다")
+    void providers_returns200() throws Exception {
+        when(socialAuthService.getAvailableProviders()).thenReturn(Map.of("google", true, "kakao", false));
+
+        mockMvc.perform(get(BASE + "/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.google").value(true))
+                .andExpect(jsonPath("$.data.kakao").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /auth/oauth/google/start 는 provider authorize URL로 리다이렉트한다")
+    void startOAuth_redirects() throws Exception {
+        when(socialAuthService.buildAuthorizationUri(eq("google"), eq("https://frontend.example.com"), eq("/groups"), any()))
+                .thenReturn(URI.create("https://accounts.google.com/o/oauth2/v2/auth?state=abc"));
+
+        mockMvc.perform(get(BASE + "/oauth/google/start")
+                        .queryParam("frontendOrigin", "https://frontend.example.com")
+                        .queryParam("redirect", "/groups"))
+                .andExpect(status().isFound())
+                .andExpect(jsonPath("$").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("GET /auth/oauth/google/callback 은 프론트 callback 경로로 리다이렉트한다")
+    void oauthCallback_redirects() throws Exception {
+        when(socialAuthService.buildCallbackRedirect(eq("google"), eq("oauth-code"), eq("signed-state"), any()))
+                .thenReturn(URI.create("https://frontend.example.com/auth/callback#accessToken=jwt"));
+
+        mockMvc.perform(get(BASE + "/oauth/google/callback")
+                        .queryParam("code", "oauth-code")
+                        .queryParam("state", "signed-state"))
+                .andExpect(status().isFound());
     }
 }

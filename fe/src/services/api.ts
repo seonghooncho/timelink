@@ -64,9 +64,24 @@ export interface AuthSessionResponse {
   userId: string;
 }
 
+export type SocialAuthProvider = 'google' | 'kakao';
+
+export interface AuthProvidersResponse {
+  google: boolean;
+  kakao: boolean;
+}
+
 export const authApi = {
   login: (data: AuthLoginRequest) => request<AuthSessionResponse>('POST', '/auth/login', data, false),
   getMe: () => request<AuthSessionResponse>('GET', '/auth/me'),
+  getProviders: () => request<AuthProvidersResponse>('GET', '/auth/providers', undefined, false),
+  getOAuthStartUrl: (provider: SocialAuthProvider, frontendOrigin: string, redirectPath: string) => {
+    const params = new URLSearchParams({
+      frontendOrigin,
+      redirect: redirectPath || '/',
+    });
+    return `${API_BASE}/auth/oauth/${provider}/start?${params.toString()}`;
+  },
 };
 
 // ── Schedules ──

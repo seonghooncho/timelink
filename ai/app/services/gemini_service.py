@@ -54,7 +54,7 @@ def _get_model() -> genai.GenerativeModel:
         raise RuntimeError("GEMINI_API_KEY is not configured")
     genai.configure(api_key=gemini_api_key)
     return genai.GenerativeModel(
-        "gemini-2.0-flash",
+        "gemini-2.5-flash",
         generation_config=genai.GenerationConfig(
             temperature=0.1,  # 낮은 temperature로 일관된 JSON 출력
             max_output_tokens=512,  # 일정 JSON은 작으므로 토큰 절약

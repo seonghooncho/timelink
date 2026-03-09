@@ -43,7 +43,7 @@ public class StorageService {
         }
 
         String extension = extractExtension(file.getOriginalFilename());
-        String objectKey = "%s/%s/%s.%s".formatted(category, userId, UUID.randomUUID(), extension);
+        String objectKey = "uploads/%s/%s/%s.%s".formatted(category, userId, UUID.randomUUID(), extension);
 
         try {
             PutObjectRequest request = PutObjectRequest.builder()

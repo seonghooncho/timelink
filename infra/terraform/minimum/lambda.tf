@@ -10,14 +10,15 @@ locals {
 
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-${var.environment}-api"
+  description   = "Planner backend API Lambda"
   handler       = "com.planner.StreamLambdaHandler::handleRequest"
   runtime       = "java21"
   memory_size   = var.lambda_memory
   timeout       = var.lambda_timeout
   architectures = ["arm64"] # Graviton2 — 최소 비용
 
-  filename         = "${path.module}/../../../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar"
-  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/libs/planner-backend-0.0.1-SNAPSHOT.jar")
+  filename         = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip")
 
   role = aws_iam_role.lambda_exec.arn
 
@@ -110,6 +111,7 @@ resource "aws_iam_role_policy" "dynamodb_access" {
           "ssm:GetParametersByPath"
         ]
         Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.backend_ssm_prefix}",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.backend_ssm_prefix}/*"
         ]
       }

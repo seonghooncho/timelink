@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import BrandMark from '@/components/common/BrandMark';
 import MobileLayout from '@/components/layout/MobileLayout';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
@@ -88,9 +89,7 @@ const MainPage: React.FC = () => {
       <section className="pt-3">
         {groupedSchedules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-              <span className="text-3xl">📅</span>
-            </div>
+            <BrandMark size="md" className="justify-center mb-4" />
             <p className="text-sm font-medium text-foreground mb-1">일정이 없어요</p>
             <p className="text-xs text-muted-foreground">+ 버튼을 눌러 일정을 추가해 보세요</p>
           </div>

@@ -110,6 +110,7 @@ resource "aws_iam_role_policy" "ai_parameter_store_access" {
           "ssm:GetParametersByPath"
         ]
         Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ai_ssm_prefix}",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ai_ssm_prefix}/*"
         ]
       }

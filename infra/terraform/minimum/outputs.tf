@@ -55,10 +55,30 @@ output "ai_ssm_prefix" {
 
 output "backend_jwt_secret_parameter_name" {
   description = "Backend JWT secret parameter name"
-  value       = aws_ssm_parameter.backend_jwt_secret.name
+  value       = "${local.backend_ssm_prefix}/jwt.secret"
+}
+
+output "backend_google_oauth_client_id_parameter_name" {
+  description = "Backend Google OAuth client ID parameter name"
+  value       = "${local.backend_ssm_prefix}/oauth.google.client-id"
+}
+
+output "backend_google_oauth_client_secret_parameter_name" {
+  description = "Backend Google OAuth client secret parameter name"
+  value       = "${local.backend_ssm_prefix}/oauth.google.client-secret"
+}
+
+output "backend_kakao_oauth_client_id_parameter_name" {
+  description = "Backend Kakao OAuth client ID parameter name"
+  value       = "${local.backend_ssm_prefix}/oauth.kakao.client-id"
+}
+
+output "backend_kakao_oauth_client_secret_parameter_name" {
+  description = "Backend Kakao OAuth client secret parameter name"
+  value       = "${local.backend_ssm_prefix}/oauth.kakao.client-secret"
 }
 
 output "ai_gemini_api_key_parameter_name" {
   description = "AI Gemini API key parameter name"
-  value       = aws_ssm_parameter.ai_gemini_api_key.name
+  value       = "${local.ai_ssm_prefix}/GEMINI_API_KEY"
 }

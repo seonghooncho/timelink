@@ -47,8 +47,8 @@ class StorageServiceTest {
 
         ImageUploadResDTO result = storageService.uploadProfileImage("user-1", file);
 
-        assertThat(result.getObjectKey()).startsWith("profile/user-1/");
-        assertThat(result.getUrl()).startsWith("https://planner-public-assets-prod.s3.ap-northeast-2.amazonaws.com/profile/user-1/");
+        assertThat(result.getObjectKey()).startsWith("uploads/profile/user-1/");
+        assertThat(result.getUrl()).startsWith("https://planner-public-assets-prod.s3.ap-northeast-2.amazonaws.com/uploads/profile/user-1/");
         then(s3Client).should().putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 

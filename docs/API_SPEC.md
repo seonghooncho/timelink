@@ -1,4 +1,4 @@
-# 📅 일정관리 앱 — RESTful API 명세서
+# Timelink — RESTful API 명세서
 
 > **Base URL**: `api/planner/v1`  
 > **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)  

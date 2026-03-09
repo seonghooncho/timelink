@@ -24,6 +24,14 @@ jwt:
   secret: your-256-bit-secret-key-for-local-dev-only-change-in-production
   expiration: 86400000
 
+oauth:
+  google:
+    client-id:
+    client-secret:
+  kakao:
+    client-id:
+    client-secret:
+
 cors:
   allowed-origins: http://localhost:5173,http://localhost:3000
 
