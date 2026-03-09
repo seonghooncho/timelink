@@ -1,10 +1,10 @@
 package com.planner.domain.schedule.controller;
 
-import com.planner.domain.schedule.dto.req.ScheduleCreateReqDTO;
-import com.planner.domain.schedule.dto.req.ScheduleUpdateReqDTO;
-import com.planner.domain.schedule.dto.res.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.service.ScheduleService;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;
 import jakarta.validation.Valid;

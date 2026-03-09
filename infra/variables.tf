@@ -34,6 +34,18 @@ variable "lambda_timeout" {
   default     = 30
 }
 
+variable "spring_profiles_active" {
+  description = "Spring profile for backend lambda"
+  type        = string
+  default     = "prod"
+}
+
+variable "api_cors_origins" {
+  description = "CORS origins for backend API"
+  type        = string
+  default     = "https://your-domain.com"
+}
+
 # ── AI Lambda ──
 
 variable "gemini_api_key" {

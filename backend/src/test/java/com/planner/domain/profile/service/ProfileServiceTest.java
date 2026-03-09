@@ -1,7 +1,7 @@
 package com.planner.domain.profile.service;
 
-import com.planner.domain.profile.dto.req.ProfileUpdateReqDTO;
-import com.planner.domain.profile.dto.res.ProfileResDTO;
+import com.planner.domain.profile.dto.ProfileResDTO;
+import com.planner.domain.profile.dto.ProfileUpdateReqDTO;
 import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;

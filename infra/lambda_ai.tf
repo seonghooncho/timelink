@@ -2,6 +2,14 @@
 # AI Service — Lambda (Container Image)
 # ============================================
 
+locals {
+  ai_lambda_environment = {
+    GEMINI_API_KEY = var.gemini_api_key
+    CORS_ORIGINS   = var.ai_cors_origins
+    LOG_LEVEL      = "INFO"
+  }
+}
+
 # ECR Repository
 resource "aws_ecr_repository" "ai" {
   name                 = "${var.project_name}-${var.environment}-ai"
@@ -41,8 +49,8 @@ resource "aws_lambda_function" "ai" {
   image_uri     = "${aws_ecr_repository.ai.repository_url}:latest"
   role          = aws_iam_role.ai_lambda_exec.arn
 
-  memory_size = var.ai_lambda_memory
-  timeout     = var.ai_lambda_timeout
+  memory_size   = var.ai_lambda_memory
+  timeout       = var.ai_lambda_timeout
   architectures = ["arm64"]
 
   image_config {
@@ -50,11 +58,7 @@ resource "aws_lambda_function" "ai" {
   }
 
   environment {
-    variables = {
-      GEMINI_API_KEY = var.gemini_api_key
-      CORS_ORIGINS   = var.ai_cors_origins
-      LOG_LEVEL      = "INFO"
-    }
+    variables = local.ai_lambda_environment
   }
 
   tags = {
@@ -91,34 +95,6 @@ resource "aws_iam_role" "ai_lambda_exec" {
 resource "aws_iam_role_policy_attachment" "ai_lambda_basic" {
   role       = aws_iam_role.ai_lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# ============================================
-# API Gateway Route → AI Lambda
-# ============================================
-
-resource "aws_apigatewayv2_integration" "ai_lambda" {
-  api_id             = aws_apigatewayv2_api.api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_alias.ai_live.invoke_arn
-  integration_method = "POST"
-  payload_format_version = "2.0"
-}
-
-resource "aws_apigatewayv2_route" "ai_proxy" {
-  api_id    = aws_apigatewayv2_api.api.id
-  route_key = "ANY /api/ai/{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.ai_lambda.id}"
-}
-
-# Lambda permission for API Gateway
-resource "aws_lambda_permission" "ai_api_gw" {
-  statement_id  = "AllowAPIGatewayInvokeAI"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.ai.function_name
-  qualifier     = aws_lambda_alias.ai_live.name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }
 
 # CloudWatch Log Group

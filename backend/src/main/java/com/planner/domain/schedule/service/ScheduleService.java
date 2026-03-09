@@ -1,16 +1,16 @@
 package com.planner.domain.schedule.service;
 
 import com.planner.domain.schedule.converter.ScheduleConverter;
-import com.planner.domain.schedule.dto.req.ScheduleCreateReqDTO;
-import com.planner.domain.schedule.dto.req.ScheduleUpdateReqDTO;
-import com.planner.domain.schedule.dto.res.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.error.ScheduleErrorCode;
 import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
-import com.planner.global.pagination.Cursor;
-import com.planner.global.pagination.CursorCodec;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.Cursor;
+import com.planner.global.cursor.CursorCodec;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

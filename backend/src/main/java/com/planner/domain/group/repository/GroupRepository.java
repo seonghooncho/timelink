@@ -4,10 +4,12 @@ import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.global.config.AwsProperties;
 import org.springframework.stereotype.Repository;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ExecuteStatementRequest;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,12 +21,18 @@ public class GroupRepository {
     private final DynamoDbTable<Group> groupTable;
     private final DynamoDbTable<GroupMember> memberTable;
     private final DynamoDbIndex<GroupMember> userGroupsIndex;
+    private final DynamoDbClient dynamoDbClient;
+    private final TableSchema<Group> groupSchema;
+    private final String tableName;
 
-    public GroupRepository(DynamoDbEnhancedClient client, AwsProperties awsProperties) {
+    public GroupRepository(DynamoDbEnhancedClient client, DynamoDbClient dynamoDbClient, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
-        this.groupTable = client.table(prefix + "main", TableSchema.fromBean(Group.class));
-        this.memberTable = client.table(prefix + "main", TableSchema.fromBean(GroupMember.class));
+        this.tableName = prefix + "main";
+        this.groupSchema = TableSchema.fromBean(Group.class);
+        this.groupTable = client.table(tableName, groupSchema);
+        this.memberTable = client.table(tableName, TableSchema.fromBean(GroupMember.class));
         this.userGroupsIndex = memberTable.index("GSI2");
+        this.dynamoDbClient = dynamoDbClient;
     }
 
     public void saveGroup(Group group) {
@@ -41,23 +49,18 @@ public class GroupRepository {
         groupTable.deleteItem(key);
     }
 
-    /**
-     * inviteCode로 그룹을 찾는다 (단건 스캔 — 그룹 수가 적으므로 허용 가능).
-     * 규모가 커지면 GSI3(inviteCode → groupId) 추가를 권장.
-     */
     public Optional<Group> findByInviteCode(String inviteCode) {
-        var request = ScanEnhancedRequest.builder()
-                .filterExpression(Expression.builder()
-                        .expression("SK = :sk AND inviteCode = :code")
-                        .putExpressionValue(":sk",
-                                software.amazon.awssdk.services.dynamodb.model.AttributeValue.builder().s("METADATA").build())
-                        .putExpressionValue(":code",
-                                software.amazon.awssdk.services.dynamodb.model.AttributeValue.builder().s(inviteCode).build())
-                        .build())
+        var request = ExecuteStatementRequest.builder()
+                .statement("SELECT * FROM \"" + tableName + "\" WHERE SK=? AND inviteCode=?")
+                .parameters(
+                        AttributeValue.builder().s("METADATA").build(),
+                        AttributeValue.builder().s(inviteCode).build()
+                )
+                .limit(1)
                 .build();
-        return groupTable.scan(request).stream()
-                .flatMap(page -> page.items().stream())
-                .findFirst();
+        return dynamoDbClient.executeStatement(request).items().stream()
+                .findFirst()
+                .map(groupSchema::mapToItem);
     }
 
     public void saveMember(GroupMember member) {

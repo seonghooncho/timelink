@@ -22,6 +22,15 @@
 # GSI2: user-groups
 #   PK: USER#{userId}  SK: GROUP#{groupId}
 #
+# PartiQL reference:
+# - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
+# - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')
+# - SELECT * FROM "planner_prod_main" WHERE SK='METADATA' AND inviteCode='ABC123'
+#
+# 운영 원칙:
+# - hot path는 PK/SK/GSI 기반 조회를 유지한다.
+# - 비정형 lookup이나 운영 점검성 조회는 PartiQL(SQL-like)로 맞춘다.
+#
 # 비용 최적화:
 # - PAY_PER_REQUEST (온디맨드) → 트래픽 적을 때 최소 비용
 # - Point-in-time recovery 활성화

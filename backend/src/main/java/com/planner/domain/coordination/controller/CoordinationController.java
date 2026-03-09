@@ -5,7 +5,7 @@ import com.planner.domain.coordination.dto.req.CoordinationSubmitReqDTO;
 import com.planner.domain.coordination.dto.req.CoordinationUpdateReqDTO;
 import com.planner.domain.coordination.dto.res.*;
 import com.planner.domain.coordination.service.CoordinationService;
-import com.planner.global.pagination.CursorPageResult;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;
 import jakarta.validation.Valid;

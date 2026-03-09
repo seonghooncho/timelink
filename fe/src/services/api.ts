@@ -1,19 +1,18 @@
-import { supabase } from '@/integrations/supabase/client';
+import { clearStoredSession, getAccessToken } from '@/services/session';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/planner/v1';
-const AI_BASE = import.meta.env.VITE_AI_BASE_URL || 'http://localhost:8000/api/ai/v1';
+const AI_BASE = import.meta.env.VITE_AI_BASE_URL || '/api/ai/v1';
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+function getAuthHeaders(contentType = 'application/json'): Record<string, string> {
+  const token = getAccessToken();
   return {
-    'Content-Type': 'application/json',
+    ...(contentType ? { 'Content-Type': contentType } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers = await getAuthHeaders();
+async function request<T>(method: string, path: string, body?: unknown, requiresAuth = true): Promise<T> {
+  const headers = requiresAuth ? getAuthHeaders() : { 'Content-Type': 'application/json' };
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
@@ -24,10 +23,51 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   const json = await res.json();
   if (!res.ok) {
+    if (res.status === 401) {
+      clearStoredSession();
+    }
     throw new Error(json?.error?.message || `API Error ${res.status}`);
   }
   return json.data as T;
 }
+
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: getAuthHeaders(''),
+    body: formData,
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearStoredSession();
+    }
+    throw new Error(json?.error?.message || `API Error ${res.status}`);
+  }
+
+  return json.data as T;
+}
+
+// ── Auth ──
+
+export interface AuthLoginRequest {
+  userId: string;
+  nickname?: string;
+}
+
+export interface AuthSessionResponse {
+  accessToken: string;
+  userId: string;
+}
+
+export const authApi = {
+  login: (data: AuthLoginRequest) => request<AuthSessionResponse>('POST', '/auth/login', data, false),
+  getMe: () => request<AuthSessionResponse>('GET', '/auth/me'),
+};
 
 // ── Schedules ──
 
@@ -142,7 +182,7 @@ export const groupApi = {
   update: (id: string, data: { name?: string; description?: string; imageUrl?: string }) =>
     request<GroupDetailResponse>('PATCH', `/groups/${id}`, data),
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
-  join: (inviteCode: string) => request<{ groupId: string; groupName: string; role: string }>('POST', '/groups/join', { inviteCode }),
+  join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
   leaveGroup: (groupId: string) => request<void>('DELETE', `/groups/${groupId}/members/me`),
 };
@@ -250,6 +290,18 @@ export const settingsApi = {
   getNotifications: () => request<NotificationSettingsResponse>('GET', '/settings/notifications'),
   updateNotifications: (data: Partial<NotificationSettingsResponse>) =>
     request<NotificationSettingsResponse>('PATCH', '/settings/notifications', data),
+};
+
+// ── Storage ──
+
+export interface ImageUploadResponse {
+  objectKey: string;
+  url: string;
+}
+
+export const storageApi = {
+  uploadProfileImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/profile', file),
+  uploadGroupImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/group', file),
 };
 
 // ── AI (FastAPI) ──

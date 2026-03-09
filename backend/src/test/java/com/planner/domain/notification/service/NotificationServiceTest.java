@@ -1,12 +1,13 @@
 package com.planner.domain.notification.service;
 
-import com.planner.domain.notification.dto.req.NotificationSettingsUpdateReqDTO;
-import com.planner.domain.notification.dto.res.NotificationResDTO;
-import com.planner.domain.notification.dto.res.NotificationSettingsResDTO;
+import com.planner.domain.notification.dto.NotificationResDTO;
+import com.planner.domain.notification.dto.NotificationSettingsResDTO;
+import com.planner.domain.notification.dto.NotificationSettingsUpdateReqDTO;
 import com.planner.domain.notification.error.NotificationException;
 import com.planner.domain.notification.model.Notification;
 import com.planner.domain.notification.model.NotificationSettings;
 import com.planner.domain.notification.repository.NotificationRepository;
+import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,16 +39,17 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("getAll — 타입/읽음 필터링")
+    @DisplayName("getAllPaged — 타입/읽음 필터링")
     void getAll_filters() {
-        when(repository.findByUserId("user1")).thenReturn(List.of(
+        when(repository.findByUserIdPaged("user1", 20, null))
+                .thenReturn(CursorPageResult.<Notification>builder().items(List.of(
                 sampleNotif("n1", "schedule", false),
                 sampleNotif("n2", "system", true)
-        ));
+        )).build());
 
-        List<NotificationResDTO> result = service.getAll("user1", "schedule", null);
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getType()).isEqualTo("schedule");
+        CursorPageResult<NotificationResDTO> result = service.getAllPaged("user1", "schedule", null, null, null);
+        assertThat(result.getItems()).hasSize(1);
+        assertThat(result.getItems().get(0).getType()).isEqualTo("schedule");
     }
 
     @Test

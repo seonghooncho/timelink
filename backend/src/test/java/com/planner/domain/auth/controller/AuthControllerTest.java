@@ -1,0 +1,109 @@
+package com.planner.domain.auth.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planner.domain.auth.dto.AuthLoginReqDTO;
+import com.planner.domain.auth.dto.AuthSessionResDTO;
+import com.planner.domain.auth.service.AuthService;
+import com.planner.global.config.CorsProperties;
+import com.planner.global.config.JwtProperties;
+import com.planner.global.config.SecurityConfig;
+import com.planner.global.error.GlobalExceptionHandler;
+import com.planner.global.security.JwtAuthenticationFilter;
+import com.planner.global.security.JwtTokenProvider;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(AuthController.class)
+@Import({GlobalExceptionHandler.class, SecurityConfig.class})
+class AuthControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+
+    @MockBean private AuthService authService;
+    @MockBean private CorsProperties corsProperties;
+    @MockBean private JwtTokenProvider jwtTokenProvider;
+    @MockBean private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean private JwtProperties jwtProperties;
+
+    private static final String BASE = "/api/planner/v1/auth";
+
+    @BeforeEach
+    void setUp() throws Exception {
+        doAnswer(invocation -> {
+            FilterChain chain = invocation.getArgument(2, FilterChain.class);
+            chain.doFilter(
+                    invocation.getArgument(0, ServletRequest.class),
+                    invocation.getArgument(1, ServletResponse.class)
+            );
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("POST /auth/login 은 인증 없이 토큰을 발급한다")
+    void login_returns200() throws Exception {
+        AuthLoginReqDTO req = new AuthLoginReqDTO();
+        req.setUserId("user_1");
+        req.setNickname("유저");
+
+        when(authService.login(any())).thenReturn(AuthSessionResDTO.builder()
+                .accessToken("jwt-token")
+                .userId("user_1")
+                .build());
+
+        mockMvc.perform(post(BASE + "/login").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("jwt-token"))
+                .andExpect(jsonPath("$.data.userId").value("user_1"));
+    }
+
+    @Test
+    @DisplayName("POST /auth/login 은 잘못된 userId를 거부한다")
+    void login_invalidUserId_returns400() throws Exception {
+        AuthLoginReqDTO req = new AuthLoginReqDTO();
+        req.setUserId("A");
+
+        mockMvc.perform(post(BASE + "/login").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "user-1")
+    @DisplayName("GET /auth/me 는 현재 세션을 반환한다")
+    void me_returns200() throws Exception {
+        when(authService.getSession("user-1")).thenReturn(AuthSessionResDTO.builder()
+                .accessToken("fresh-token")
+                .userId("user-1")
+                .build());
+
+        mockMvc.perform(get(BASE + "/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value("user-1"));
+    }
+}

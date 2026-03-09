@@ -25,7 +25,7 @@ const GroupsPage: React.FC = () => {
             <GroupAvatar image={group.image} name={group.name} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-foreground">{group.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">멤버 {group.members.length}명</p>
+              <p className="text-xs text-muted-foreground mt-0.5">멤버 {group.memberCount ?? group.members.length}명</p>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
           </button>

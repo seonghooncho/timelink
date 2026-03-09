@@ -28,8 +28,8 @@
 10. [알림 설정 (Notification Settings)](#10-알림-설정-notification-settings)
 11. [파일 업로드 (Storage)](#11-파일-업로드-storage)
 12. [데이터베이스 스키마](#12-데이터베이스-스키마)
-13. [RLS 정책](#13-rls-정책)
-14. [Realtime 구독](#14-realtime-구독)
+13. [DynamoDB / PartiQL 운영 기준](#13-dynamodb--partiql-운영-기준)
+14. [전체 엔드포인트 요약](#14-전체-엔드포인트-요약)
 
 ---
 
@@ -55,9 +55,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": { ... },        // 성공 시 데이터
   "error": null,          // 에러 메시지 (성공 시 null)
   "meta": {               // 페이지네이션 (목록 조회 시)
-    "page": 1,
-    "per_page": 20,
-    "total": 100
+    "perPage": 20,
+    "nextCursor": "opaque-cursor"
   }
 }
 ```
@@ -86,8 +85,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ### 페이지네이션 쿼리 파라미터
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
-| `page` | integer | 1 | 페이지 번호 |
-| `per_page` | integer | 20 | 페이지 당 항목 수 (max: 100) |
+| `cursor` | string | 없음 | 다음 페이지 커서 |
+| `perPage` | integer | 20 | 페이지 당 항목 수 (max: 100) |
 
 ### 정렬 쿼리 파라미터
 | 파라미터 | 타입 | 예시 | 설명 |
@@ -99,28 +98,27 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 2. 인증 (Auth)
 
-> 인증은 Lovable Cloud OAuth를 통해 처리. 프론트엔드에서 Supabase JWT를 획득한 뒤 `Authorization: Bearer <JWT>` 헤더로 백엔드에 전달.  
-> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 토큰을 검증하여 `userId`를 추출.
+> 인증은 백엔드 `POST /api/planner/v1/auth/login`으로 세션 토큰을 발급받는 방식입니다.
+> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 토큰을 검증하여 `userId`를 추출합니다.
 
 | 기능 | 클라이언트 호출 | 설명 |
 |------|----------------|------|
-| Google 로그인 | `lovable.auth.signInWithOAuth('google')` | OAuth 리다이렉트 |
-| 로그아웃 | `supabase.auth.signOut()` | 세션 종료 |
-| 세션 복원 | `supabase.auth.getSession()` | JWT 토큰 복원 |
-| 상태 변경 감지 | `supabase.auth.onAuthStateChange()` | 리스너 |
+| 로그인 | `POST /auth/login` | `userId`, `nickname`으로 JWT 발급 |
+| 세션 복원 | `GET /auth/me` | 저장된 JWT 재검증 및 세션 복원 |
+| 로그아웃 | 클라이언트 세션 삭제 | 서버 세션 저장소 없음 |
 | API 호출 시 | `Authorization: Bearer <access_token>` | 모든 백엔드 요청에 포함 |
 
 ---
 
 ## 3. 프로필 (Profiles)
 
-> 사용자 프로필. 회원가입 시 DB 트리거로 자동 생성.
+> 사용자 프로필. 백엔드 로그인 시 없으면 자동 생성됩니다.
 
 ### 테이블: `profiles`
 
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
-| `id` | `uuid` PK | `auth.users.id` 참조 |
+| `id` | `string` PK | 백엔드가 발급하는 `userId` |
 | `nickname` | `text` | 닉네임 (기본값: 이메일 앞부분) |
 | `avatar_url` | `text` | 프로필 이미지 URL |
 | `created_at` | `timestamptz` | 생성일 |
@@ -179,7 +177,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | `id` | `uuid` PK | 자동 생성 |
-| `user_id` | `uuid` FK | `auth.users.id` |
+| `user_id` | `string` | 백엔드 JWT subject (`userId`) |
 | `title` | `text` NOT NULL | 일정 제목 |
 | `content` | `text` | 일정 내용/메모 |
 | `category` | `schedule_category` | enum: task, appointment, group, important, repeat |
@@ -231,7 +229,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "created_at": "2026-03-08T00:00:00Z"
     }
   ],
-  "meta": { "page": 1, "per_page": 20, "total": 5 }
+  "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
 }
 ```
 
@@ -738,7 +736,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "created_at": "2026-03-08T09:00:00Z"
     }
   ],
-  "meta": { "page": 1, "per_page": 20, "total": 5 }
+  "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
 }
 ```
 
@@ -779,7 +777,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 컬럼 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
-| `user_id` | `uuid` PK FK | — | `auth.users.id` |
+| `user_id` | `string` PK | — | 백엔드 JWT subject (`userId`) |
 | `schedule_alarm` | `boolean` | true | 일정 알림 |
 | `group_alarm` | `boolean` | true | 그룹 알림 |
 | `remind_one_day_before` | `boolean` | true | 1일 전 리마인드 |
@@ -838,7 +836,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-#### `POST` /api/planner/v1/storage/group-images
+#### `POST` /api/planner/v1/storage/images/group
 
 그룹 이미지 업로드
 
@@ -846,33 +844,34 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `file` | File | 이미지 파일 (max 5MB) |
-| `group_id` | string | 그룹 ID |
 
-**Response** `201 Created`
+**Response** `200 OK`
 ```json
 {
   "data": {
-    "url": "https://...public/group-images/uuid.jpg"
+    "objectKey": "group/{userId}/{uuid}.jpg",
+    "url": "https://.../group/{userId}/{uuid}.jpg"
   }
 }
 ```
 
 ---
 
-#### `POST` /api/planner/v1/storage/avatars
+#### `POST` /api/planner/v1/storage/images/profile
 
 프로필 아바타 업로드
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `file` | File | 이미지 파일 (max 2MB) |
+| `file` | File | 이미지 파일 (max 5MB) |
 
-**Response** `201 Created`
+**Response** `200 OK`
 ```json
 {
   "data": {
-    "url": "https://...public/avatars/uuid.jpg"
+    "objectKey": "profile/{userId}/{uuid}.jpg",
+    "url": "https://.../profile/{userId}/{uuid}.jpg"
   }
 }
 ```
@@ -923,7 +922,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ### 엔티티 관계
 ```
-auth.users (Supabase 내장 - 인증 전용)
+auth-session (JWT subject = userId)
   ├── Profile (PK: USER#{userId}, SK: PROFILE)
   ├── NotificationSettings (PK: USER#{userId}, SK: NOTIF_SETTINGS)
   ├── Schedule (PK: USER#{userId}, SK: SCHEDULE#{id})
@@ -939,43 +938,14 @@ auth.users (Supabase 내장 - 인증 전용)
 - `fe/src/context/AppContext.tsx`: 인증 상태 감지 후 자동으로 백엔드에서 데이터 로드
 - Mock 데이터 의존성 제거, 모든 CRUD는 백엔드 API 경유
 
-### Enum 타입
-```sql
-CREATE TYPE schedule_category AS ENUM ('task', 'appointment', 'group', 'important', 'repeat');
-CREATE TYPE member_role AS ENUM ('manager', 'member');
-CREATE TYPE coordination_mode AS ENUM ('once', 'repeat');
-CREATE TYPE coordination_status AS ENUM ('active', 'closed');
-CREATE TYPE notification_type AS ENUM ('schedule', 'system');
-```
+### 운영 메모
+- DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
+- 운영 점검이나 비정형 lookup은 `infra/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
+- 업로드 이미지는 S3 public assets bucket에 저장되고, 프론트는 해당 URL만 저장합니다.
 
 ---
 
-## 14. RLS 정책 요약
-
-| 테이블 | SELECT | INSERT | UPDATE | DELETE |
-|--------|--------|--------|--------|--------|
-| `profiles` | 본인만 | 트리거 자동 | 본인만 | ❌ |
-| `schedules` | 본인 + 그룹멤버 | 인증 사용자 | 본인만 | 본인만 |
-| `groups` | 그룹 멤버만 | 인증 사용자 | manager만 | manager만 |
-| `group_members` | 같은 그룹 멤버 | 본인/manager | manager만 | 본인/manager |
-| `coordinations` | 그룹 멤버만 | 그룹 멤버 | 생성자만 | 생성자만 |
-| `coordination_responses` | 그룹 멤버만 | 본인만 | 본인만 | 본인만 |
-| `notifications` | 본인만 | service_role | 본인(is_read) | 본인만 |
-| `notification_settings` | 본인만 | 트리거 자동 | 본인만 | ❌ |
-
----
-
-## 15. Realtime 구독
-
-| 테이블 | 이벤트 | 용도 |
-|--------|--------|------|
-| `coordination_responses` | INSERT, DELETE | 히트맵 실시간 반영 |
-| `notifications` | INSERT | 새 알림 실시간 수신 |
-| `group_members` | INSERT, DELETE | 멤버 변경 실시간 반영 |
-
----
-
-## 16. 전체 엔드포인트 요약
+## 14. 전체 엔드포인트 요약
 
 | 메서드 | 엔드포인트 | 설명 | 권한 | 구현 상태 |
 |--------|-----------|------|------|----------|
@@ -1010,8 +980,8 @@ CREATE TYPE notification_type AS ENUM ('schedule', 'system');
 | `PATCH` | `/settings/notifications` | 알림 설정 수정 | 인증 | ✅ |
 
 > **Base URL prefix**: `api/planner/v1`  
-> **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`), 멤버 내보내기(`DELETE /groups/:gid/members/:mid`), 파일 업로드, AI 일정 추출은 별도 서비스(FastAPI)에서 처리
+> **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`), 멤버 내보내기(`DELETE /groups/:gid/members/:mid`)
 
 ---
 
-*마지막 업데이트: 2026-03-08 (그룹 join/update/leave/getMembers 엔드포인트 구현 반영)*
+*마지막 업데이트: 2026-03-09 (백엔드 auth/storage, DynamoDB/PartiQL 운영 기준 반영)*

@@ -2,6 +2,18 @@
 # Lambda Function
 # ============================================
 
+locals {
+  api_lambda_environment = {
+    SPRING_PROFILES_ACTIVE = var.spring_profiles_active
+    AWS_REGION_OVERRIDE    = var.aws_region
+    DYNAMODB_TABLE_PREFIX  = "${var.project_name}_${var.environment}_"
+    AWS_S3_BUCKET_NAME     = aws_s3_bucket.public_assets.bucket
+    AWS_S3_PUBLIC_BASE_URL = "https://${aws_s3_bucket.public_assets.bucket}.s3.${var.aws_region}.amazonaws.com"
+    JWT_SECRET             = var.jwt_secret
+    CORS_ORIGINS           = var.api_cors_origins
+  }
+}
+
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-${var.environment}-api"
   handler       = "com.planner.StreamLambdaHandler::handleRequest"
@@ -16,13 +28,7 @@ resource "aws_lambda_function" "api" {
   role = aws_iam_role.lambda_exec.arn
 
   environment {
-    variables = {
-      SPRING_PROFILES_ACTIVE   = "prod"
-      AWS_REGION_OVERRIDE      = var.aws_region
-      DYNAMODB_TABLE_PREFIX    = "${var.project_name}_${var.environment}_"
-      JWT_SECRET               = var.jwt_secret
-      CORS_ORIGINS             = "https://your-domain.com"
-    }
+    variables = local.api_lambda_environment
   }
 
   snap_start {
@@ -89,6 +95,17 @@ resource "aws_iam_role_policy" "dynamodb_access" {
         Resource = [
           aws_dynamodb_table.main.arn,
           "${aws_dynamodb_table.main.arn}/index/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          "${aws_s3_bucket.public_assets.arn}/*"
         ]
       }
     ]

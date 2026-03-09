@@ -1,7 +1,7 @@
 package com.planner.domain.schedule.converter;
 
-import com.planner.domain.schedule.dto.req.ScheduleCreateReqDTO;
-import com.planner.domain.schedule.dto.res.ScheduleResDTO;
+import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.model.Schedule;
 
 import java.time.Instant;

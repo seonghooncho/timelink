@@ -48,6 +48,8 @@ cd backend
 ./gradlew bootRun
 ```
 
+루트에서 바로 실행하려면 `npm run backend:run`을 사용할 수 있습니다.
+
 ### AI
 
 ```sh
@@ -59,6 +61,8 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
+이미 Python 의존성이 준비돼 있다면 루트에서 `npm run ai:run`으로 실행할 수 있습니다.
+
 ### Infra
 
 ```sh
@@ -68,9 +72,11 @@ terraform plan
 terraform apply
 ```
 
+루트에서 보조 명령으로 `npm run infra:fmt`, `npm run infra:validate`를 사용할 수 있습니다.
+
 ## 환경 변수
 
-- 프론트엔드: `fe/.env`
+- 프론트엔드: 기본값은 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
 - AI 서비스: `ai/.env`
 
 상세 구조와 아키텍처 설명은 [docs/README.md](docs/README.md)를 참고하면 됩니다.

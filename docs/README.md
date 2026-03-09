@@ -1,4 +1,4 @@
-# 📅 일정관리 앱 (Planner)
+# 일정관리 앱 (Planner)
 
 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프라를 관리합니다.
 
@@ -13,76 +13,48 @@
 ## 프로젝트 구조
 
 ```
-├── fe/                # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── components/    # UI 컴포넌트
-│   │   ├── context/       # AuthContext, AppContext
-│   │   ├── pages/         # 페이지 컴포넌트
-│   │   ├── services/      # API 클라이언트 (api.ts)
-│   │   ├── hooks/         # react-query 기반 커스텀 훅
-│   │   ├── utils/         # 유틸리티 (category, formatting)
-│   │   └── types/         # TypeScript 타입
-│   └── ...
-├── backend/           # Spring Boot + Java 21 + DynamoDB
+├── fe/                     # React + Vite + Tailwind
+│   └── src/
+│       ├── components/     # common, coordination, layout, schedule, ui
+│       ├── context/        # AuthContext, AppContext
+│       ├── hooks/          # react-query 기반 커스텀 훅
+│       ├── pages/          # 라우트 단위 페이지
+│       ├── services/       # API 클라이언트, 세션 저장
+│       ├── test/           # 프론트 테스트 유틸
+│       ├── types/          # TypeScript 타입
+│       └── utils/          # 포맷팅/도메인 유틸
+├── backend/                # Spring Boot + Java 21 + DynamoDB
 │   └── src/main/java/com/planner/
-│       ├── domain/                    # 도메인 기반 패키지 (DDD)
-│       │   ├── schedule/              # 일정 도메인
-│       │   │   ├── controller/        #   └── ScheduleController
-│       │   │   ├── service/           #   └── ScheduleService
-│       │   │   ├── repository/        #   └── ScheduleRepository
-│       │   │   ├── model/             #   └── Schedule
-│       │   │   ├── dto/req/           #   └── ScheduleCreateReqDTO, UpdateReqDTO
-│       │   │   ├── dto/res/           #   └── ScheduleResDTO
-│       │   │   ├── converter/         #   └── ScheduleConverter
-│       │   │   └── error/             #   └── ScheduleErrorCode, ScheduleException
-│       │   ├── group/                 # 그룹 도메인
-│       │   │   ├── controller/        #   └── GroupController
-│       │   │   ├── service/           #   └── GroupService
-│       │   │   ├── repository/        #   └── GroupRepository
-│       │   │   ├── model/             #   └── Group, GroupMember
-│       │   │   ├── dto/req/           #   └── GroupCreateReqDTO, JoinReqDTO
-│       │   │   ├── dto/res/           #   └── GroupResDTO, GroupDetailResDTO
-│       │   │   ├── converter/         #   └── GroupConverter
-│       │   │   └── error/             #   └── GroupErrorCode, GroupException
-│       │   ├── coordination/          # 시간 조율 도메인
-│       │   │   ├── controller/        #   └── CoordinationController
-│       │   │   ├── service/           #   └── CoordinationService
-│       │   │   ├── repository/        #   └── CoordinationRepository
-│       │   │   ├── model/             #   └── Coordination, CoordinationResponse
-│       │   │   ├── dto/req/           #   └── CreateReqDTO, SubmitReqDTO
-│       │   │   ├── dto/res/           #   └── ResDTO, DetailResDTO, HeatmapDTO
-│       │   │   ├── converter/         #   └── CoordinationConverter
-│       │   │   └── error/             #   └── CoordinationErrorCode, Exception
-│       │   ├── profile/               # 프로필 도메인
-│       │   │   ├── controller/service/repository/model/dto/converter/error/
-│       │   │   └── ...
-│       │   └── notification/          # 알림 도메인
-│       │       ├── controller/        #   └── NotificationController, SettingsController
-│       │       ├── service/           #   └── NotificationService
-│       │       ├── repository/model/dto/converter/error/
-│       │       └── ...
-│       └── global/                    # 공통 인프라
-│           ├── config/                #   └── SecurityConfig, DynamoDbConfig
-│           │                          #   └── JwtProperties, CorsProperties, AwsProperties
-│           ├── error/                 #   └── BaseErrorCode, CustomException
-│           │                          #   └── GeneralErrorCode, GlobalExceptionHandler
-│           ├── response/              #   └── CustomResponse
-│           ├── security/              #   └── AuthUtil, JwtTokenProvider, JwtAuthFilter
-│           └── health/                #   └── HealthCheckController
-├── ai/                # FastAPI + Google Gemini (AI 서비스)
-│   ├── app/
-│   │   ├── main.py        # FastAPI 앱 엔트리포인트
-│   │   ├── routers/       # API 라우터
-│   │   │   └── extract.py # 일정 추출 엔드포인트
-│   │   └── services/      # 서비스 레이어
-│   │       └── gemini_service.py  # Gemini API 연동
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── README.md
-├── infra/             # Terraform (API Gateway + Lambda + DynamoDB)
-├── docs/              # 문서
-│   ├── API_SPEC.md
-│   └── DESIGN_GUIDE.md
+│       ├── domain/
+│       │   ├── auth/            # 백엔드 JWT 세션 발급
+│       │   ├── storage/         # 프로필/그룹 이미지 업로드
+│       │   ├── profile/         # controller/service/repository/model/dto/converter/error
+│       │   ├── schedule/        # 작은 도메인은 dto/ 단일 계층 유지
+│       │   ├── group/           # 작은 도메인은 dto/ 단일 계층 유지
+│       │   ├── notification/    # NotificationController, NotificationSettingsController
+│       │   └── coordination/    # 복합 응답이 많아 dto/req, dto/res 유지
+│       └── global/
+│           ├── config/          # Aws/Security/Cors/Jwt 설정
+│           ├── cursor/          # 커서 기반 페이지네이션 공통 객체
+│           ├── error/           # 공통 예외/에러 코드
+│           ├── response/        # CustomResponse
+│           ├── security/        # JWT, AuthUtil
+│           └── health/          # 헬스체크
+├── ai/                     # FastAPI + Google Gemini
+│   └── app/
+│       ├── routers/        # AI 엔드포인트
+│       └── services/       # Gemini 연동 서비스
+├── infra/                  # Terraform
+│   ├── main.tf             # provider/backend 설정
+│   ├── variables.tf        # 환경별 입력 변수
+│   ├── api_gateway.tf      # HTTP API, route, Lambda invoke permission
+│   ├── lambda.tf           # 백엔드 Lambda 및 IAM
+│   ├── lambda_ai.tf        # AI Lambda, ECR 및 IAM
+│   ├── dynamodb.tf         # Single Table Design
+│   ├── s3_cloudfront.tf    # 프론트 정적 호스팅
+│   ├── s3_storage.tf       # 업로드 이미지 버킷
+│   └── outputs.tf          # 배포 결과 출력
+├── docs/                   # 설계/운영 문서
 └── README.md
 ```
 
@@ -90,6 +62,7 @@
 
 ### Domain-Driven Package Structure
 - 각 도메인은 `controller → service → repository` 계층 + `model`, `dto`, `converter`, `error`를 자체 패키지에 포함
+- DTO 수가 적은 도메인은 `dto/` 한 단계로 평탄화하고, 응답 조합이 많은 도메인만 `dto/req`, `dto/res`를 유지
 - 도메인 간 의존은 repository 수준에서만 허용 (e.g., `CoordinationService → GroupRepository`)
 
 ### Error Handling
@@ -103,6 +76,12 @@
 
 ### Config Properties
 - `@ConfigurationProperties`로 타입 안전한 설정 주입 (JwtProperties, CorsProperties, AwsProperties)
+
+## 인프라 구조 원칙
+
+- `api_gateway.tf`에는 HTTP API, integration, route, invoke permission을 모아 라우팅 흐름을 한 파일에서 읽을 수 있게 유지
+- `lambda.tf`, `lambda_ai.tf`는 각 런타임별 Lambda/IAM/ECR 책임만 가진다
+- 런타임 환경 변수는 `variables.tf` + file-local `locals`로 선언해 하드코딩을 줄인다
 
 ## 기술 스택
 
@@ -128,6 +107,8 @@ cd backend
 ./gradlew bootRun
 ```
 
+또는 루트에서 `npm run backend:run`
+
 ### AI Service
 ```bash
 cd ai
@@ -138,6 +119,8 @@ cp .env.example .env  # GEMINI_API_KEY 설정
 uvicorn app.main:app --reload --port 8000
 ```
 
+또는 루트에서 `npm run ai:run`
+
 ### Infra
 ```bash
 cd infra
@@ -146,20 +129,23 @@ terraform plan
 terraform apply
 ```
 
+보조 명령: `npm run infra:fmt`, `npm run infra:validate`
+
 ## 환경별 설정
 
 | 환경 | Frontend | Backend | AI |
 |------|----------|---------|-----|
-| Local | `localhost:5173` | `localhost:8080` | `localhost:8000` |
-| Dev | Lovable Preview | Lambda (dev) | ECS/Lambda |
-| Prod | Custom Domain | API Gateway + Lambda | ECS/Lambda |
+| Local | `localhost:5173` (Vite proxy) | `localhost:8080` | `localhost:8000` |
+| Dev | CloudFront + API Gateway | Lambda | Lambda |
+| Prod | CloudFront + API Gateway | Lambda | Lambda |
 
 ## 환경변수
 
-### Frontend (fe/.env)
+### Frontend
 ```
-VITE_API_BASE_URL=/api/planner/v1    # 백엔드 API
-VITE_AI_BASE_URL=http://localhost:8000/api/ai/v1  # AI 서비스
+기본값은 /api/planner/v1, /api/ai/v1 를 사용합니다.
+로컬 개발은 Vite proxy가 backend:8080, ai:8000 으로 전달합니다.
+배포는 CloudFront가 /api/* 를 API Gateway 로 전달합니다.
 ```
 
 ### AI Service (ai/.env)

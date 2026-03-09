@@ -1,9 +1,9 @@
 package com.planner.domain.group.service;
 
-import com.planner.domain.group.dto.req.GroupCreateReqDTO;
-import com.planner.domain.group.dto.req.GroupUpdateReqDTO;
-import com.planner.domain.group.dto.res.GroupMemberResDTO;
-import com.planner.domain.group.dto.res.GroupResDTO;
+import com.planner.domain.group.dto.GroupCreateReqDTO;
+import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupResDTO;
+import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
@@ -48,14 +48,6 @@ class GroupServiceTest {
     @Test
     @DisplayName("create — 그룹 생성 시 매니저 멤버 자동 등록")
     void create_addsManagerMember() {
-        when(repository.findGroupById(anyString()))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(sampleGroup("any", "user1")));
-        when(repository.findMember(anyString(), eq("user1")))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(sampleMember("any", "user1", "manager")));
-        when(repository.findMembersByGroupId(anyString())).thenReturn(List.of());
-
         GroupCreateReqDTO req = new GroupCreateReqDTO();
         req.setName("Study");
 

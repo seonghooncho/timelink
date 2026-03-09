@@ -18,6 +18,11 @@ output "frontend_bucket" {
   value       = aws_s3_bucket.frontend.bucket
 }
 
+output "public_assets_bucket" {
+  description = "S3 bucket for uploaded public assets"
+  value       = aws_s3_bucket.public_assets.bucket
+}
+
 output "cloudfront_domain" {
   description = "CloudFront distribution domain"
   value       = aws_cloudfront_distribution.frontend.domain_name

@@ -37,10 +37,26 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
   }, []);
 
   const toggleDate = (key: string) => {
-    setSelectedDates(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
   const toggleMember = (id: string) => {
-    setSelectedMembers(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const formatDateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

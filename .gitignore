@@ -11,6 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+backend/.gradle
+backend/build
+ai/.venv
+ai/venv
+ai/__pycache__
+ai/.pytest_cache
+infra/.terraform
+infra/*.tfstate
+infra/*.tfstate.*
+fe/.env.local
+fe/.env.*.local
 
 # Editor directories and files
 .vscode/*

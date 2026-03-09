@@ -33,6 +33,7 @@ dependencies {
     // AWS DynamoDB
     implementation 'software.amazon.awssdk:dynamodb:2.29.51'
     implementation 'software.amazon.awssdk:dynamodb-enhanced:2.29.51'
+    implementation 'software.amazon.awssdk:s3:2.29.51'
 
     // AWS Lambda (for deployment)
     implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'
@@ -53,6 +54,7 @@ dependencies {
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 jacoco {

@@ -26,6 +26,8 @@ export interface Group {
   name: string;
   description: string;
   image?: string;
+  inviteCode?: string;
+  memberCount?: number;
   members: GroupMember[];
   schedules: Schedule[];
 }

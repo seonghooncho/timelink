@@ -14,6 +14,10 @@ public final class AuthUtil {
         if (auth == null || auth.getPrincipal() == null) {
             throw new CustomException(GeneralErrorCode.UNAUTHORIZED);
         }
-        return (String) auth.getPrincipal();
+        String userId = auth.getName();
+        if (userId == null || userId.isBlank() || "anonymousUser".equals(userId)) {
+            throw new CustomException(GeneralErrorCode.UNAUTHORIZED);
+        }
+        return userId;
     }
 }

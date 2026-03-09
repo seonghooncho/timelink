@@ -46,6 +46,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.api.api_endpoint, "https://", "")
+    origin_id   = "http-api"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = "s3-frontend"
     viewer_protocol_policy = "redirect-to-https"
@@ -84,6 +96,27 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl     = 86400
     default_ttl = 604800
     max_ttl     = 31536000
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "http-api"
+    viewer_protocol_policy = "https-only"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
+    compress               = true
+
+    forwarded_values {
+      query_string = true
+      headers      = ["Authorization", "Content-Type", "Origin", "Accept"]
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 0
+    max_ttl     = 0
   }
 
   # SPA fallback: return index.html for 403/404
@@ -126,8 +159,8 @@ resource "aws_s3_bucket_policy" "frontend" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontOAC"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontOAC"
+        Effect = "Allow"
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }

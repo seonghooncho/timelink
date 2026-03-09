@@ -5,7 +5,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateGroup } from '@/hooks/useGroups';
-import { supabase } from '@/integrations/supabase/client';
+import { storageApi } from '@/services/api';
 import { toast } from 'sonner';
 import { Camera, X } from 'lucide-react';
 
@@ -32,14 +32,10 @@ const GroupFormPage: React.FC = () => {
 
   const removeImage = () => { setImageFile(null); setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
-  const uploadImage = async (groupId: string): Promise<string | null> => {
+  const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return null;
-    const fileExt = imageFile.name.split('.').pop();
-    const fileName = `${groupId}.${fileExt}`;
-    const { error } = await supabase.storage.from('group-images').upload(fileName, imageFile, { upsert: true });
-    if (error) { console.error('Image upload error:', error); return null; }
-    const { data: { publicUrl } } = supabase.storage.from('group-images').getPublicUrl(fileName);
-    return publicUrl;
+    const result = await storageApi.uploadGroupImage(imageFile);
+    return result.url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,9 +43,8 @@ const GroupFormPage: React.FC = () => {
     if (!name.trim()) { toast.error('그룹 이름을 입력해주세요'); return; }
     setIsUploading(true);
     try {
-      const tempId = `g${Date.now()}`;
       let imageUrl: string | null = null;
-      if (imageFile) imageUrl = await uploadImage(tempId);
+      if (imageFile) imageUrl = await uploadImage();
 
       const result = await createGroupMutation.mutateAsync({
         name: name.trim(),
@@ -58,7 +53,7 @@ const GroupFormPage: React.FC = () => {
       });
 
       toast.success('그룹이 생성되었습니다');
-      navigate(`/groups/${result?.id || tempId}`);
+      navigate(`/groups/${result.id}`);
     } catch { toast.error('그룹 생성 중 오류가 발생했습니다'); } finally { setIsUploading(false); }
   };
 

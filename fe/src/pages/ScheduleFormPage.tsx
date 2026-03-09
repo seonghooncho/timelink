@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import { ScheduleCategory } from '@/types/types';
@@ -15,12 +15,27 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'group', label: '그룹' },
 ];
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return '사진 분석에 실패했습니다.';
+};
+
 const ScheduleFormPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const createMutation = useCreateSchedule();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const groupContext = useMemo(() => {
+    const state = location.state as { groupId?: string; groupName?: string } | null;
+    return {
+      groupId: state?.groupId,
+      groupName: state?.groupName,
+    };
+  }, [location.state]);
 
-  const [category, setCategory] = useState<ScheduleCategory>('task');
+  const [category, setCategory] = useState<ScheduleCategory>(groupContext.groupId ? 'group' : 'task');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -53,9 +68,9 @@ const ScheduleFormPage: React.FC = () => {
         if (data.duration !== undefined) setDuration(String(data.duration));
         if (data.isImportant !== undefined) setIsImportant(data.isImportant);
         toast({ title: '✨ AI 분석 완료', description: '사진에서 일정 정보를 추출했습니다.' });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('AI extraction failed:', err);
-        toast({ title: '분석 실패', description: err?.message || '사진 분석에 실패했습니다.', variant: 'destructive' });
+        toast({ title: '분석 실패', description: getErrorMessage(err), variant: 'destructive' });
       } finally {
         setIsAnalyzing(false);
       }
@@ -76,6 +91,7 @@ const ScheduleFormPage: React.FC = () => {
         endTime: endDate && endTime ? `${endDate}T${endTime}:00` : `${startDate}T${startTime}:00`,
         duration: parseFloat(duration) || 0,
         hasAlarm,
+        groupId: category === 'group' ? groupContext.groupId : undefined,
       });
       navigate('/');
     } catch {
@@ -132,6 +148,11 @@ const ScheduleFormPage: React.FC = () => {
               </button>
             ))}
           </div>
+          {groupContext.groupId ? (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              현재 그룹: {groupContext.groupName || '선택된 그룹'}
+            </p>
+          ) : null}
         </div>
 
         {/* Title */}
