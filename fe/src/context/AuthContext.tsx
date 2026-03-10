@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authApi, AuthLoginRequest } from '@/services/api';
+import { authApi, AuthLoginRequest, AuthSessionResponse } from '@/services/api';
 import { clearStoredSession, getStoredSession, setStoredSession } from '@/services/session';
 
 interface AuthContextType {
@@ -7,6 +7,7 @@ interface AuthContextType {
   isLoading: boolean;
   userId: string | null;
   signIn: (credentials: AuthLoginRequest) => Promise<void>;
+  completeSession: (session: AuthSessionResponse) => void;
   signOut: () => Promise<void>;
 }
 
@@ -47,6 +48,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserId(session.userId);
   };
 
+  const completeSession = (session: AuthSessionResponse) => {
+    setStoredSession(session);
+    setIsAuthenticated(true);
+    setUserId(session.userId);
+    setIsLoading(false);
+  };
+
   const signOut = async () => {
     clearStoredSession();
     setIsAuthenticated(false);
@@ -54,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, userId, signIn, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, userId, signIn, completeSession, signOut }}>
       {children}
     </AuthContext.Provider>
   );
