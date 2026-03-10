@@ -1,10 +1,15 @@
 import React, { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { clearStoredSession, setStoredSession } from '@/services/session';
+import { useAuth } from '@/context/AuthContext';
+import { clearStoredSession } from '@/services/session';
 import { toast } from 'sonner';
 
 const OAuthCallbackPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { completeSession } = useAuth();
+
   useEffect(() => {
     const hash = window.location.hash.startsWith('#')
       ? window.location.hash.slice(1)
@@ -18,13 +23,13 @@ const OAuthCallbackPage: React.FC = () => {
     if (!accessToken || !userId) {
       clearStoredSession();
       toast.error('로그인 결과를 확인할 수 없습니다');
-      window.location.replace('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
-    setStoredSession({ accessToken, userId });
-    window.location.replace(redirect.startsWith('/') ? redirect : '/');
-  }, []);
+    completeSession({ accessToken, userId });
+    navigate(redirect.startsWith('/') ? redirect : '/', { replace: true });
+  }, [completeSession, navigate]);
 
   return (
     <MobileLayout hideNav>
