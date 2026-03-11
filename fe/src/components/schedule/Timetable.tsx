@@ -1,6 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Schedule } from '@/types/types';
 import { getCategoryColor, getDayLabel } from '@/utils';
+import {
+  getTimetableDraggedScrollTop,
+  TIMETABLE_DEFAULT_VISIBLE_HOUR,
+  TIMETABLE_HOUR_END,
+  TIMETABLE_HOUR_HEIGHT,
+  TIMETABLE_HOUR_START,
+} from './timetableUtils';
 
 interface TimetableProps {
   schedules: Schedule[];
@@ -11,9 +18,10 @@ interface TimetableProps {
   onNext: () => void;
 }
 
-const HOUR_START = 7;
-const HOUR_END = 20;
-const HOUR_HEIGHT = 48;
+const HOUR_START = TIMETABLE_HOUR_START;
+const HOUR_END = TIMETABLE_HOUR_END;
+const DEFAULT_VISIBLE_HOUR = TIMETABLE_DEFAULT_VISIBLE_HOUR;
+const HOUR_HEIGHT = TIMETABLE_HOUR_HEIGHT;
 
 interface RenderedSegment {
   scheduleId: string;
@@ -202,6 +210,11 @@ function layoutSchedules(daySchedules: Schedule[]): RenderedSegment[] {
 }
 
 const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlockClick, onPrev, onNext }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
+  const dragStateRef = useRef<{ startY: number; startScrollTop: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
+
   const dayDates = useMemo(() => {
     return Array.from({ length: days }, (_, i) => {
       const d = new Date(startDate);
@@ -220,6 +233,62 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
       return layoutSchedules(daySchedules);
     });
   }, [dayDates, schedules]);
+
+  useEffect(() => {
+    if (!scrollRef.current || initializedRef.current) {
+      return;
+    }
+
+    scrollRef.current.scrollTop = DEFAULT_VISIBLE_HOUR * HOUR_HEIGHT;
+    initializedRef.current = true;
+  }, []);
+
+  const getPointerY = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (Number.isFinite(event.clientY)) return event.clientY;
+    if (Number.isFinite(event.pageY)) return event.pageY;
+    if (Number.isFinite(event.screenY)) return event.screenY;
+    return 0;
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) {
+      return;
+    }
+
+    dragStateRef.current = {
+      startY: getPointerY(event),
+      startScrollTop: scrollRef.current.scrollTop,
+      moved: false,
+    };
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!scrollRef.current || !dragStateRef.current) {
+      return;
+    }
+
+    const deltaY = getPointerY(event) - dragStateRef.current.startY;
+    if (Math.abs(deltaY) > 3) {
+      dragStateRef.current.moved = true;
+      suppressClickRef.current = true;
+    }
+
+    scrollRef.current.scrollTop = getTimetableDraggedScrollTop(
+      dragStateRef.current.startScrollTop,
+      dragStateRef.current.startY,
+      getPointerY(event),
+    );
+  };
+
+  const handlePointerEnd = () => {
+    if (dragStateRef.current?.moved) {
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+
+    dragStateRef.current = null;
+  };
 
   return (
     <div className="relative">
@@ -245,7 +314,16 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
       </div>
 
       {/* Grid */}
-      <div className="flex relative overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 260px)', minHeight: '300px' }}>
+      <div
+        ref={scrollRef}
+        data-testid="timetable-scroll"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        className="flex relative overflow-y-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none"
+        style={{ height: 'calc(100vh - 260px)', minHeight: '300px', touchAction: 'none' }}
+      >
         {/* Time labels */}
         <div className="w-10 shrink-0 relative">
           {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
@@ -292,7 +370,12 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
                 return (
                   <React.Fragment key={`${seg.scheduleId}-${idx}`}>
                     <button
-                      onClick={() => onBlockClick(s)}
+                      onClick={() => {
+                        if (suppressClickRef.current) {
+                          return;
+                        }
+                        onBlockClick(s);
+                      }}
                       className={`absolute px-1 py-0.5 text-left overflow-hidden transition-transform active:scale-[0.97] z-10 ${
                         s.isImportant ? getCategoryColor(s.category, 'strong') : getCategoryColor(s.category, 'light')
                       }`}

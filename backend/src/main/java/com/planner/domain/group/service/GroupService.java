@@ -11,8 +11,11 @@ import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.profile.model.Profile;
+import com.planner.domain.profile.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,6 +29,7 @@ import java.util.stream.Collectors;
 public class GroupService {
 
     private final GroupRepository repository;
+    private final ProfileRepository profileRepository;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -44,6 +48,8 @@ public class GroupService {
                 .pk("GROUP#" + groupId).sk("MEMBER#" + userId)
                 .id(UUID.randomUUID().toString()).groupId(groupId).userId(userId)
                 .role("manager")
+                .nickname(getProfileNickname(userId))
+                .avatarUrl(getProfileAvatarUrl(userId))
                 .gsi2pk("USER#" + userId).gsi2sk("GROUP#" + groupId)
                 .joinedAt(now)
                 .build();
@@ -71,7 +77,7 @@ public class GroupService {
     public GroupDetailResDTO getDetail(String userId, String groupId) {
         Group group = findGroupOrThrow(groupId);
         verifyMembership(groupId, userId);
-        List<GroupMember> members = repository.findMembersByGroupId(groupId);
+        List<GroupMember> members = findMembersWithProfiles(groupId);
         return GroupConverter.toDetailResponse(group, members);
     }
 
@@ -115,6 +121,8 @@ public class GroupService {
                 .pk("GROUP#" + group.getId()).sk("MEMBER#" + userId)
                 .id(UUID.randomUUID().toString()).groupId(group.getId()).userId(userId)
                 .role("member")
+                .nickname(getProfileNickname(userId))
+                .avatarUrl(getProfileAvatarUrl(userId))
                 .gsi2pk("USER#" + userId).gsi2sk("GROUP#" + group.getId())
                 .joinedAt(Instant.now().toString())
                 .build();
@@ -125,7 +133,7 @@ public class GroupService {
 
     public List<GroupMemberResDTO> getMembers(String userId, String groupId) {
         verifyMembership(groupId, userId);
-        return repository.findMembersByGroupId(groupId).stream()
+        return findMembersWithProfiles(groupId).stream()
                 .map(GroupConverter::toMemberResponse)
                 .collect(Collectors.toList());
     }
@@ -146,6 +154,43 @@ public class GroupService {
     private void verifyMembership(String groupId, String userId) {
         repository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+    }
+
+    private List<GroupMember> findMembersWithProfiles(String groupId) {
+        return repository.findMembersByGroupId(groupId).stream()
+                .map(this::applyProfileFallback)
+                .collect(Collectors.toList());
+    }
+
+    private GroupMember applyProfileFallback(GroupMember member) {
+        Profile profile = profileRepository.findByUserId(member.getUserId()).orElse(null);
+        if (profile == null) {
+            return member;
+        }
+
+        if (!StringUtils.hasText(member.getNickname()) && StringUtils.hasText(profile.getNickname())) {
+            member.setNickname(profile.getNickname());
+        }
+
+        if (!StringUtils.hasText(member.getAvatarUrl()) && StringUtils.hasText(profile.getAvatarUrl())) {
+            member.setAvatarUrl(profile.getAvatarUrl());
+        }
+
+        return member;
+    }
+
+    private String getProfileNickname(String userId) {
+        return profileRepository.findByUserId(userId)
+                .map(Profile::getNickname)
+                .filter(StringUtils::hasText)
+                .orElse(null);
+    }
+
+    private String getProfileAvatarUrl(String userId) {
+        return profileRepository.findByUserId(userId)
+                .map(Profile::getAvatarUrl)
+                .filter(StringUtils::hasText)
+                .orElse(null);
     }
 
     private String generateInviteCode() {
