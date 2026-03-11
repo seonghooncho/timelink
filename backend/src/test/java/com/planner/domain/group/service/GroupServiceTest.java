@@ -120,14 +120,17 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("join — 이미 멤버이면 예외")
-    void join_alreadyMember_throws() {
+    @DisplayName("join — 이미 멤버여도 상세 정보를 반환한다")
+    void join_alreadyMember_returnsDetail() {
         Group group = sampleGroup("g1", "other");
+        GroupMember member = sampleMember("g1", "user1", "member");
         when(repository.findByInviteCode("ABC123")).thenReturn(Optional.of(group));
-        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(member));
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(member));
 
-        assertThatThrownBy(() -> service.join("user1", "ABC123"))
-                .isInstanceOf(GroupException.class);
+        assertThatCode(() -> service.join("user1", "ABC123")).doesNotThrowAnyException();
+        verify(repository, never()).saveMember(any());
     }
 
     @Test

@@ -107,9 +107,9 @@ public class GroupService {
         Group group = repository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.INVALID_INVITE_CODE));
 
-        repository.findMember(group.getId(), userId).ifPresent(m -> {
-            throw new GroupException(GroupErrorCode.ALREADY_MEMBER);
-        });
+        if (repository.findMember(group.getId(), userId).isPresent()) {
+            return getDetail(userId, group.getId());
+        }
 
         GroupMember member = GroupMember.builder()
                 .pk("GROUP#" + group.getId()).sk("MEMBER#" + userId)
