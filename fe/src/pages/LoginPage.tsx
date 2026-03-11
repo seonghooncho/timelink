@@ -4,6 +4,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import BrandMark from '@/components/common/BrandMark';
 import { useAuth } from '@/context/AuthContext';
 import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/api';
+import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,7 +34,7 @@ const LoginPage: React.FC = () => {
   const providerError = new URLSearchParams(location.search).get('error');
   const errorMessage = new URLSearchParams(location.search).get('message');
   const hasConfiguredProvider = Boolean(providers?.google || providers?.kakao);
-  const showGuestFallback = providerFetchFailed || (providers !== null && !hasConfiguredProvider);
+  const showGuestFallback = Boolean(providers) || providerFetchFailed || Boolean(providerError);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -70,7 +71,7 @@ const LoginPage: React.FC = () => {
     }
 
     setIsLoading(provider);
-    window.location.href = authApi.getOAuthStartUrl(provider, window.location.origin, redirectPath);
+    window.location.href = authApi.getOAuthStartUrl(provider, getPublicAppOrigin(), redirectPath);
   };
 
   const handleGuestLogin = async () => {

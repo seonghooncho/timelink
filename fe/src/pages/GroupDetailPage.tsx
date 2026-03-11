@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Menu, Link as LinkIcon, LogOut, UserPlus, ChevronRight, Copy, Check } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
@@ -6,16 +6,20 @@ import PageHeader from '@/components/layout/PageHeader';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import GroupAvatar from '@/components/common/GroupAvatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { useGroups } from '@/hooks/useGroups';
 import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
-import { groupApi, coordinationApi, CoordinationResponse as CoordResp } from '@/services/api';
+import { groupApi, coordinationApi, CoordinationResponse as CoordResp, GroupMemberResponse } from '@/services/api';
+import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { toast } from 'sonner';
 
 const GroupDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [] } = useGroups();
   const { data: schedules = [] } = useSchedules();
@@ -25,6 +29,7 @@ const GroupDetailPage: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
+  const [members, setMembers] = useState<GroupMemberResponse[]>([]);
 
   const group = groups.find(g => g.id === id);
   const groupSchedules = schedules.filter(s => s.groupId === id);
@@ -35,9 +40,33 @@ const GroupDetailPage: React.FC = () => {
     coordinationApi.getAll(id, 'active').then(setCoordinations).catch(() => setCoordinations([]));
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    groupApi.getMembers(id).then(setMembers).catch(() => setMembers([]));
+  }, [id]);
+
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      if (a.role !== b.role) {
+        return a.role === 'manager' ? -1 : 1;
+      }
+      return a.joinedAt.localeCompare(b.joinedAt);
+    });
+  }, [members]);
+
   const inviteLink = group?.inviteCode
-    ? `${window.location.origin}/groups/join/${group.inviteCode}`
+    ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}`
     : '';
+
+  const formatJoinedAt = (joinedAt: string) => {
+    const date = new Date(joinedAt);
+    return `${date.getMonth() + 1}.${String(date.getDate()).padStart(2, '0')} 참여`;
+  };
+
+  const getMemberFallback = (member: GroupMemberResponse) => {
+    const source = member.nickname || member.userId;
+    return source.slice(0, 1).toUpperCase();
+  };
 
   const handleCopyLink = async () => {
     try {
@@ -105,9 +134,61 @@ const GroupDetailPage: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-0.5">{group.description}</p>
           </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-            멤버 {group.memberCount}명
+            멤버 {members.length || group.memberCount}명
           </span>
         </div>
+      </div>
+
+      <div className="mt-6 px-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-foreground">참여 멤버</h3>
+          <span className="text-[11px] text-muted-foreground">
+            {members.length || group.memberCount}명
+          </span>
+        </div>
+
+        {sortedMembers.length > 0 ? (
+          <div className="space-y-2">
+            {sortedMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3"
+              >
+                <Avatar className="h-11 w-11 border border-border/70">
+                  <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                  <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                    {getMemberFallback(member)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {member.nickname || member.userId}
+                    </p>
+                    {member.role === 'manager' ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        관리자
+                      </span>
+                    ) : null}
+                    {member.userId === userId ? (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        나
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {member.role === 'manager' ? '그룹을 관리하고 있어요' : '그룹에 참여 중이에요'} · {formatJoinedAt(member.joinedAt)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
+            아직 불러온 참여 멤버 정보가 없습니다.
+          </p>
+        )}
       </div>
 
       {showInviteModal && (

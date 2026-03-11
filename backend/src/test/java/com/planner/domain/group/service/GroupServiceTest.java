@@ -8,6 +8,9 @@ import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.profile.model.Profile;
+import com.planner.domain.profile.repository.ProfileRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +29,13 @@ import static org.mockito.Mockito.*;
 class GroupServiceTest {
 
     @Mock private GroupRepository repository;
+    @Mock private ProfileRepository profileRepository;
     @InjectMocks private GroupService service;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+    }
 
     private Group sampleGroup(String groupId, String createdBy) {
         return Group.builder()
@@ -50,10 +59,17 @@ class GroupServiceTest {
     void create_addsManagerMember() {
         GroupCreateReqDTO req = new GroupCreateReqDTO();
         req.setName("Study");
+        when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
+                Profile.builder().id("USER#user1").sk("PROFILE").nickname("스터디장").avatarUrl("https://img/profile.png").build()
+        ));
 
         assertThatCode(() -> service.create("user1", req)).doesNotThrowAnyException();
         verify(repository).saveGroup(any(Group.class));
-        verify(repository).saveMember(argThat(m -> "manager".equals(m.getRole())));
+        verify(repository).saveMember(argThat(m ->
+                "manager".equals(m.getRole())
+                        && "스터디장".equals(m.getNickname())
+                        && "https://img/profile.png".equals(m.getAvatarUrl())
+        ));
     }
 
     @Test
@@ -114,9 +130,16 @@ class GroupServiceTest {
                 .thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
         when(repository.findMembersByGroupId("g1")).thenReturn(List.of());
+        when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
+                Profile.builder().id("USER#user1").sk("PROFILE").nickname("테스터").avatarUrl("https://img/join.png").build()
+        ));
 
         assertThatCode(() -> service.join("user1", "ABC123")).doesNotThrowAnyException();
-        verify(repository).saveMember(argThat(m -> "member".equals(m.getRole())));
+        verify(repository).saveMember(argThat(m ->
+                "member".equals(m.getRole())
+                        && "테스터".equals(m.getNickname())
+                        && "https://img/join.png".equals(m.getAvatarUrl())
+        ));
     }
 
     @Test
@@ -139,9 +162,14 @@ class GroupServiceTest {
         when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
         when(repository.findMembersByGroupId("g1")).thenReturn(
                 List.of(sampleMember("g1", "user1", "member")));
+        when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
+                Profile.builder().id("USER#user1").sk("PROFILE").nickname("닉네임").avatarUrl("https://img/member.png").build()
+        ));
 
         List<GroupMemberResDTO> result = service.getMembers("user1", "g1");
         assertThat(result).hasSize(1);
+        assertThat(result.get(0).getNickname()).isEqualTo("닉네임");
+        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://img/member.png");
     }
 
     @Test
