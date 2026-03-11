@@ -1,6 +1,16 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
+export type MainTabParamList = {
+  Home: undefined;
+  Calendar: undefined;
+  Groups: undefined;
+  MyPage: undefined;
+};
+
 export type RootStackParamList = {
   Login: undefined;
-  MainTabs: undefined;
+  OAuthCallback: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   ScheduleForm: { groupId?: string; groupName?: string } | undefined;
   GroupForm: undefined;
   GroupDetail: { id: string };
@@ -8,11 +18,4 @@ export type RootStackParamList = {
   TimeCoordination: { groupId: string };
   CoordinationTimetable: { groupId: string; coordId: string };
   Notifications: undefined;
-};
-
-export type MainTabParamList = {
-  Home: undefined;
-  Calendar: undefined;
-  Groups: undefined;
-  MyPage: undefined;
 };

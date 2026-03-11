@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -28,6 +29,7 @@ const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
 const COORDINATION_PREVIEW_LIMIT = 2;
 
 export function GroupDetailScreen({ navigation, route }: Props) {
+  const queryClient = useQueryClient();
   const { id } = route.params;
   const { userId } = useAuth();
   const { data: group, isLoading } = useGroupDetail(id);
@@ -256,7 +258,11 @@ export function GroupDetailScreen({ navigation, route }: Props) {
                 style: 'destructive',
                 onPress: () => {
                   groupApi.leaveGroup(id)
-                    .then(() => navigation.replace('MainTabs'))
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['groups'] });
+                      queryClient.removeQueries({ queryKey: ['groups', id] });
+                      navigation.replace('MainTabs', { screen: 'Groups' });
+                    })
                     .catch(() => Alert.alert('실패', '그룹 나가기에 실패했습니다.'));
                 },
               },

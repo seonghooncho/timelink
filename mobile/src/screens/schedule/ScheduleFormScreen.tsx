@@ -25,6 +25,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ScheduleForm'>;
 export function ScheduleFormScreen({ navigation, route }: Props) {
   const groupContext = useMemo(() => route.params ?? {}, [route.params]);
   const createMutation = useCreateSchedule();
+  const availableCategories = useMemo(
+    () => groupContext.groupId ? categories : categories.filter((item) => item.value !== 'group'),
+    [groupContext.groupId],
+  );
 
   const [category, setCategory] = useState<ScheduleCategory>(groupContext.groupId ? 'group' : 'task');
   const [title, setTitle] = useState('');
@@ -62,7 +66,9 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
       const data = await aiApi.extractSchedule(`data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`);
       if (data.title) setTitle(data.title);
       if (data.content) setContent(data.content);
-      if (data.category && categories.some((item) => item.value === data.category)) setCategory(data.category as ScheduleCategory);
+      if (data.category && availableCategories.some((item) => item.value === data.category)) {
+        setCategory(data.category as ScheduleCategory);
+      }
       if (data.startDate) setStartDate(data.startDate);
       if (data.startTime) setStartTime(data.startTime);
       if (data.endDate) setEndDate(data.endDate);
@@ -138,7 +144,7 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
         <View>
           <Text style={styles.fieldLabel}>카테고리</Text>
           <View style={styles.categoryRow}>
-            {categories.map((item) => (
+            {availableCategories.map((item) => (
               <Pressable
                 key={item.value}
                 onPress={() => setCategory(item.value)}
@@ -148,7 +154,11 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
               </Pressable>
             ))}
           </View>
-          {groupContext.groupId ? <Text style={styles.groupHint}>현재 그룹: {groupContext.groupName || '선택된 그룹'}</Text> : null}
+          {groupContext.groupId ? (
+            <Text style={styles.groupHint}>현재 그룹: {groupContext.groupName || '선택된 그룹'}</Text>
+          ) : (
+            <Text style={styles.groupHint}>그룹 일정은 그룹 상세 화면에서 만들 수 있습니다.</Text>
+          )}
         </View>
 
         <AppTextInput label="제목" value={title} onChangeText={setTitle} placeholder="일정 제목을 입력하세요" />

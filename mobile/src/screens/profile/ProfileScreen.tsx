@@ -26,8 +26,11 @@ export function ProfileScreen() {
   const [scheduleAlarm, setScheduleAlarm] = useState(true);
   const [groupAlarm, setGroupAlarm] = useState(true);
   const [remindOneDayBefore, setRemindOneDayBefore] = useState(true);
+  const [remindOneDayBeforeTime, setRemindOneDayBeforeTime] = useState('22:00');
   const [remindSameDay, setRemindSameDay] = useState(true);
+  const [remindSameDayTime, setRemindSameDayTime] = useState('08:00');
   const [importantAlarm, setImportantAlarm] = useState(true);
+  const [importantAlarmTime, setImportantAlarmTime] = useState('08:00');
 
   useEffect(() => {
     if (profile) {
@@ -42,8 +45,11 @@ export function ProfileScreen() {
         setScheduleAlarm(settings.scheduleAlarm);
         setGroupAlarm(settings.groupAlarm);
         setRemindOneDayBefore(settings.remindOneDayBefore);
+        setRemindOneDayBeforeTime(settings.remindOneDayBeforeTime);
         setRemindSameDay(settings.remindSameDay);
+        setRemindSameDayTime(settings.remindSameDayTime);
         setImportantAlarm(settings.importantAlarm);
+        setImportantAlarmTime(settings.importantAlarmTime);
       })
       .catch(() => undefined);
   }, []);
@@ -162,7 +168,7 @@ export function ProfileScreen() {
 
         <SectionCard>
           <Text style={styles.settingHeader}>리마인드</Text>
-          <SettingRow label="1일 전 리마인드" desc="오후 10:00" value={remindOneDayBefore} onChange={async (next) => {
+          <SettingRow label="1일 전 리마인드" desc={formatReminderTime(remindOneDayBeforeTime)} value={remindOneDayBefore} onChange={async (next) => {
             const previous = remindOneDayBefore;
             setRemindOneDayBefore(next);
             try {
@@ -171,7 +177,7 @@ export function ProfileScreen() {
               setRemindOneDayBefore(previous);
             }
           }} />
-          <SettingRow label="당일 리마인드" desc="오전 8:00" value={remindSameDay} onChange={async (next) => {
+          <SettingRow label="당일 리마인드" desc={formatReminderTime(remindSameDayTime)} value={remindSameDay} onChange={async (next) => {
             const previous = remindSameDay;
             setRemindSameDay(next);
             try {
@@ -180,7 +186,7 @@ export function ProfileScreen() {
               setRemindSameDay(previous);
             }
           }} />
-          <SettingRow label="중요 일정 알림" desc="오전 8:00 추가 알림" value={importantAlarm} onChange={async (next) => {
+          <SettingRow label="중요 일정 알림" desc={`${formatReminderTime(importantAlarmTime)} 추가 알림`} value={importantAlarm} onChange={async (next) => {
             const previous = importantAlarm;
             setImportantAlarm(next);
             try {
@@ -201,6 +207,20 @@ export function ProfileScreen() {
       </View>
     </Screen>
   );
+}
+
+function formatReminderTime(value: string) {
+  const [hourText = '00', minuteText = '00'] = value.split(':');
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return value;
+  }
+
+  const period = hour >= 12 ? '오후' : '오전';
+  const displayHour = hour % 12 || 12;
+  return `${period} ${displayHour}:${String(minute).padStart(2, '0')}`;
 }
 
 function SettingRow({

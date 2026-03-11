@@ -11,6 +11,7 @@ import { colors, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { env } from '../../config/env';
 import { AuthProvidersResponse, SocialAuthProvider, authApi } from '../../services/api';
+import { completeOAuthSession } from '../../navigation/authRedirect';
 import { RootStackParamList } from '../../navigation/types';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -38,6 +39,7 @@ export function LoginScreen({ navigation }: Props) {
 
   const redirectPath = '/';
   const showGuestFallback = Boolean(providers) || providerFetchFailed;
+  const hasEnabledProvider = Boolean(providers?.google || providers?.kakao);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -71,23 +73,7 @@ export function LoginScreen({ navigation }: Props) {
       if (result.type !== 'success' || !result.url) {
         return;
       }
-
-      const parsed = parseAuthCallbackUrl(result.url);
-      if (!parsed.accessToken || !parsed.userId) {
-        throw new Error('로그인 결과를 확인할 수 없습니다');
-      }
-
-      await completeSession({
-        accessToken: parsed.accessToken,
-        userId: parsed.userId,
-      });
-
-      if (parsed.redirect.startsWith('/groups/join/')) {
-        navigation.replace('MainTabs');
-        navigation.navigate('GroupJoin', { inviteCode: parsed.redirect.split('/').pop() || '' });
-      } else {
-        navigation.replace('MainTabs');
-      }
+      await completeOAuthSession(result.url, completeSession, navigation);
     } catch (error) {
       const message = error instanceof Error ? error.message : '소셜 로그인에 실패했습니다';
       Alert.alert('로그인 실패', message);
@@ -150,7 +136,9 @@ export function LoginScreen({ navigation }: Props) {
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={styles.guestTitle}>임시 로그인</Text>
               <Text style={styles.guestDesc}>
-                소셜 로그인 키를 받으면 바로 활성화할 수 있습니다. 현재는 임시 계정으로 서비스를 사용할 수 있습니다.
+                {hasEnabledProvider
+                  ? '로그인 없이 핵심 화면을 가볍게 둘러볼 수 있습니다.'
+                  : '소셜 로그인이 준비되는 동안 임시 계정으로 서비스를 확인할 수 있습니다.'}
               </Text>
             </View>
             {providerBadge}
@@ -179,18 +167,6 @@ export function LoginScreen({ navigation }: Props) {
       <Text style={styles.footer}>로그인 시 서비스 이용약관에 동의합니다</Text>
     </Screen>
   );
-}
-
-function parseAuthCallbackUrl(url: string) {
-  const hashIndex = url.indexOf('#');
-  const hash = hashIndex >= 0 ? url.slice(hashIndex + 1) : '';
-  const params = new URLSearchParams(hash);
-
-  return {
-    accessToken: params.get('accessToken') || '',
-    userId: params.get('userId') || '',
-    redirect: params.get('redirect') || '/',
-  };
 }
 
 const styles = StyleSheet.create({

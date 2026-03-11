@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
 import { MainTabParamList, RootStackParamList } from './types';
 import { LoginScreen } from '../screens/auth/LoginScreen';
+import { OAuthCallbackScreen } from '../screens/auth/OAuthCallbackScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { CalendarScreen } from '../screens/calendar/CalendarScreen';
 import { GroupsScreen } from '../screens/groups/GroupsScreen';
@@ -19,6 +20,7 @@ import { TimeCoordinationScreen } from '../screens/coordination/TimeCoordination
 import { CoordinationTimetableScreen } from '../screens/coordination/CoordinationTimetableScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 import { LoadingState } from '../components/common/LoadingState';
+import { linking } from './linking';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
@@ -86,13 +88,17 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} linking={linking}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
-          <RootStack.Screen name="Login" component={LoginScreen} />
+          <>
+            <RootStack.Screen name="Login" component={LoginScreen} />
+            <RootStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
+          </>
         ) : (
           <>
             <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
+            <RootStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
             <RootStack.Screen name="ScheduleForm" component={ScheduleFormScreen} />
             <RootStack.Screen name="GroupForm" component={GroupFormScreen} />
             <RootStack.Screen name="GroupDetail" component={GroupDetailScreen} />

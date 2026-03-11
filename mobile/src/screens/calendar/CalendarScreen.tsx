@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Screen } from '../../components/layout/Screen';
@@ -30,6 +30,16 @@ export function CalendarScreen() {
     for (let i = 1; i <= daysInMonth; i += 1) list.push(i);
     return list;
   }, [daysInMonth, firstDay]);
+
+  useEffect(() => {
+    if (selectedDay == null) {
+      return;
+    }
+
+    if (selectedDay > daysInMonth) {
+      setSelectedDay(daysInMonth);
+    }
+  }, [daysInMonth, selectedDay]);
 
   const selectedSchedules = selectedDay
     ? schedules.filter((schedule) => schedule.startTime.slice(0, 10) === `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`)
@@ -84,7 +94,9 @@ export function CalendarScreen() {
       </View>
 
       <View style={styles.scheduleSection}>
-        <Text style={styles.sectionTitle}>{month + 1}월 {selectedDay}일 일정</Text>
+        <Text style={styles.sectionTitle}>
+          {selectedDay ? `${month + 1}월 ${selectedDay}일 일정` : '날짜를 선택하세요'}
+        </Text>
         {selectedSchedules.length === 0 ? (
           <Text style={styles.emptyLabel}>일정이 없습니다</Text>
         ) : (

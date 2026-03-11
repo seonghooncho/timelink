@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,18 +10,21 @@ import { colors } from '../../constants/theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupJoin'>;
 
 export function GroupJoinScreen({ navigation, route }: Props) {
+  const queryClient = useQueryClient();
   const { inviteCode } = route.params;
 
   useEffect(() => {
     groupApi.join(inviteCode)
       .then((group) => {
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
+        queryClient.invalidateQueries({ queryKey: ['groups', group.id] });
         navigation.replace('GroupDetail', { id: group.id });
       })
       .catch(() => {
         Alert.alert('참여 실패', '초대 링크가 유효하지 않거나 이미 참여한 그룹입니다.');
         navigation.replace('MainTabs');
       });
-  }, [inviteCode, navigation]);
+  }, [inviteCode, navigation, queryClient]);
 
   return (
     <Screen hideTabSpacing contentContainerStyle={styles.container}>

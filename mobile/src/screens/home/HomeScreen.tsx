@@ -25,7 +25,7 @@ export function HomeScreen() {
   const today = new Date();
 
   const handleDelete = (schedule: Schedule) => {
-    Alert.alert('일정을 완료하였습니다.', '일정을 삭제하시겠습니까?', [
+    Alert.alert('일정을 삭제할까요?', '삭제한 일정은 복구할 수 없습니다.', [
       { text: '유지', style: 'cancel' },
       {
         text: '삭제',

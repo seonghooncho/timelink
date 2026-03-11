@@ -35,5 +35,19 @@ npm run export:web
 - AI API 기본값: `https://timelink.cloud/api/ai/v1`
 - 웹 기준 origin: `https://timelink.cloud`
 - 모바일 OAuth callback origin: `timelink://app`
+- 앱 링크 prefix: `timelink://app`, `https://timelink.cloud`, `https://www.timelink.cloud`
 
-현재 소셜 로그인은 앱 쪽 구현이 준비되어 있으며, 서버/OAuth provider에서 `timelink://app` 기반 callback 허용이 필요하다.
+현재 소셜 로그인은 앱 쪽 구현이 준비되어 있으며, 서버에서 `timelink://app` origin을 허용해야 한다.
+Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/auth/oauth/{provider}/callback` 을 사용한다.
+
+## 링크 동작
+- 로그인 완료 후 서버는 `timelink://app/auth/callback#...` 으로 앱에 세션을 전달한다.
+- 앱은 웹과 같은 경로(`/calendar`, `/groups`, `/groups/join/:inviteCode`, `/mypage`, `/notifications`)를 이해하도록 linking을 맞춰 둔 상태다.
+- `app.json`에는 iOS `associatedDomains`와 Android `intentFilters`를 넣어 두었다.
+
+## 남은 외부 설정
+- `https://timelink.cloud/.well-known/apple-app-site-association`
+- `https://timelink.cloud/.well-known/assetlinks.json`
+
+위 두 파일은 배포 도메인에서 추가로 제공해야 Universal Links / Android App Links 검증이 완료된다.
+현재 저장소에는 Apple Team ID와 Android 서명 인증서 SHA256 fingerprint가 없어 정적 파일까지는 확정하지 않았다.

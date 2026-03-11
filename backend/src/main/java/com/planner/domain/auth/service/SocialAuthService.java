@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -118,6 +119,14 @@ public class SocialAuthService {
         OAuthState state = parseStateOrNull(provider, stateToken);
         String frontendOrigin = state != null ? state.frontendOrigin() : defaultFrontendOrigin(request);
         String redirectPath = state != null ? state.redirectPath() : "/";
+
+        if (isAppOrigin(frontendOrigin)) {
+            String destination = frontendOrigin + CALLBACK_PATH
+                    + "#redirect=" + encode(redirectPath)
+                    + "&error=" + encode(provider.id())
+                    + "&message=" + encode(errorMessage);
+            return URI.create(destination);
+        }
 
         String destination = UriComponentsBuilder
                 .fromUriString(frontendOrigin + "/login")
@@ -274,12 +283,12 @@ public class SocialAuthService {
             throw new CustomException(GeneralErrorCode.BAD_REQUEST, "frontendOrigin 값이 필요합니다");
         }
 
-        String allowedOrigins = corsProperties.getAllowedOrigins();
-        if (!StringUtils.hasText(allowedOrigins)) {
+        String[] allowedOrigins = allowedFrontendOrigins();
+        if (allowedOrigins.length == 0) {
             return;
         }
 
-        boolean matched = Arrays.stream(allowedOrigins.split(","))
+        boolean matched = Arrays.stream(allowedOrigins)
                 .map(String::trim)
                 .filter(StringUtils::hasText)
                 .map(this::normalizeFrontendOrigin)
@@ -291,6 +300,10 @@ public class SocialAuthService {
     }
 
     private String buildApiBaseUrl(HttpServletRequest request) {
+        if (StringUtils.hasText(oauthProperties.getPublicApiBaseUrl())) {
+            return normalizeFrontendOrigin(oauthProperties.getPublicApiBaseUrl());
+        }
+
         return UriComponentsBuilder
                 .fromHttpUrl(request.getRequestURL().toString())
                 .replacePath(null)
@@ -322,9 +335,10 @@ public class SocialAuthService {
 
     private String defaultFrontendOrigin(HttpServletRequest request) {
         if (StringUtils.hasText(corsProperties.getAllowedOrigins())) {
-            return Arrays.stream(corsProperties.getAllowedOrigins().split(","))
+            return Arrays.stream(allowedFrontendOrigins())
                     .map(String::trim)
                     .filter(StringUtils::hasText)
+                    .filter(origin -> !isAppOrigin(origin))
                     .map(this::normalizeFrontendOrigin)
                     .findFirst()
                     .orElseGet(() -> inferFrontendOriginFromRequest(request));
@@ -396,6 +410,34 @@ public class SocialAuthService {
 
     private String encode(String value) {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    private String[] allowedFrontendOrigins() {
+        return Stream.of(
+                        oauthProperties.getAllowedFrontendOrigins(),
+                        corsProperties.getAllowedOrigins()
+                )
+                .filter(StringUtils::hasText)
+                .flatMap(value -> Arrays.stream(value.split(",")))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .toArray(String[]::new);
+    }
+
+    private boolean isAppOrigin(String origin) {
+        if (!StringUtils.hasText(origin)) {
+            return false;
+        }
+
+        try {
+            URI uri = URI.create(origin);
+            String scheme = uri.getScheme();
+            return StringUtils.hasText(scheme)
+                    && !"http".equalsIgnoreCase(scheme)
+                    && !"https".equalsIgnoreCase(scheme);
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private record OAuthState(String frontendOrigin, String redirectPath) {

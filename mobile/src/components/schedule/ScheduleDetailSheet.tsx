@@ -45,7 +45,7 @@ export function ScheduleDetailSheet({ schedule, open, onClose, onDelete }: Sched
 
           {onDelete ? (
             <AppButton
-              label="일정 완료로 처리"
+              label="일정 삭제"
               variant="secondary"
               onPress={() => onDelete(schedule)}
               style={{ marginTop: 20 }}

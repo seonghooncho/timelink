@@ -28,17 +28,13 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
   const [title, setTitle] = useState('');
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set());
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(18);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     groupApi.getMembers(groupId)
-      .then((items) => {
-        setMembers(items);
-        setSelectedMembers(new Set(items.map((item) => item.id)));
-      })
+      .then(setMembers)
       .catch(() => setMembers([]));
   }, [groupId]);
 
@@ -68,15 +64,6 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
       const next = new Set(prev);
       if (next.has(dayIndex)) next.delete(dayIndex);
       else next.add(dayIndex);
-      return next;
-    });
-  };
-
-  const toggleMember = (memberId: string) => {
-    setSelectedMembers((prev) => {
-      const next = new Set(prev);
-      if (next.has(memberId)) next.delete(memberId);
-      else next.add(memberId);
       return next;
     });
   };
@@ -114,17 +101,15 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
 
         {members.length > 0 ? (
           <View>
-            <Text style={styles.sectionLabel}>함께 확인할 멤버</Text>
+            <Text style={styles.sectionLabel}>함께 조율할 멤버</Text>
+            <Text style={styles.sectionHint}>현재 버전에서는 그룹 전체 멤버가 같은 조율에 참여합니다.</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberScroll}>
-              {members.map((member) => {
-                const selected = selectedMembers.has(member.id);
-                return (
-                  <Pressable key={member.id} onPress={() => toggleMember(member.id)} style={[styles.memberChip, selected ? styles.memberChipActive : null]}>
-                    <PersonAvatar image={member.avatarUrl} name={member.nickname || member.userId} size={34} />
-                    <Text numberOfLines={1} style={[styles.memberName, selected ? styles.memberNameActive : null]}>{member.nickname || member.userId}</Text>
-                  </Pressable>
-                );
-              })}
+              {members.map((member) => (
+                <View key={member.id} style={styles.memberChip}>
+                  <PersonAvatar image={member.avatarUrl} name={member.nickname || member.userId} size={34} />
+                  <Text numberOfLines={1} style={styles.memberName}>{member.nickname || member.userId}</Text>
+                </View>
+              ))}
             </ScrollView>
           </View>
         ) : null}
@@ -210,6 +195,12 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginBottom: 10,
   },
+  sectionHint: {
+    marginTop: -4,
+    marginBottom: 10,
+    fontSize: 11,
+    color: colors.mutedForeground,
+  },
   memberScroll: {
     gap: 10,
   },
@@ -223,17 +214,9 @@ const styles = StyleSheet.create({
     padding: 10,
     gap: 8,
   },
-  memberChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
   memberName: {
     fontSize: 11,
     color: colors.mutedForeground,
-  },
-  memberNameActive: {
-    color: colors.primary,
-    fontWeight: '700',
   },
   weekdayRow: {
     flexDirection: 'row',
