@@ -13,6 +13,7 @@ resource "aws_lambda_function" "api" {
   description   = "Planner backend API Lambda"
   handler       = "com.planner.StreamLambdaHandler::handleRequest"
   runtime       = "java21"
+  publish       = true
   memory_size   = var.lambda_memory
   timeout       = var.lambda_timeout
   architectures = ["arm64"] # Graviton2 — 최소 비용

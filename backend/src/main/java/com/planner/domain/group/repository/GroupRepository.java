@@ -6,12 +6,13 @@ import com.planner.global.config.AwsProperties;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ExecuteStatementRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,15 +51,19 @@ public class GroupRepository {
     }
 
     public Optional<Group> findByInviteCode(String inviteCode) {
-        var request = ExecuteStatementRequest.builder()
-                .statement("SELECT * FROM \"" + tableName + "\" WHERE SK=? AND inviteCode=?")
-                .parameters(
-                        AttributeValue.builder().s("METADATA").build(),
-                        AttributeValue.builder().s(inviteCode).build()
-                )
-                .limit(1)
+        var request = ScanRequest.builder()
+                .tableName(tableName)
+                .filterExpression("#sk = :metadata AND #inviteCode = :inviteCode")
+                .expressionAttributeNames(Map.of(
+                        "#sk", "SK",
+                        "#inviteCode", "inviteCode"
+                ))
+                .expressionAttributeValues(Map.of(
+                        ":metadata", AttributeValue.builder().s("METADATA").build(),
+                        ":inviteCode", AttributeValue.builder().s(inviteCode).build()
+                ))
                 .build();
-        return dynamoDbClient.executeStatement(request).items().stream()
+        return dynamoDbClient.scan(request).items().stream()
                 .findFirst()
                 .map(groupSchema::mapToItem);
     }
