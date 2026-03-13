@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Timelink",
+    "slug": "timelink-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "timelink",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f8f7f4"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "cloud.timelink.mobile",
+      "associatedDomains": [
+        "applinks:timelink.cloud",
+        "applinks:www.timelink.cloud"
+      ]
+    },
+    "android": {
+      "package": "cloud.timelink.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "timelink.cloud",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.timelink.cloud",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "plannerApiBaseUrl": "https://timelink.cloud/api/planner/v1",
+      "aiApiBaseUrl": "https://timelink.cloud/api/ai/v1",
+      "webAppOrigin": "https://timelink.cloud",
+      "mobileAppOrigin": "timelink://app"
+    }
+  }
+}

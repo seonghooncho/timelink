@@ -34,6 +34,12 @@ variable "frontend_origin_override" {
   default     = ""
 }
 
+variable "mobile_app_origin" {
+  description = "Custom scheme origin used by the mobile app OAuth callback."
+  type        = string
+  default     = "timelink://app"
+}
+
 variable "backend_log_level" {
   description = "Application log level for the backend Lambda."
   type        = string

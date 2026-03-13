@@ -25,6 +25,8 @@ jwt:
   expiration: 86400000
 
 oauth:
+  allowed-frontend-origins:
+  public-api-base-url:
   google:
     client-id:
     client-secret:
