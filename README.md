@@ -41,6 +41,28 @@ npm run fe:test
 npm run fe:lint
 ```
 
+### Mobile
+
+```sh
+cd mobile
+npm install
+npx expo-doctor
+npm run typecheck
+```
+
+Android Play 업로드용 AAB는 루트에서 아래처럼 만든다.
+
+```sh
+export ANDROID_SDK_ROOT=/opt/homebrew/share/android-commandlinetools
+export ANDROID_UPLOAD_KEYSTORE_PATH="$HOME/.config/timelink/android-upload-key.jks"
+export ANDROID_UPLOAD_KEY_ALIAS=timelink-upload
+export ANDROID_UPLOAD_KEYSTORE_PASSWORD='<store-password>'
+export ANDROID_UPLOAD_KEY_PASSWORD='<key-password>'
+npm run mobile:build:android
+```
+
+스크립트는 `mobile/android`를 Expo prebuild로 생성한 뒤 `bundleRelease`를 실행하고, 업로드 키 환경변수가 있으면 AAB를 바로 서명한다.
+
 ### Backend
 
 ```sh

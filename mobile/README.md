@@ -43,7 +43,8 @@ Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/aut
 ## 링크 동작
 - 로그인 완료 후 서버는 `timelink://app/auth/callback#...` 으로 앱에 세션을 전달한다.
 - 앱은 웹과 같은 경로(`/calendar`, `/groups`, `/groups/join/:inviteCode`, `/mypage`, `/notifications`)를 이해하도록 linking을 맞춰 둔 상태다.
-- `app.json`에는 iOS `associatedDomains`와 Android `intentFilters`를 넣어 두었다.
+- Android App Links는 `intentFilters`로 유지한다.
+- iOS Universal Links(`associatedDomains`)는 유료 Apple Developer 팀에서만 활성화한다. 무료 Personal Team으로 로컬 실기기 테스트할 때는 비활성화해야 서명이 된다.
 
 ## 남은 외부 설정
 - `https://timelink.cloud/.well-known/apple-app-site-association`

@@ -14,14 +14,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "cloud.timelink.mobile",
-      "associatedDomains": [
-        "applinks:timelink.cloud",
-        "applinks:www.timelink.cloud"
-      ]
+      "buildNumber": "1",
+      "bundleIdentifier": "cloud.timelink.mobile"
     },
     "android": {
       "package": "cloud.timelink.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
