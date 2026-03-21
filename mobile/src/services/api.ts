@@ -11,6 +11,15 @@ interface ApiEnvelope<T> {
   meta?: ApiPageMeta;
 }
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export interface UploadFileAsset {
   uri: string;
   name: string;
@@ -48,7 +57,7 @@ async function requestEnvelope<T>(
     if (res.status === 401) {
       await clearStoredSession();
     }
-    throw new Error(json?.error?.message || json?.detail || `API Error ${res.status}`);
+    throw new ApiError(res.status, json?.error?.message || json?.detail || `API Error ${res.status}`);
   }
 
   return {
@@ -110,7 +119,7 @@ async function uploadFile<T>(path: string, file: UploadFileAsset) {
     if (res.status === 401) {
       await clearStoredSession();
     }
-    throw new Error(json?.error?.message || `API Error ${res.status}`);
+    throw new ApiError(res.status, json?.error?.message || `API Error ${res.status}`);
   }
 
   return json.data as T;

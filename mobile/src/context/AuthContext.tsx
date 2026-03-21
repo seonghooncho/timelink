@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { AuthLoginRequest, AuthSessionResponse, authApi } from '../services/api';
+import { ApiError, AuthLoginRequest, AuthSessionResponse, authApi } from '../services/api';
 import { clearStoredSession, getStoredSession, setStoredSession, subscribeSession } from '../services/session';
 
 interface AuthContextValue {
@@ -52,11 +52,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setIsAuthenticated(true);
           setUserId(session.userId);
         }
-      } catch {
-        await clearStoredSession();
-        if (mounted) {
-          setIsAuthenticated(false);
-          setUserId(null);
+      } catch (error) {
+        if (error instanceof ApiError && error.status !== 401) {
+          if (mounted) {
+            setIsAuthenticated(true);
+            setUserId(storedSession.userId);
+          }
+        } else {
+          await clearStoredSession();
+          if (mounted) {
+            setIsAuthenticated(false);
+            setUserId(null);
+          }
         }
       } finally {
         if (mounted) {
