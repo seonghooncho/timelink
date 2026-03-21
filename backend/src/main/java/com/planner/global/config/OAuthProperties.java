@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "oauth")
 public class OAuthProperties {
 
+    private String allowedFrontendOrigins;
+    private String publicApiBaseUrl;
     private Provider google = new Provider();
     private Provider kakao = new Provider();
 

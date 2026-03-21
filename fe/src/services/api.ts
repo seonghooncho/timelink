@@ -13,6 +13,15 @@ export interface ApiEnvelope<T> {
   meta?: ApiPageMeta;
 }
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function getAuthHeaders(contentType = 'application/json'): Record<string, string> {
   const token = getAccessToken();
   return {
@@ -46,7 +55,7 @@ async function requestEnvelope<T>(
     if (res.status === 401) {
       clearStoredSession();
     }
-    throw new Error(json?.error?.message || `API Error ${res.status}`);
+    throw new ApiError(res.status, json?.error?.message || `API Error ${res.status}`);
   }
   return {
     data: json.data as T,
@@ -69,7 +78,7 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
     if (res.status === 401) {
       clearStoredSession();
     }
-    throw new Error(json?.error?.message || `API Error ${res.status}`);
+    throw new ApiError(res.status, json?.error?.message || `API Error ${res.status}`);
   }
 
   return json.data as T;
