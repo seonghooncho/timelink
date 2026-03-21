@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authApi, AuthLoginRequest, AuthSessionResponse } from '@/services/api';
+import { ApiError, authApi, AuthLoginRequest, AuthSessionResponse } from '@/services/api';
 import { clearStoredSession, getStoredSession, setStoredSession } from '@/services/session';
 
 interface AuthContextType {
@@ -31,7 +31,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
         setUserId(session.userId);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && error.status !== 401) {
+          setIsAuthenticated(true);
+          setUserId(storedSession.userId);
+          return;
+        }
+
         clearStoredSession();
         setIsAuthenticated(false);
         setUserId(null);

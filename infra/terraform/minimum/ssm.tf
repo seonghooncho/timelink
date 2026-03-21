@@ -9,6 +9,11 @@ locals {
     "aws.s3.bucket-name"        = aws_s3_bucket.public_assets.bucket
     "aws.s3.public-base-url"    = local.frontend_origin
     "cors.allowed-origins"      = local.frontend_origin
+    "oauth.allowed-frontend-origins" = join(",", compact([
+      local.frontend_origin,
+      trimsuffix(var.mobile_app_origin, "/"),
+    ]))
+    "oauth.public-api-base-url" = local.frontend_origin
     "logging.level.com.planner" = var.backend_log_level
   }
 
@@ -22,16 +27,16 @@ resource "aws_ssm_parameter" "backend_config" {
   for_each = local.backend_ssm_parameters
 
   overwrite = true
-  name  = "${local.backend_ssm_prefix}/${each.key}"
-  type  = "String"
-  value = each.value
+  name      = "${local.backend_ssm_prefix}/${each.key}"
+  type      = "String"
+  value     = each.value
 }
 
 resource "aws_ssm_parameter" "ai_config" {
   for_each = local.ai_ssm_parameters
 
   overwrite = true
-  name  = "${local.ai_ssm_prefix}/${each.key}"
-  type  = "String"
-  value = each.value
+  name      = "${local.ai_ssm_prefix}/${each.key}"
+  type      = "String"
+  value     = each.value
 }

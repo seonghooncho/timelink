@@ -20,6 +20,8 @@ import LoginPage from "./pages/LoginPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,8 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route path="/" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/schedule/new" element={<ProtectedRoute><ScheduleFormPage /></ProtectedRoute>} />
