@@ -37,6 +37,7 @@ public class SocialAuthService {
 
     private static final Duration STATE_TTL = Duration.ofMinutes(10);
     private static final String CALLBACK_PATH = "/auth/callback";
+    private static final String KAKAO_PROFILE_SCOPE = "profile_nickname,profile_image";
 
     private final OAuthProperties oauthProperties;
     private final JwtProperties jwtProperties;
@@ -80,6 +81,7 @@ public class SocialAuthService {
                     .queryParam("response_type", "code")
                     .queryParam("client_id", config.getClientId())
                     .queryParam("redirect_uri", encode(callbackUri))
+                    .queryParam("scope", KAKAO_PROFILE_SCOPE)
                     .queryParam("state", state)
                     .build(true)
                     .toUri();
@@ -154,7 +156,7 @@ public class SocialAuthService {
                 .body(JsonNode.class);
 
         String providerUserId = readRequired(userInfo, "sub", "Google 사용자 식별자를 확인할 수 없습니다");
-        String nickname = firstText(userInfo, "name", fallbackNickname(userInfo.path("email").asText(""), "google"));
+        String nickname = resolveGoogleNickname(userInfo);
         String avatarUrl = firstText(userInfo, "picture", "");
 
         return new ProviderUser("google_" + providerUserId, nickname, avatarUrl);
@@ -188,7 +190,7 @@ public class SocialAuthService {
         String providerUserId = readRequired(userInfo, "id", "Kakao 사용자 식별자를 확인할 수 없습니다");
         JsonNode account = userInfo.path("kakao_account");
         JsonNode profile = account.path("profile");
-        String nickname = firstText(profile, "nickname", fallbackNickname(account.path("email").asText(""), "kakao"));
+        String nickname = resolveKakaoNickname(userInfo);
         String avatarUrl = firstText(profile, "profile_image_url", "");
 
         return new ProviderUser("kakao_" + providerUserId, nickname, avatarUrl);
@@ -373,7 +375,27 @@ public class SocialAuthService {
         return value;
     }
 
-    private String firstText(JsonNode node, String fieldName, String fallback) {
+    static String resolveGoogleNickname(JsonNode userInfo) {
+        return firstNonBlank(
+                firstText(userInfo, "name", null),
+                fallbackNickname(userInfo.path("email").asText(""), "google")
+        );
+    }
+
+    static String resolveKakaoNickname(JsonNode userInfo) {
+        JsonNode account = userInfo.path("kakao_account");
+        JsonNode profile = account.path("profile");
+        boolean defaultNickname = profile.path("is_default_nickname").asBoolean(false);
+
+        return firstNonBlank(
+                firstText(account, "name", null),
+                defaultNickname ? null : firstText(profile, "nickname", null),
+                defaultNickname ? null : firstText(userInfo.path("properties"), "nickname", null),
+                fallbackNickname(account.path("email").asText(""), "kakao")
+        );
+    }
+
+    private static String firstText(JsonNode node, String fieldName, String fallback) {
         if (node == null) {
             return fallback;
         }
@@ -387,7 +409,17 @@ public class SocialAuthService {
         return StringUtils.hasText(value) ? value : fallback;
     }
 
-    private String fallbackNickname(String email, String prefix) {
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+
+        return "사용자";
+    }
+
+    private static String fallbackNickname(String email, String prefix) {
         if (StringUtils.hasText(email) && email.contains("@")) {
             return email.substring(0, email.indexOf('@'));
         }

@@ -64,6 +64,30 @@ class ProfileServiceTest {
             assertThat(result.getNickname()).isEqualTo("사용자");
             then(repository).should().save(any(Profile.class));
         }
+
+        @Test
+        @DisplayName("소셜 기본 닉네임은 실제 이름 힌트로 갱신한다")
+        void shouldReplaceGeneratedSocialNicknameWithHint() {
+            Profile profile = createProfile();
+            profile.setNickname("카카오유저");
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(profile));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, "홍길동", null);
+
+            assertThat(result.getNickname()).isEqualTo("홍길동");
+            then(repository).should().save(profile);
+        }
+
+        @Test
+        @DisplayName("사용자가 정한 닉네임은 소셜 이름 힌트로 덮어쓰지 않는다")
+        void shouldKeepExistingUserNickname() {
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(createProfile()));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, "홍길동", null);
+
+            assertThat(result.getNickname()).isEqualTo("테스트유저");
+            then(repository).should(never()).save(any());
+        }
     }
 
     @Nested

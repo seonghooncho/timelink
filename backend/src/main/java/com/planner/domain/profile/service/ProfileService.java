@@ -67,7 +67,17 @@ public class ProfileService {
         }
 
         String currentNickname = profile.getNickname();
-        return !StringUtils.hasText(currentNickname) || "사용자".equals(currentNickname);
+        String resolvedNickname = ProfileConverter.resolveNickname(nicknameHint);
+        return !resolvedNickname.equals(currentNickname)
+                && (!StringUtils.hasText(currentNickname) || isGeneratedNickname(currentNickname));
+    }
+
+    private boolean isGeneratedNickname(String nickname) {
+        String normalized = nickname.trim();
+        return "사용자".equals(normalized)
+                || "카카오유저".equals(normalized)
+                || "kakao-user".equalsIgnoreCase(normalized)
+                || "google-user".equalsIgnoreCase(normalized);
     }
 
     private boolean shouldApplyAvatarHint(Profile profile, String avatarUrlHint) {
