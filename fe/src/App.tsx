@@ -20,6 +20,7 @@ import LoginPage from "./pages/LoginPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import NotFound from "./pages/NotFound";
+import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,7 @@ const App = () => (
         <AppProvider>
           <Toaster />
           <Sonner />
+          <PwaInstallPrompt />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
