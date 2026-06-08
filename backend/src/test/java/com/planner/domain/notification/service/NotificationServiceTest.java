@@ -141,7 +141,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("updateSettings — 부분 업데이트")
+    @DisplayName("updateSettings — 일정 알림을 꺼도 리마인드 선택값은 보존한다")
     void updateSettings_partialUpdate() {
         NotificationSettings settings = NotificationSettings.builder()
                 .pk("USER#user1").sk("NOTIF_SETTINGS")
@@ -157,15 +157,15 @@ class NotificationServiceTest {
 
         NotificationSettingsResDTO result = service.updateSettings("user1", req);
         assertThat(result.getScheduleAlarm()).isFalse();
-        assertThat(result.getRemindOneDayBefore()).isFalse();
-        assertThat(result.getRemindSameDay()).isFalse();
-        assertThat(result.getImportantAlarm()).isFalse();
+        assertThat(result.getRemindOneDayBefore()).isTrue();
+        assertThat(result.getRemindSameDay()).isTrue();
+        assertThat(result.getImportantAlarm()).isTrue();
         verify(reminderSchedulingService).syncUserReminders(eq("user1"), same(settings));
     }
 
     @Test
-    @DisplayName("updateSettings — 일정 알림이 꺼져 있으면 리마인드 on 저장을 막는다")
-    void updateSettings_disablesRemindersWhenScheduleAlarmOff() {
+    @DisplayName("updateSettings — 일정 알림이 꺼져 있어도 리마인드 선택값은 저장한다")
+    void updateSettings_preservesRemindersWhenScheduleAlarmOff() {
         when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, false)));
 
         NotificationSettingsUpdateReqDTO req = new NotificationSettingsUpdateReqDTO();
@@ -176,9 +176,9 @@ class NotificationServiceTest {
         NotificationSettingsResDTO result = service.updateSettings("user1", req);
 
         assertThat(result.getScheduleAlarm()).isFalse();
-        assertThat(result.getRemindOneDayBefore()).isFalse();
-        assertThat(result.getRemindSameDay()).isFalse();
-        assertThat(result.getImportantAlarm()).isFalse();
+        assertThat(result.getRemindOneDayBefore()).isTrue();
+        assertThat(result.getRemindSameDay()).isTrue();
+        assertThat(result.getImportantAlarm()).isTrue();
         verify(reminderSchedulingService).syncUserReminders(eq("user1"), any(NotificationSettings.class));
     }
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
-import { isIos, isStandalonePwa } from "@/utils/pwa";
+import { isIos, isMobileDevice, isStandalonePwa } from "@/utils/pwa";
 
 describe("pwa utilities", () => {
   beforeEach(() => {
@@ -31,6 +31,14 @@ describe("pwa utilities", () => {
     );
 
     expect(isIos()).toBe(true);
+  });
+
+  it("detects mobile user agents", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/148.0.0.0 Mobile Safari/537.36",
+    );
+
+    expect(isMobileDevice()).toBe(true);
   });
 
   it("shows compact install banner on regular web access", async () => {
@@ -92,5 +100,30 @@ describe("pwa utilities", () => {
     await waitFor(() => {
       expect(prompt).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("keeps mobile install prompt as guide-only even when browser install event exists", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/148.0.0.0 Mobile Safari/537.36",
+    );
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const installEvent = new Event("beforeinstallprompt") as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: "accepted"; platform: string }>;
+    };
+    installEvent.prompt = prompt;
+    installEvent.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
+
+    render(React.createElement(PwaInstallPrompt));
+
+    await act(async () => {
+      window.dispatchEvent(installEvent);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("메뉴 → 앱 설치")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "설치" })).not.toBeInTheDocument();
   });
 });

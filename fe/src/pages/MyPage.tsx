@@ -49,9 +49,9 @@ const MyPage: React.FC = () => {
   const applyNotificationSettings = (settings: NotificationSettingsResponse) => {
     setScheduleAlarm(settings.scheduleAlarm);
     setGroupAlarm(settings.groupAlarm);
-    setRemindOneDayBefore(settings.scheduleAlarm && settings.remindOneDayBefore);
-    setRemindSameDay(settings.scheduleAlarm && settings.remindSameDay);
-    setImportantAlarm(settings.scheduleAlarm && settings.importantAlarm);
+    setRemindOneDayBefore(settings.remindOneDayBefore);
+    setRemindSameDay(settings.remindSameDay);
+    setImportantAlarm(settings.importantAlarm);
   };
 
   const requestBrowserNotificationPermission = async () => {
@@ -105,6 +105,11 @@ const MyPage: React.FC = () => {
     value: boolean,
     rollback: () => void,
   ) => {
+    const reminderKeys = ['remindOneDayBefore', 'remindSameDay', 'importantAlarm'];
+    if (!scheduleAlarm && reminderKeys.includes(key)) {
+      return;
+    }
+
     try {
       if (value && (key === 'scheduleAlarm' || key === 'groupAlarm')) {
         await requestBrowserNotificationPermission();
@@ -127,11 +132,6 @@ const MyPage: React.FC = () => {
     };
 
     setScheduleAlarm(value);
-    if (!value) {
-      setRemindOneDayBefore(false);
-      setRemindSameDay(false);
-      setImportantAlarm(false);
-    }
 
     try {
       if (value) {
@@ -140,12 +140,7 @@ const MyPage: React.FC = () => {
       const settings = await settingsApi.updateNotifications(
         value
           ? { scheduleAlarm: true }
-          : {
-              scheduleAlarm: false,
-              remindOneDayBefore: false,
-              remindSameDay: false,
-              importantAlarm: false,
-            },
+          : { scheduleAlarm: false },
       );
       applyNotificationSettings(settings);
       await syncPushSubscription(settings);
@@ -263,17 +258,17 @@ const MyPage: React.FC = () => {
         <section className="bg-card rounded-2xl shadow-soft overflow-hidden">
           <div className="px-5 pt-4 pb-2"><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">리마인드</p></div>
           <div className="divide-y divide-border/60">
-            <SettingRow label="1일 전 리마인드" desc={scheduleAlarm ? '오후 10:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={scheduleAlarm && remindOneDayBefore} disabled={!scheduleAlarm} onChange={v => {
+            <SettingRow label="1일 전 리마인드" desc={scheduleAlarm ? '오후 10:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={remindOneDayBefore} disabled={!scheduleAlarm} onChange={v => {
               const previous = remindOneDayBefore;
               setRemindOneDayBefore(v);
               handleSettingChange('remindOneDayBefore', v, () => setRemindOneDayBefore(previous));
             }} />
-            <SettingRow label="당일 리마인드" desc={scheduleAlarm ? '오전 8:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={scheduleAlarm && remindSameDay} disabled={!scheduleAlarm} onChange={v => {
+            <SettingRow label="당일 리마인드" desc={scheduleAlarm ? '오전 8:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={remindSameDay} disabled={!scheduleAlarm} onChange={v => {
               const previous = remindSameDay;
               setRemindSameDay(v);
               handleSettingChange('remindSameDay', v, () => setRemindSameDay(previous));
             }} />
-            <SettingRow label="중요 일정 알림" desc={scheduleAlarm ? '오전 8:00 추가 알림' : '일정 알림을 켜면 설정할 수 있습니다'} checked={scheduleAlarm && importantAlarm} disabled={!scheduleAlarm} onChange={v => {
+            <SettingRow label="중요 일정 알림" desc={scheduleAlarm ? '오전 8:00 추가 알림' : '일정 알림을 켜면 설정할 수 있습니다'} checked={importantAlarm} disabled={!scheduleAlarm} onChange={v => {
               const previous = importantAlarm;
               setImportantAlarm(v);
               handleSettingChange('importantAlarm', v, () => setImportantAlarm(previous));

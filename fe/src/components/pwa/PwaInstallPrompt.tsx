@@ -3,6 +3,7 @@ import { Download, Menu, Share2, X } from "lucide-react";
 import {
   BeforeInstallPromptEvent,
   isIos,
+  isMobileDevice,
   isStandalonePwa,
 } from "@/utils/pwa";
 
@@ -11,6 +12,7 @@ const PwaInstallPrompt = () => {
   const [visible, setVisible] = useState(false);
   const [installing, setInstalling] = useState(false);
   const iosDevice = useMemo(() => isIos(), []);
+  const mobileDevice = useMemo(() => isMobileDevice(), []);
 
   useEffect(() => {
     if (isStandalonePwa()) {
@@ -60,9 +62,10 @@ const PwaInstallPrompt = () => {
     return null;
   }
 
+  const showInstallButton = Boolean(installEvent && !mobileDevice);
   const guide = iosDevice
     ? "공유 → 홈 화면에 추가를 누르면 앱처럼 열려요."
-    : installEvent
+    : showInstallButton
       ? "설치 버튼을 누르면 홈 화면에 바로 추가돼요."
       : "브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.";
 
@@ -83,7 +86,7 @@ const PwaInstallPrompt = () => {
           <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{guide}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {installEvent ? (
+            {showInstallButton ? (
               <button
                 type="button"
                 className="pressable inline-flex h-8 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90 disabled:opacity-60"

@@ -104,7 +104,6 @@ public class NotificationService {
         if (req.getRemindSameDayTime() != null) settings.setRemindSameDayTime(req.getRemindSameDayTime());
         if (req.getImportantAlarm() != null) settings.setImportantAlarm(req.getImportantAlarm());
         if (req.getImportantAlarmTime() != null) settings.setImportantAlarmTime(req.getImportantAlarmTime());
-        applyScheduleAlarmPolicy(settings);
         settings.setUpdatedAt(Instant.now().toString());
 
         repository.saveSettings(settings);
@@ -204,11 +203,4 @@ public class NotificationService {
         webPushService.sendNotification(userId, notification);
     }
 
-    private void applyScheduleAlarmPolicy(NotificationSettings settings) {
-        if (!Boolean.TRUE.equals(settings.getScheduleAlarm())) {
-            settings.setRemindOneDayBefore(false);
-            settings.setRemindSameDay(false);
-            settings.setImportantAlarm(false);
-        }
-    }
 }

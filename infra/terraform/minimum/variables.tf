@@ -28,6 +28,18 @@ variable "lambda_timeout" {
   default     = 30
 }
 
+variable "notification_worker_memory" {
+  description = "Notification worker Lambda memory in MB."
+  type        = number
+  default     = 1024
+}
+
+variable "notification_worker_timeout" {
+  description = "Notification worker Lambda timeout in seconds."
+  type        = number
+  default     = 120
+}
+
 variable "frontend_origin_override" {
   description = "Optional custom frontend origin. Leave blank to use the CloudFront domain."
   type        = string

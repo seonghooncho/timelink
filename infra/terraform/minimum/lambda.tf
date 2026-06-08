@@ -46,8 +46,8 @@ resource "aws_lambda_function" "notification_worker" {
   handler       = "com.planner.NotificationSchedulerLambdaHandler::handleRequest"
   runtime       = "java21"
   publish       = true
-  memory_size   = var.lambda_memory
-  timeout       = var.lambda_timeout
+  memory_size   = var.notification_worker_memory
+  timeout       = var.notification_worker_timeout
   architectures = ["arm64"]
 
   s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket

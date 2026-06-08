@@ -17,3 +17,12 @@ export const isIos = () => {
 
   return /iPad|iPhone|iPod/.test(userAgent) || touchMac;
 };
+
+export const isMobileDevice = () => {
+  const userAgent = navigator.userAgent || "";
+  const touchDevice = navigator.maxTouchPoints > 1;
+  const narrowViewport = window.matchMedia("(max-width: 767px)").matches;
+
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)
+    || (touchDevice && narrowViewport);
+};
