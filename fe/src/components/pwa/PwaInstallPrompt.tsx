@@ -61,10 +61,10 @@ const PwaInstallPrompt = () => {
   }
 
   const guide = iosDevice
-    ? "공유 메뉴에서 홈 화면에 추가를 선택하세요."
+    ? "공유 → 홈 화면에 추가를 누르면 앱처럼 열려요."
     : installEvent
-      ? "설치 버튼으로 더 빠르게 열 수 있어요."
-      : "브라우저 메뉴에서 앱 설치를 선택하세요.";
+      ? "설치 버튼을 누르면 홈 화면에 바로 추가돼요."
+      : "브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.";
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
@@ -100,7 +100,7 @@ const PwaInstallPrompt = () => {
                 ) : (
                   <Menu className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                 )}
-                {iosDevice ? "공유 메뉴" : "브라우저 메뉴"}
+                {iosDevice ? "공유 → 홈 화면에 추가" : "메뉴 → 앱 설치"}
               </span>
             )}
           </div>

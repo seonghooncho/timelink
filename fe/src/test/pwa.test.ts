@@ -39,7 +39,22 @@ describe("pwa utilities", () => {
     await waitFor(() => {
       expect(screen.getByText("Timelink를 홈 화면에 추가")).toBeInTheDocument();
     });
+    expect(screen.getByText("브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.")).toBeInTheDocument();
+    expect(screen.getByText("메뉴 → 앱 설치")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows short iOS install steps", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+    );
+
+    render(React.createElement(PwaInstallPrompt));
+
+    await waitFor(() => {
+      expect(screen.getByText("공유 → 홈 화면에 추가를 누르면 앱처럼 열려요.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("공유 → 홈 화면에 추가")).toBeInTheDocument();
   });
 
   it("shows install prompt even when stale install flags exist", async () => {
