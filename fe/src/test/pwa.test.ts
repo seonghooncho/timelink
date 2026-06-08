@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 import { isIos, isStandalonePwa } from "@/utils/pwa";
 
@@ -33,12 +33,13 @@ describe("pwa utilities", () => {
     expect(isIos()).toBe(true);
   });
 
-  it("shows install prompt on regular web access", async () => {
+  it("shows compact install banner on regular web access", async () => {
     render(React.createElement(PwaInstallPrompt));
 
     await waitFor(() => {
-      expect(screen.getByText("Timelink 설치")).toBeInTheDocument();
+      expect(screen.getByText("Timelink를 홈 화면에 추가")).toBeInTheDocument();
     });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("shows install prompt even when stale install flags exist", async () => {
@@ -48,7 +49,33 @@ describe("pwa utilities", () => {
     render(React.createElement(PwaInstallPrompt));
 
     await waitFor(() => {
-      expect(screen.getByText("Timelink 설치")).toBeInTheDocument();
+      expect(screen.getByText("Timelink를 홈 화면에 추가")).toBeInTheDocument();
+    });
+  });
+
+  it("uses the browser install prompt when it is available", async () => {
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const installEvent = new Event("beforeinstallprompt") as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: "accepted"; platform: string }>;
+    };
+    installEvent.prompt = prompt;
+    installEvent.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
+
+    render(React.createElement(PwaInstallPrompt));
+
+    await act(async () => {
+      window.dispatchEvent(installEvent);
+    });
+
+    const installButton = await screen.findByRole("button", { name: "설치" });
+    await act(async () => {
+      fireEvent.click(installButton);
+      await installEvent.userChoice;
+    });
+
+    await waitFor(() => {
+      expect(prompt).toHaveBeenCalledTimes(1);
     });
   });
 });
