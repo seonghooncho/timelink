@@ -3,8 +3,10 @@
 # ============================================
 
 locals {
+  lambda_zip_path = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
   api_lambda_environment = {
     APP_CONFIG_PREFIX = local.backend_ssm_prefix
+    APP_DEPLOY_SHA256 = filebase64sha256(local.lambda_zip_path)
   }
 }
 
@@ -18,8 +20,10 @@ resource "aws_lambda_function" "api" {
   timeout       = var.lambda_timeout
   architectures = ["arm64"] # Graviton2 — 최소 비용
 
-  filename         = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
-  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip")
+  s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket
+  s3_key            = aws_s3_object.backend_lambda_artifact.key
+  s3_object_version = aws_s3_object.backend_lambda_artifact.version_id
+  source_code_hash  = filebase64sha256(local.lambda_zip_path)
 
   role = aws_iam_role.lambda_exec.arn
 
@@ -46,8 +50,10 @@ resource "aws_lambda_function" "notification_worker" {
   timeout       = var.lambda_timeout
   architectures = ["arm64"]
 
-  filename         = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
-  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip")
+  s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket
+  s3_key            = aws_s3_object.backend_lambda_artifact.key
+  s3_object_version = aws_s3_object.backend_lambda_artifact.version_id
+  source_code_hash  = filebase64sha256(local.lambda_zip_path)
 
   role = aws_iam_role.lambda_exec.arn
 
