@@ -44,7 +44,7 @@ const ScheduleFormPage: React.FC = () => {
   const [endTime, setEndTime] = useState('');
   const [duration, setDuration] = useState('');
   const [isImportant, setIsImportant] = useState(false);
-  const [hasAlarm, setHasAlarm] = useState(true);
+  const [hasAlarm, setHasAlarm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 

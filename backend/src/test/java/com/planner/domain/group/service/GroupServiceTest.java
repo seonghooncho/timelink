@@ -8,6 +8,7 @@ import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,7 @@ class GroupServiceTest {
 
     @Mock private GroupRepository repository;
     @Mock private ProfileRepository profileRepository;
+    @Mock private NotificationService notificationService;
     @InjectMocks private GroupService service;
 
     @BeforeEach
@@ -129,7 +131,9 @@ class GroupServiceTest {
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
-        when(repository.findMembersByGroupId("g1")).thenReturn(List.of());
+        when(repository.findMembersByGroupId("g1")).thenReturn(
+                List.of(sampleMember("g1", "other", "manager"), sampleMember("g1", "user1", "member"))
+        );
         when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
                 Profile.builder().id("USER#user1").sk("PROFILE").nickname("테스터").avatarUrl("https://img/join.png").build()
         ));
@@ -140,6 +144,12 @@ class GroupServiceTest {
                         && "테스터".equals(m.getNickname())
                         && "https://img/join.png".equals(m.getAvatarUrl())
         ));
+        verify(notificationService).createGroupNotificationIfEnabled(
+                eq("other"),
+                eq("새 멤버가 참여했습니다"),
+                contains("테스터님이 들어왔습니다")
+        );
+        verify(notificationService, never()).createGroupNotificationIfEnabled(eq("user1"), anyString(), anyString());
     }
 
     @Test

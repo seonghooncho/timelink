@@ -1,5 +1,9 @@
 package com.planner.domain.schedule.service;
 
+import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
+import com.planner.domain.notification.service.ReminderSchedulingService;
 import com.planner.domain.schedule.converter.ScheduleConverter;
 import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
 import com.planner.domain.schedule.dto.ScheduleResDTO;
@@ -30,6 +34,15 @@ class ScheduleServiceTest {
     @Mock
     private ScheduleRepository repository;
 
+    @Mock
+    private GroupRepository groupRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private ReminderSchedulingService reminderSchedulingService;
+
     @InjectMocks
     private ScheduleService service;
 
@@ -52,6 +65,13 @@ class ScheduleServiceTest {
                 .hasAlarm(true)
                 .createdAt("2025-03-09T00:00:00Z")
                 .updatedAt("2025-03-09T00:00:00Z")
+                .build();
+    }
+
+    private GroupMember sampleMember(String groupId, String userId) {
+        return GroupMember.builder()
+                .pk("GROUP#" + groupId).sk("MEMBER#" + userId)
+                .groupId(groupId).userId(userId)
                 .build();
     }
 
@@ -89,6 +109,34 @@ class ScheduleServiceTest {
             assertThat(saved.getPk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1pk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1sk()).isEqualTo("2025-03-10T09:00:00Z");
+            then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("그룹 일정 생성 시 작성자를 제외한 그룹 멤버에게 알림을 생성한다")
+        void shouldNotifyGroupMembersWhenGroupScheduleCreated() {
+            // given
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("그룹 회의");
+            req.setContent("내용");
+            req.setCategory("group");
+            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setEndTime("2025-03-10T10:00:00Z");
+            req.setDuration(1.0);
+            req.setHasAlarm(true);
+            req.setGroupId("g1");
+
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            // when
+            service.create(USER_ID, req);
+
+            // then
+            then(notificationService).should()
+                    .createGroupScheduleNotificationIfEnabled(eq("member-2"), any(Schedule.class));
+            then(notificationService).should(never())
+                    .createGroupScheduleNotificationIfEnabled(eq(USER_ID), any(Schedule.class));
         }
     }
 
@@ -190,6 +238,7 @@ class ScheduleServiceTest {
             ArgumentCaptor<Schedule> captor = ArgumentCaptor.forClass(Schedule.class);
             then(repository).should().save(captor.capture());
             assertThat(captor.getValue().getGsi1sk()).isEqualTo("2025-04-01T08:00:00Z");
+            then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
         }
 
         @Test
@@ -215,6 +264,7 @@ class ScheduleServiceTest {
 
             service.delete(USER_ID, "s1");
 
+            then(reminderSchedulingService).should().deleteScheduleJobs(USER_ID, "s1");
             then(repository).should().delete(USER_ID, "s1");
         }
 

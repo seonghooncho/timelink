@@ -1,4 +1,4 @@
-const CACHE_NAME = "timelink-static-v1";
+const CACHE_NAME = "timelink-static-v2";
 const APP_SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/applogo.png"];
 
 self.addEventListener("install", (event) => {
@@ -42,4 +42,49 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/assets/")) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
   }
+});
+
+self.addEventListener("push", (event) => {
+  const fallback = {
+    title: "Timelink",
+    body: "새 알림이 도착했습니다.",
+    url: "/notifications",
+  };
+
+  let data = fallback;
+  try {
+    data = event.data ? event.data.json() : fallback;
+  } catch {
+    data = fallback;
+  }
+  const title = data.title || fallback.title;
+  const options = {
+    body: data.body || fallback.body,
+    icon: "/applogo.png",
+    badge: "/applogo.png",
+    data: {
+      url: data.url || fallback.url,
+      notificationId: data.notificationId,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/notifications";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        const url = new URL(client.url);
+        if (url.origin === self.location.origin) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
 });

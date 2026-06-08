@@ -40,6 +40,25 @@ variable "backend_log_level" {
   default     = "INFO"
 }
 
+variable "push_vapid_public_key" {
+  description = "URL-safe base64 VAPID public key for browser push subscriptions."
+  type        = string
+  default     = ""
+}
+
+variable "push_vapid_private_key" {
+  description = "URL-safe base64 VAPID private key. Leave blank and set the SSM SecureString manually if preferred."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "push_subject" {
+  description = "VAPID subject, for example mailto:ops@example.com or https://example.com."
+  type        = string
+  default     = "mailto:admin@example.com"
+}
+
 # ── AI Lambda ──
 
 variable "ai_log_level" {

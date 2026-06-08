@@ -365,6 +365,30 @@ export const settingsApi = {
     request<NotificationSettingsResponse>('PATCH', '/settings/notifications', data),
 };
 
+// ── Push Notifications ──
+
+export interface PushVapidPublicKeyResponse {
+  enabled: boolean;
+  publicKey?: string;
+}
+
+export interface PushSubscriptionRequest {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  userAgent?: string;
+}
+
+export const pushApi = {
+  getVapidPublicKey: () => request<PushVapidPublicKeyResponse>('GET', '/push/vapid-public-key'),
+  saveSubscription: (data: PushSubscriptionRequest) =>
+    request<PushVapidPublicKeyResponse>('POST', '/push/subscriptions', data),
+  deleteSubscription: (data: PushSubscriptionRequest) =>
+    request<void>('DELETE', '/push/subscriptions', data),
+};
+
 // ── Storage ──
 
 export interface ImageUploadResponse {
