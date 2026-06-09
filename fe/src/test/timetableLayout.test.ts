@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Schedule } from '@/types/types';
 import {
   getDefaultScheduleAnchor,
+  getDefaultTimetableStart,
   getH,
   getScheduleEndHour,
   layoutSchedules,
@@ -165,17 +166,12 @@ describe('Timetable overlap handling', () => {
 });
 
 describe('Timetable default anchor', () => {
-  it('starts from the first schedule whose end date has not passed today', () => {
+  it('keeps the timetable date on today while cards start from the first non-past schedule', () => {
     const schedules = [
       makeSchedule({
         id: 'past',
         startTime: '2026-03-08T10:00:00',
         endTime: '2026-03-08T11:00:00',
-      }),
-      makeSchedule({
-        id: 'today',
-        startTime: '2026-03-10T09:00:00',
-        endTime: '2026-03-10T10:00:00',
       }),
       makeSchedule({
         id: 'future',
@@ -186,8 +182,29 @@ describe('Timetable default anchor', () => {
 
     const anchor = getDefaultScheduleAnchor(schedules, new Date('2026-03-10T15:00:00'));
 
-    expect(toLocalDateKey(anchor.anchorDate)).toBe('2026-03-10');
-    expect(anchor.anchorScheduleId).toBe('today');
+    expect(toLocalDateKey(getDefaultTimetableStart(new Date('2026-03-10T15:00:00')))).toBe('2026-03-10');
+    expect(anchor.anchorScheduleId).toBe('future');
+    expect(anchor.hasPreviousSchedules).toBe(true);
+  });
+
+  it('falls back to the closest past card when every active schedule is before today', () => {
+    const schedules = [
+      makeSchedule({
+        id: 'older-past',
+        startTime: '2026-03-06T10:00:00',
+        endTime: '2026-03-06T11:00:00',
+      }),
+      makeSchedule({
+        id: 'recent-past',
+        startTime: '2026-03-08T10:00:00',
+        endTime: '2026-03-08T11:00:00',
+      }),
+    ];
+
+    const anchor = getDefaultScheduleAnchor(schedules, new Date('2026-03-10T15:00:00'));
+
+    expect(toLocalDateKey(getDefaultTimetableStart(new Date('2026-03-10T15:00:00')))).toBe('2026-03-10');
+    expect(anchor.anchorScheduleId).toBe('recent-past');
     expect(anchor.hasPreviousSchedules).toBe(true);
   });
 });

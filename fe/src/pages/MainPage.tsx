@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '@/components/common/BrandMark';
@@ -13,7 +13,7 @@ import { Schedule } from '@/types/types';
 import { getDayLabel } from '@/utils';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
-import { getDefaultScheduleAnchor } from '@/components/schedule/timetableUtils';
+import { getDefaultScheduleAnchor, getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,21 +21,11 @@ const MainPage: React.FC = () => {
   const { data: schedules = [] } = useSchedules();
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
-  const [timetableStart, setTimetableStart] = useState(new Date());
+  const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
-  const didSetInitialTimetableStartRef = useRef(false);
 
   const groupedSchedules = useGroupedSchedules(schedules);
   const scheduleAnchor = useMemo(() => getDefaultScheduleAnchor(schedules), [schedules]);
-
-  useEffect(() => {
-    if (didSetInitialTimetableStartRef.current || schedules.length === 0) {
-      return;
-    }
-
-    setTimetableStart(scheduleAnchor.anchorDate);
-    didSetInitialTimetableStartRef.current = true;
-  }, [scheduleAnchor.anchorDate, schedules.length]);
 
   const handleComplete = (schedule: Schedule) => {
     setConfirmDelete(schedule);
