@@ -19,6 +19,16 @@ aws:
   s3:
     bucket-name:
     public-base-url:
+  scheduler:
+    group-name:
+    target-arn:
+    role-arn:
+
+push:
+  vapid:
+    public-key:
+    private-key:
+  subject:
 
 jwt:
   secret: your-256-bit-secret-key-for-local-dev-only-change-in-production

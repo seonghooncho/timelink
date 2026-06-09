@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "oauth")
 public class OAuthProperties {
 
+    private String publicApiBaseUrl;
     private Provider google = new Provider();
     private Provider kakao = new Provider();
 
@@ -19,5 +20,6 @@ public class OAuthProperties {
     public static class Provider {
         private String clientId;
         private String clientSecret;
+        private String scope;
     }
 }

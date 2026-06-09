@@ -4,11 +4,13 @@ import com.planner.domain.notification.converter.NotificationConverter;
 import com.planner.domain.notification.dto.NotificationResDTO;
 import com.planner.domain.notification.dto.NotificationSettingsResDTO;
 import com.planner.domain.notification.dto.NotificationSettingsUpdateReqDTO;
+import com.planner.domain.notification.dto.ScheduledNotificationEvent;
 import com.planner.domain.notification.error.NotificationErrorCode;
 import com.planner.domain.notification.error.NotificationException;
 import com.planner.domain.notification.model.Notification;
 import com.planner.domain.notification.model.NotificationSettings;
 import com.planner.domain.notification.repository.NotificationRepository;
+import com.planner.domain.schedule.model.Schedule;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,8 @@ public class NotificationService {
     private static final int DEFAULT_LIMIT = 20;
 
     private final NotificationRepository repository;
+    private final ReminderSchedulingService reminderSchedulingService;
+    private final WebPushService webPushService;
     private final CursorCodec cursorCodec;
 
     /** 커서 기반 페이지네이션 조회 */
@@ -102,19 +107,100 @@ public class NotificationService {
         settings.setUpdatedAt(Instant.now().toString());
 
         repository.saveSettings(settings);
+        reminderSchedulingService.syncUserReminders(userId, settings);
         return NotificationConverter.toSettingsResponse(settings);
+    }
+
+    public void createGroupNotificationIfEnabled(String userId, String title, String content) {
+        NotificationSettings settings = repository.findSettings(userId)
+                .orElseGet(() -> createDefaultSettings(userId));
+        if (!Boolean.TRUE.equals(settings.getGroupAlarm())) {
+            return;
+        }
+
+        createNotificationIfAbsent(
+                userId,
+                UUID.randomUUID().toString(),
+                "system",
+                title,
+                content,
+                "group",
+                false
+        );
+    }
+
+    public void createGroupScheduleNotificationIfEnabled(String userId, Schedule schedule) {
+        NotificationSettings settings = repository.findSettings(userId)
+                .orElseGet(() -> createDefaultSettings(userId));
+        if (!Boolean.TRUE.equals(settings.getGroupAlarm())) {
+            return;
+        }
+
+        createNotificationIfAbsent(
+                userId,
+                UUID.randomUUID().toString(),
+                "system",
+                "그룹 일정이 추가되었습니다",
+                "%s 일정이 추가되었습니다.".formatted(schedule.getTitle()),
+                "group",
+                Boolean.TRUE.equals(schedule.getIsImportant())
+        );
+    }
+
+    public void deliverScheduledNotification(ScheduledNotificationEvent event) {
+        createNotificationIfAbsent(
+                event.getUserId(),
+                event.getNotificationId(),
+                event.getType(),
+                event.getTitle(),
+                event.getContent(),
+                event.getCategory(),
+                Boolean.TRUE.equals(event.getImportant())
+        );
+        reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
     }
 
     private NotificationSettings createDefaultSettings(String userId) {
         NotificationSettings s = NotificationSettings.builder()
                 .pk("USER#" + userId).sk("NOTIF_SETTINGS")
-                .scheduleAlarm(true).groupAlarm(true)
-                .remindOneDayBefore(true).remindOneDayBeforeTime("22:00")
-                .remindSameDay(true).remindSameDayTime("08:00")
-                .importantAlarm(true).importantAlarmTime("08:00")
+                .scheduleAlarm(false).groupAlarm(false)
+                .remindOneDayBefore(false).remindOneDayBeforeTime("22:00")
+                .remindSameDay(false).remindSameDayTime("08:00")
+                .importantAlarm(false).importantAlarmTime("08:00")
                 .updatedAt(Instant.now().toString())
                 .build();
         repository.saveSettings(s);
         return s;
     }
+
+    private void createNotificationIfAbsent(
+            String userId,
+            String id,
+            String type,
+            String title,
+            String content,
+            String category,
+            boolean important
+    ) {
+        if (repository.findByUserIdAndNotifId(userId, id).isPresent()) {
+            return;
+        }
+
+        Notification notification = Notification.builder()
+                .pk("USER#" + userId)
+                .sk("NOTIF#" + id)
+                .id(id)
+                .userId(userId)
+                .type(type)
+                .title(title)
+                .content(content)
+                .category(category)
+                .isImportant(important)
+                .isRead(false)
+                .createdAt(Instant.now().toString())
+                .build();
+        repository.saveNotification(notification);
+        webPushService.sendNotification(userId, notification);
+    }
+
 }

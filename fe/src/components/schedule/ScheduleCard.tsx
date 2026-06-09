@@ -1,7 +1,7 @@
 import React from 'react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
-import { getCategoryColor } from '@/utils';
+import { getScheduleColorStyle } from '@/utils';
 
 interface ScheduleCardProps {
   schedule: Schedule;
@@ -20,7 +20,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, onClick, onComple
       onClick={() => onClick(schedule)}
     >
       {/* Left color bar */}
-      <div className={`w-1 self-stretch rounded-full ${getCategoryColor(schedule.isImportant ? 'important' : schedule.category, 'default')}`} />
+      <div className="w-1 self-stretch rounded-full" style={getScheduleColorStyle(schedule, 'line')} />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-1.5">

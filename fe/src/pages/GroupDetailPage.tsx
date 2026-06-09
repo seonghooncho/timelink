@@ -12,7 +12,7 @@ import { useGroups } from '@/hooks/useGroups';
 import { useSchedules } from '@/hooks/useSchedules';
 import { coordinationApi, CoordinationResponse as CoordResp, groupApi, GroupMemberResponse } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 const MEMBER_PREVIEW_LIMIT = 3;
 const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
@@ -111,10 +111,10 @@ const GroupDetailPage: React.FC = () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
-      toast.success('링크가 복사되었습니다');
+      appToast.success('링크가 복사되었습니다');
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('링크 복사에 실패했습니다');
+    } catch (error) {
+      appToast.error('링크 복사에 실패했습니다', error);
     }
   };
 
@@ -130,7 +130,7 @@ const GroupDetailPage: React.FC = () => {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
-        toast.error('공유에 실패했습니다');
+        appToast.error('공유에 실패했습니다', error);
       }
     } else {
       handleCopyLink();
@@ -143,8 +143,8 @@ const GroupDetailPage: React.FC = () => {
       await groupApi.leaveGroup(id);
       setShowLeaveConfirm(false);
       navigate('/groups');
-    } catch {
-      toast.error('그룹 나가기에 실패했습니다');
+    } catch (error) {
+      appToast.error('그룹 나가기에 실패했습니다', error);
     }
   };
 

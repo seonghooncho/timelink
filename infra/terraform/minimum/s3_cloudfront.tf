@@ -129,6 +129,26 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   ordered_cache_behavior {
+    path_pattern           = "/sw.js"
+    target_origin_id       = "s3-frontend"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_disabled.id
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/manifest.webmanifest"
+    target_origin_id       = "s3-frontend"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_disabled.id
+  }
+
+  ordered_cache_behavior {
     path_pattern           = "/uploads/*"
     target_origin_id       = "s3-public-assets"
     viewer_protocol_policy = "redirect-to-https"

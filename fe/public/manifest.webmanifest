@@ -1,0 +1,20 @@
+{
+  "name": "Timelink",
+  "short_name": "Timelink",
+  "description": "개인과 그룹 일정을 자연스럽게 연결하는 Timelink",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FDFBF7",
+  "theme_color": "#13C296",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/applogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}

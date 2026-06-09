@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { getCategoryColor, getCategoryLabel, formatTime, formatDate, getDayLabel } from '@/utils';
-import { ScheduleCategory } from '@/types/types';
+import {
+  getCategoryColor,
+  getCategoryLabel,
+  getScheduleColorStyle,
+  getScheduleColorVariant,
+  formatTime,
+  formatDate,
+  getDayLabel,
+} from '@/utils';
+import { Schedule, ScheduleCategory } from '@/types/types';
 
 describe('getCategoryColor', () => {
   const categories: ScheduleCategory[] = ['task', 'appointment', 'important', 'group', 'repeat'];
@@ -25,6 +33,46 @@ describe('getCategoryColor', () => {
       const result = getCategoryColor(cat, 'strong');
       expect(result).toContain('-strong');
     });
+  });
+});
+
+describe('getScheduleColorStyle', () => {
+  const makeSchedule = (overrides: Partial<Schedule> & { id: string }): Schedule => ({
+    id: overrides.id,
+    title: overrides.title ?? '일정',
+    content: '',
+    category: overrides.category ?? 'task',
+    isImportant: false,
+    startTime: overrides.startTime ?? '2026-03-10T09:00:00',
+    endTime: overrides.endTime ?? '2026-03-10T10:00:00',
+    duration: 1,
+    isCompleted: false,
+    hasAlarm: false,
+  });
+
+  it('assigns a stable variant from schedule identity', () => {
+    const schedule = makeSchedule({ id: 'schedule-a', title: '회의' });
+
+    expect(getScheduleColorVariant(schedule)).toBe(getScheduleColorVariant(schedule));
+  });
+
+  it('keeps schedules inside their category hue range while varying color', () => {
+    const first = makeSchedule({ id: 'schedule-a', title: '회의' });
+    const second = makeSchedule({ id: 'schedule-b', title: '회의' });
+
+    expect(getScheduleColorStyle(first, 'line').backgroundColor).toContain('hsl(');
+    expect(getScheduleColorStyle(first, 'line').backgroundColor).not.toBe(
+      getScheduleColorStyle(second, 'line').backgroundColor,
+    );
+  });
+
+  it('uses category hue families for different schedule categories', () => {
+    const task = makeSchedule({ id: 'same-id', category: 'task' });
+    const group = makeSchedule({ id: 'same-id', category: 'group' });
+
+    expect(getScheduleColorStyle(task, 'line').backgroundColor).not.toBe(
+      getScheduleColorStyle(group, 'line').backgroundColor,
+    );
   });
 });
 

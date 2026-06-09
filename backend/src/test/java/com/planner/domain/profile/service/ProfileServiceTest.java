@@ -5,6 +5,7 @@ import com.planner.domain.profile.dto.ProfileUpdateReqDTO;
 import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.profile.util.GeneratedProfileDefaults;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,56 @@ class ProfileServiceTest {
 
             assertThat(result.getNickname()).isEqualTo("사용자");
             then(repository).should().save(any(Profile.class));
+        }
+
+        @Test
+        @DisplayName("소셜 기본 닉네임은 실제 이름 힌트로 갱신한다")
+        void shouldReplaceGeneratedSocialNicknameWithHint() {
+            Profile profile = createProfile();
+            profile.setNickname("카카오유저");
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(profile));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, "홍길동", null);
+
+            assertThat(result.getNickname()).isEqualTo("홍길동");
+            then(repository).should().save(profile);
+        }
+
+        @Test
+        @DisplayName("생성 닉네임은 소셜 이름 힌트로 갱신한다")
+        void shouldReplaceGeneratedVerbNounNicknameWithHint() {
+            Profile profile = createProfile();
+            profile.setNickname(GeneratedProfileDefaults.nickname("123"));
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(profile));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, "링크러", null);
+
+            assertThat(result.getNickname()).isEqualTo("링크러");
+            then(repository).should().save(profile);
+        }
+
+        @Test
+        @DisplayName("생성 아바타는 소셜 프로필 사진 힌트로 갱신한다")
+        void shouldReplaceGeneratedAvatarWithHint() {
+            Profile profile = createProfile();
+            profile.setAvatarUrl(GeneratedProfileDefaults.avatarUrl("123"));
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(profile));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, null, "https://img.example.com/profile.jpg");
+
+            assertThat(result.getAvatarUrl()).isEqualTo("https://img.example.com/profile.jpg");
+            then(repository).should().save(profile);
+        }
+
+        @Test
+        @DisplayName("사용자가 정한 닉네임은 소셜 이름 힌트로 덮어쓰지 않는다")
+        void shouldKeepExistingUserNickname() {
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(createProfile()));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, "홍길동", null);
+
+            assertThat(result.getNickname()).isEqualTo("테스트유저");
+            then(repository).should(never()).save(any());
         }
     }
 

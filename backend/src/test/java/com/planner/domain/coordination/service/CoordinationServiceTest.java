@@ -11,6 +11,7 @@ import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +39,9 @@ class CoordinationServiceTest {
     private GroupRepository groupRepository;
 
     @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private CursorCodec cursorCodec;
 
     @InjectMocks
@@ -51,6 +55,12 @@ class CoordinationServiceTest {
         return GroupMember.builder()
                 .pk("GROUP#" + GROUP_ID).sk("MEMBER#" + USER_ID)
                 .userId(USER_ID).role("member").build();
+    }
+
+    private GroupMember mockMember(String userId) {
+        return GroupMember.builder()
+                .pk("GROUP#" + GROUP_ID).sk("MEMBER#" + userId)
+                .userId(userId).role("member").build();
     }
 
     private Coordination createCoordination(String createdBy) {
@@ -71,6 +81,8 @@ class CoordinationServiceTest {
         @DisplayName("멤버가 조율을 생성한다")
         void shouldCreate() {
             given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(groupRepository.findMembersByGroupId(GROUP_ID))
+                    .willReturn(List.of(mockMember(USER_ID), mockMember("user-2")));
             willDoNothing().given(repository).saveCoordination(any());
 
             CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
@@ -84,6 +96,10 @@ class CoordinationServiceTest {
 
             assertThat(result.getTitle()).isEqualTo("조율");
             assertThat(result.getStatus()).isEqualTo("active");
+            then(notificationService).should()
+                    .createGroupNotificationIfEnabled(eq("user-2"), eq("새 시간 조율이 시작되었습니다"), contains("조율에 참여해 주세요"));
+            then(notificationService).should(never())
+                    .createGroupNotificationIfEnabled(eq(USER_ID), anyString(), anyString());
         }
 
         @Test
@@ -193,6 +209,8 @@ class CoordinationServiceTest {
         @DisplayName("기존 응답을 삭제하고 새 응답을 저장한다")
         void shouldReplaceResponses() {
             given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination("creator")));
 
             CoordinationResponse existing = CoordinationResponse.builder()
                     .pk("COORD#" + COORD_ID).sk("RESP#user-1#2025-03-15#9")
@@ -209,6 +227,8 @@ class CoordinationServiceTest {
             assertThat(result.getSubmittedCount()).isEqualTo(2);
             then(repository).should().deleteResponse(eq(COORD_ID), anyString());
             then(repository).should(times(2)).saveResponse(any());
+            then(notificationService).should()
+                    .createGroupNotificationIfEnabled(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
         }
     }
 

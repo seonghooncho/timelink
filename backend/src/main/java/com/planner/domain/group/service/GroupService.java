@@ -11,6 +11,7 @@ import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class GroupService {
 
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
+    private final NotificationService notificationService;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -127,6 +129,7 @@ public class GroupService {
                 .joinedAt(Instant.now().toString())
                 .build();
         repository.saveMember(member);
+        notifyMemberJoined(group, member);
 
         return getDetail(userId, group.getId());
     }
@@ -200,5 +203,19 @@ public class GroupService {
             sb.append(chars.charAt(ThreadLocalRandom.current().nextInt(chars.length())));
         }
         return sb.toString();
+    }
+
+    private void notifyMemberJoined(Group group, GroupMember joinedMember) {
+        String joinedName = StringUtils.hasText(joinedMember.getNickname())
+                ? joinedMember.getNickname()
+                : joinedMember.getUserId();
+        String title = "새 멤버가 참여했습니다";
+        String content = "%s 그룹에 %s님이 들어왔습니다.".formatted(group.getName(), joinedName);
+
+        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
+            if (!joinedMember.getUserId().equals(member.getUserId())) {
+                notificationService.createGroupNotificationIfEnabled(member.getUserId(), title, content);
+            }
+        }
     }
 }

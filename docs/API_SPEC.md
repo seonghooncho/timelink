@@ -26,10 +26,12 @@
 8. [시간 조율 응답 (Coordination Responses)](#8-시간-조율-응답-coordination-responses)
 9. [알림 (Notifications)](#9-알림-notifications)
 10. [알림 설정 (Notification Settings)](#10-알림-설정-notification-settings)
-11. [파일 업로드 (Storage)](#11-파일-업로드-storage)
-12. [데이터베이스 스키마](#12-데이터베이스-스키마)
-13. [DynamoDB / PartiQL 운영 기준](#13-dynamodb--partiql-운영-기준)
-14. [전체 엔드포인트 요약](#14-전체-엔드포인트-요약)
+11. [푸시 알림 (Push Notifications)](#11-푸시-알림-push-notifications)
+12. [파일 업로드 (Storage)](#12-파일-업로드-storage)
+13. [AI 기능](#13-ai-기능)
+14. [데이터베이스 스키마](#14-데이터베이스-스키마)
+15. [DynamoDB / PartiQL 운영 기준](#15-dynamodb--partiql-운영-기준)
+16. [전체 엔드포인트 요약](#16-전체-엔드포인트-요약)
 
 ---
 
@@ -778,13 +780,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 컬럼 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
 | `user_id` | `string` PK | — | 백엔드 JWT subject (`userId`) |
-| `schedule_alarm` | `boolean` | true | 일정 알림 |
-| `group_alarm` | `boolean` | true | 그룹 알림 |
-| `remind_one_day_before` | `boolean` | true | 1일 전 리마인드 |
+| `schedule_alarm` | `boolean` | false | 일정 알림 |
+| `group_alarm` | `boolean` | false | 그룹 알림 |
+| `remind_one_day_before` | `boolean` | false | 1일 전 리마인드 |
 | `remind_one_day_before_time` | `text` | '22:00' | 리마인드 시간 |
-| `remind_same_day` | `boolean` | true | 당일 리마인드 |
+| `remind_same_day` | `boolean` | false | 당일 리마인드 |
 | `remind_same_day_time` | `text` | '08:00' | 리마인드 시간 |
-| `important_alarm` | `boolean` | true | 중요 일정 알림 |
+| `important_alarm` | `boolean` | false | 중요 일정 알림 |
 | `important_alarm_time` | `text` | '08:00' | 알림 시간 |
 | `updated_at` | `timestamptz` | now() | 수정일 |
 
@@ -800,13 +802,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": {
-    "schedule_alarm": true,
-    "group_alarm": true,
-    "remind_one_day_before": true,
+    "schedule_alarm": false,
+    "group_alarm": false,
+    "remind_one_day_before": false,
     "remind_one_day_before_time": "22:00",
-    "remind_same_day": true,
+    "remind_same_day": false,
     "remind_same_day_time": "08:00",
-    "important_alarm": true,
+    "important_alarm": false,
     "important_alarm_time": "08:00"
   }
 }
@@ -817,6 +819,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `PATCH` /api/planner/v1/settings/notifications
 
 알림 설정 수정 (변경할 필드만)
+
+`schedule_alarm`이 `false`이면 리마인드 설정(`remind_one_day_before`, `remind_same_day`, `important_alarm`)은 서버에서 `false`로 저장된다.
 
 **Request Body**
 ```json
@@ -830,7 +834,81 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 11. 파일 업로드 (Storage)
+## 11. 푸시 알림 (Push Notifications)
+
+운영 알림은 알림센터 저장을 기본으로 하고, VAPID 설정과 브라우저 Push Subscription이 준비된 사용자는 Web Push도 함께 전송한다.
+
+일정 알림은 운영 초기 기준으로 알림 job마다 EventBridge Scheduler one-time schedule을 생성한다. Scheduler는 notification worker Lambda를 호출하고, Lambda는 DynamoDB 알림 저장과 Web Push 전송을 수행한다.
+
+### DynamoDB 키 설계
+
+| 엔티티 | PK | SK | 설명 |
+|--------|----|----|------|
+| Push Subscription | `USER#{userId}` | `PUSH_SUB#{endpointHash}` | 브라우저 push endpoint와 keys |
+| Reminder Job | `USER#{userId}` | `REMINDER_JOB#{type}-{scheduleId}` | EventBridge Scheduler 예약 추적 |
+
+### Endpoints
+
+---
+
+#### `GET` /api/planner/v1/push/vapid-public-key
+
+브라우저 Push Subscription 생성에 사용할 VAPID 공개키 조회
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "enabled": true,
+    "publicKey": "B..."
+  }
+}
+```
+
+---
+
+#### `POST` /api/planner/v1/push/subscriptions
+
+현재 브라우저의 Push Subscription 등록/갱신
+
+**Request Body**
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "B...",
+    "auth": "..."
+  },
+  "userAgent": "Mozilla/5.0 ..."
+}
+```
+
+**Response** `200 OK`
+
+---
+
+#### `DELETE` /api/planner/v1/push/subscriptions
+
+현재 브라우저의 Push Subscription 삭제
+
+**Request Body**: `POST /push/subscriptions`와 동일
+
+**Response** `204 No Content`
+
+### 운영 설정
+
+| 설정 | 설명 |
+|------|------|
+| `aws.scheduler.group-name` | EventBridge Scheduler schedule group |
+| `aws.scheduler.target-arn` | notification worker Lambda alias ARN |
+| `aws.scheduler.role-arn` | Scheduler가 Lambda를 invoke할 IAM role ARN |
+| `push.vapid.public-key` | 브라우저 구독용 VAPID 공개키 |
+| `push.vapid.private-key` | Web Push 서명용 VAPID 비공개키 (SSM SecureString 권장) |
+| `push.subject` | VAPID subject (`mailto:` 또는 URL) |
+
+---
+
+## 12. 파일 업로드 (Storage)
 
 ### Endpoints
 
@@ -878,7 +956,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 12. AI 기능
+## 13. AI 기능
 
 ### Endpoints
 
@@ -914,7 +992,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 13. 데이터베이스 스키마
+## 14. 데이터베이스 스키마
 
 > **저장소**: Amazon DynamoDB (Single Table Design)
 > **테이블명**: `planner_{environment}_main`
@@ -925,6 +1003,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 auth-session (JWT subject = userId)
   ├── Profile (PK: USER#{userId}, SK: PROFILE)
   ├── NotificationSettings (PK: USER#{userId}, SK: NOTIF_SETTINGS)
+  ├── PushSubscription (PK: USER#{userId}, SK: PUSH_SUB#{endpointHash})
+  ├── ReminderJob (PK: USER#{userId}, SK: REMINDER_JOB#{type}-{scheduleId})
   ├── Schedule (PK: USER#{userId}, SK: SCHEDULE#{id})
   ├── Notification (PK: USER#{userId}, SK: NOTIF#{id})
   └── GroupMember (GSI2PK: USER#{userId}, GSI2SK: GROUP#{groupId})
@@ -938,14 +1018,15 @@ auth-session (JWT subject = userId)
 - `fe/src/context/AppContext.tsx`: 인증 상태 감지 후 자동으로 백엔드에서 데이터 로드
 - Mock 데이터 의존성 제거, 모든 CRUD는 백엔드 API 경유
 
-### 운영 메모
+## 15. DynamoDB / PartiQL 운영 기준
+
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
 - 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
 - 업로드 이미지는 S3 public assets bucket에 저장되고, 프론트는 해당 URL만 저장합니다.
 
 ---
 
-## 14. 전체 엔드포인트 요약
+## 16. 전체 엔드포인트 요약
 
 | 메서드 | 엔드포인트 | 설명 | 권한 | 구현 상태 |
 |--------|-----------|------|------|----------|
@@ -978,6 +1059,9 @@ auth-session (JWT subject = userId)
 | `DELETE` | `/notifications/:id` | 알림 삭제 | 인증(본인) | ✅ |
 | `GET` | `/settings/notifications` | 알림 설정 조회 | 인증 | ✅ |
 | `PATCH` | `/settings/notifications` | 알림 설정 수정 | 인증 | ✅ |
+| `GET` | `/push/vapid-public-key` | VAPID 공개키 조회 | 인증 | ✅ |
+| `POST` | `/push/subscriptions` | Push Subscription 등록 | 인증 | ✅ |
+| `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
 
 > **Base URL prefix**: `api/planner/v1`  
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`), 멤버 내보내기(`DELETE /groups/:gid/members/:mid`)

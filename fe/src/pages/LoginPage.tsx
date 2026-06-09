@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 type LoginMode = SocialAuthProvider | 'guest' | null;
 
@@ -51,7 +51,7 @@ const LoginPage: React.FC = () => {
       .catch((err) => {
         setProviders({ google: false, kakao: false });
         setProviderFetchFailed(true);
-        toast.error('소셜 로그인 설정을 확인하지 못했습니다. 임시 로그인으로 계속할 수 있습니다.');
+        appToast.error('소셜 로그인 설정을 확인하지 못했습니다', err, '임시 로그인으로 계속할 수 있습니다.');
         console.error(err);
       });
   }, []);
@@ -61,12 +61,12 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    toast.error(errorMessage || `${providerError} 로그인에 실패했습니다`);
+    appToast.error(errorMessage || `${providerError} 로그인에 실패했습니다`);
   }, [providerError, errorMessage]);
 
   const handleSocialLogin = (provider: SocialAuthProvider) => {
     if (!providers?.[provider]) {
-      toast.info(`${provider === 'google' ? 'Google' : '카카오'} 로그인은 아직 설정되지 않았습니다`);
+      appToast.info(`${provider === 'google' ? 'Google' : '카카오'} 로그인은 아직 설정되지 않았습니다`);
       return;
     }
 
@@ -85,7 +85,7 @@ const LoginPage: React.FC = () => {
       navigate(redirectPath, { replace: true });
     } catch (err) {
       console.error(err);
-      toast.error('임시 로그인에 실패했습니다');
+      appToast.error('임시 로그인에 실패했습니다', err);
     } finally {
       setIsLoading(null);
     }

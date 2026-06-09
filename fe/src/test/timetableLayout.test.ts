@@ -1,10 +1,27 @@
 import { describe, it, expect } from 'vitest';
 import { Schedule } from '@/types/types';
+import {
+  getDefaultScheduleAnchor,
+  getDefaultTimetableStart,
+  getH,
+  getScheduleEndHour,
+  layoutSchedules,
+  toLocalDateKey,
+} from '@/components/schedule/timetableUtils';
 
-// Extract and test the layout logic from Timetable component
-function getH(timeStr: string): number {
-  const d = new Date(timeStr);
-  return d.getHours() + d.getMinutes() / 60;
+function makeSchedule(overrides: Partial<Schedule> & { id: string; startTime: string }): Schedule {
+  return {
+    id: overrides.id,
+    title: overrides.title ?? `Schedule ${overrides.id}`,
+    content: '',
+    category: overrides.category ?? 'task',
+    isImportant: overrides.isImportant ?? false,
+    startTime: overrides.startTime,
+    endTime: overrides.endTime ?? overrides.startTime,
+    duration: overrides.duration ?? 0,
+    isCompleted: overrides.isCompleted ?? false,
+    hasAlarm: overrides.hasAlarm ?? false,
+  };
 }
 
 describe('Timetable getH utility', () => {
@@ -36,18 +53,12 @@ describe('Timetable schedule filtering', () => {
     expect(filtered[0].id).toBe('1');
   });
 
-  it('Timetable uses toISOString() for date comparison which can shift timezone', () => {
-    // toISOString() converts to UTC which can shift dates
-    // e.g. in UTC+9, new Date(2025, 2, 8) at midnight is 2025-03-07T15:00:00Z
+  it('uses local date keys instead of UTC ISO date keys', () => {
     const d = new Date(2025, 2, 8);
-    const isoDate = d.toISOString().slice(0, 10);
     const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    // In non-UTC timezones, these may differ
-    // This is a potential timezone bug in Timetable's dayDates mapping
-    // (In test env it's usually UTC so they match)
+    expect(toLocalDateKey(d)).toBe(localDate);
     expect(localDate).toBe('2025-03-08');
-    // isoDate may or may not match depending on timezone
   });
 });
 
@@ -64,8 +75,11 @@ describe('Timetable overlap handling', () => {
       isImportant: false, startTime: '2025-03-08T10:00:00',
       endTime: '2025-03-08T12:00:00', duration: 2, isCompleted: false, hasAlarm: false,
     };
-    // Both should be present - layout logic allows max 2 visible
-    expect([s1, s2]).toHaveLength(2);
+    const segments = layoutSchedules([s1, s2]);
+    const visibleIds = new Set(segments.map(segment => segment.scheduleId));
+
+    expect(visibleIds).toEqual(new Set(['1', '2']));
+    expect(segments.some(segment => segment.left.startsWith('calc(50%'))).toBe(true);
   });
 
   it('3+ overlapping schedules: 3rd becomes overflow', () => {
@@ -84,7 +98,113 @@ describe('Timetable overlap handling', () => {
       isCompleted: false,
       hasAlarm: false,
     }));
-    // Max visible is 2, overflow = 2
-    expect(overlapping.length - 2).toBe(2);
+    const segments = layoutSchedules(overlapping);
+
+    expect(new Set(segments.map(segment => segment.scheduleId)).size).toBe(2);
+    expect(segments.some(segment => segment.overflowCount === 2)).toBe(true);
+  });
+
+  it('renders a block from duration when endTime equals startTime', () => {
+    const schedule = makeSchedule({
+      id: 'duration',
+      startTime: '2025-03-08T14:00:00',
+      endTime: '2025-03-08T14:00:00',
+      duration: 2,
+    });
+
+    const segments = layoutSchedules([schedule]);
+
+    expect(getScheduleEndHour(schedule)).toBe(16);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].top).toBe(14 * 48);
+    expect(segments[0].height).toBe(2 * 48);
+  });
+
+  it('renders a minimum block for zero-duration schedules', () => {
+    const schedule = makeSchedule({
+      id: 'zero',
+      startTime: '2025-03-08T09:30:00',
+      endTime: '2025-03-08T09:30:00',
+      duration: 0,
+    });
+
+    const segments = layoutSchedules([schedule]);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].height).toBeGreaterThanOrEqual(16);
+  });
+
+  it('keeps partially overlapping schedules visible when starts differ', () => {
+    const schedules = [
+      makeSchedule({
+        id: 'a',
+        startTime: '2025-03-08T10:00:00',
+        endTime: '2025-03-08T12:00:00',
+        duration: 2,
+      }),
+      makeSchedule({
+        id: 'b',
+        startTime: '2025-03-08T10:30:00',
+        endTime: '2025-03-08T11:30:00',
+        duration: 1,
+      }),
+      makeSchedule({
+        id: 'c',
+        startTime: '2025-03-08T11:00:00',
+        endTime: '2025-03-08T12:30:00',
+        duration: 1.5,
+      }),
+    ];
+
+    const segments = layoutSchedules(schedules);
+    const visibleIds = new Set(segments.map(segment => segment.scheduleId));
+
+    expect(visibleIds.has('a')).toBe(true);
+    expect(visibleIds.size).toBeGreaterThanOrEqual(2);
+    expect(segments.some(segment => segment.overflowCount > 0)).toBe(true);
+  });
+});
+
+describe('Timetable default anchor', () => {
+  it('keeps the timetable date on today while cards start from the first non-past schedule', () => {
+    const schedules = [
+      makeSchedule({
+        id: 'past',
+        startTime: '2026-03-08T10:00:00',
+        endTime: '2026-03-08T11:00:00',
+      }),
+      makeSchedule({
+        id: 'future',
+        startTime: '2026-03-11T09:00:00',
+        endTime: '2026-03-11T10:00:00',
+      }),
+    ];
+
+    const anchor = getDefaultScheduleAnchor(schedules, new Date('2026-03-10T15:00:00'));
+
+    expect(toLocalDateKey(getDefaultTimetableStart(new Date('2026-03-10T15:00:00')))).toBe('2026-03-10');
+    expect(anchor.anchorScheduleId).toBe('future');
+    expect(anchor.hasPreviousSchedules).toBe(true);
+  });
+
+  it('falls back to the closest past card when every active schedule is before today', () => {
+    const schedules = [
+      makeSchedule({
+        id: 'older-past',
+        startTime: '2026-03-06T10:00:00',
+        endTime: '2026-03-06T11:00:00',
+      }),
+      makeSchedule({
+        id: 'recent-past',
+        startTime: '2026-03-08T10:00:00',
+        endTime: '2026-03-08T11:00:00',
+      }),
+    ];
+
+    const anchor = getDefaultScheduleAnchor(schedules, new Date('2026-03-10T15:00:00'));
+
+    expect(toLocalDateKey(getDefaultTimetableStart(new Date('2026-03-10T15:00:00')))).toBe('2026-03-10');
+    expect(anchor.anchorScheduleId).toBe('recent-past');
+    expect(anchor.hasPreviousSchedules).toBe(true);
   });
 });

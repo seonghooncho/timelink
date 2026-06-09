@@ -1,5 +1,9 @@
 package com.planner.domain.schedule.service;
 
+import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
+import com.planner.domain.notification.service.ReminderSchedulingService;
 import com.planner.domain.schedule.converter.ScheduleConverter;
 import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
 import com.planner.domain.schedule.dto.ScheduleResDTO;
@@ -14,6 +18,7 @@ import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,11 +31,16 @@ public class ScheduleService {
     private static final int DEFAULT_LIMIT = 20;
 
     private final ScheduleRepository repository;
+    private final GroupRepository groupRepository;
+    private final NotificationService notificationService;
+    private final ReminderSchedulingService reminderSchedulingService;
     private final CursorCodec cursorCodec;
 
     public ScheduleResDTO create(String userId, ScheduleCreateReqDTO req) {
         Schedule schedule = ScheduleConverter.toEntity(userId, req);
         repository.save(schedule);
+        reminderSchedulingService.rescheduleSchedule(userId, schedule);
+        notifyGroupScheduleCreated(userId, schedule);
         return ScheduleConverter.toResponse(schedule);
     }
 
@@ -77,12 +87,14 @@ public class ScheduleService {
         schedule.setUpdatedAt(Instant.now().toString());
 
         repository.save(schedule);
+        reminderSchedulingService.rescheduleSchedule(userId, schedule);
         return ScheduleConverter.toResponse(schedule);
     }
 
     public void delete(String userId, String scheduleId) {
         repository.findByUserIdAndScheduleId(userId, scheduleId)
                 .orElseThrow(() -> new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+        reminderSchedulingService.deleteScheduleJobs(userId, scheduleId);
         repository.delete(userId, scheduleId);
     }
 
@@ -102,5 +114,18 @@ public class ScheduleService {
                 .items(dtos)
                 .nextCursor(page.getNextCursor())
                 .build();
+    }
+
+    private void notifyGroupScheduleCreated(String userId, Schedule schedule) {
+        if (!StringUtils.hasText(schedule.getGroupId())) {
+            return;
+        }
+
+        List<GroupMember> members = groupRepository.findMembersByGroupId(schedule.getGroupId());
+        for (GroupMember member : members) {
+            if (!userId.equals(member.getUserId())) {
+                notificationService.createGroupScheduleNotificationIfEnabled(member.getUserId(), schedule);
+            }
+        }
     }
 }

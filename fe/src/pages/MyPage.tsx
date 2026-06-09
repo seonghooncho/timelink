@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ToggleSwitch from '@/components/common/ToggleSwitch';
+import type { NotificationSettingsResponse } from '@/services/api';
 import { settingsApi, storageApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, Camera, Pencil, Check, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
+import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
 
 const MyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,11 +25,11 @@ const MyPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const [scheduleAlarm, setScheduleAlarm] = useState(true);
-  const [groupAlarm, setGroupAlarm] = useState(true);
-  const [remindOneDayBefore, setRemindOneDayBefore] = useState(true);
-  const [remindSameDay, setRemindSameDay] = useState(true);
-  const [importantAlarm, setImportantAlarm] = useState(true);
+  const [scheduleAlarm, setScheduleAlarm] = useState(false);
+  const [groupAlarm, setGroupAlarm] = useState(false);
+  const [remindOneDayBefore, setRemindOneDayBefore] = useState(false);
+  const [remindSameDay, setRemindSameDay] = useState(false);
+  const [importantAlarm, setImportantAlarm] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -38,26 +40,116 @@ const MyPage: React.FC = () => {
 
   useEffect(() => {
     settingsApi.getNotifications().then(s => {
-      setScheduleAlarm(s.scheduleAlarm);
-      setGroupAlarm(s.groupAlarm);
-      setRemindOneDayBefore(s.remindOneDayBefore);
-      setRemindSameDay(s.remindSameDay);
-      setImportantAlarm(s.importantAlarm);
-    }).catch(() => {
-      toast.error('알림 설정을 불러오지 못했습니다');
+      applyNotificationSettings(s);
+    }).catch((error) => {
+      appToast.error('알림 설정을 불러오지 못했습니다', error);
     });
   }, []);
+
+  const applyNotificationSettings = (settings: NotificationSettingsResponse) => {
+    setScheduleAlarm(settings.scheduleAlarm);
+    setGroupAlarm(settings.groupAlarm);
+    setRemindOneDayBefore(settings.remindOneDayBefore);
+    setRemindSameDay(settings.remindSameDay);
+    setImportantAlarm(settings.importantAlarm);
+  };
+
+  const requestBrowserNotificationPermission = async () => {
+    if (!('Notification' in window) || typeof Notification.requestPermission !== 'function') {
+      appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
+      return false;
+    }
+
+    if (Notification.permission === 'granted') {
+      return true;
+    }
+
+    if (Notification.permission === 'denied') {
+      appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
+      return false;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'denied') {
+        appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
+        return false;
+      }
+      return permission === 'granted';
+    } catch {
+      appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
+      return false;
+    }
+  };
+
+  const syncPushSubscription = async (settings: NotificationSettingsResponse) => {
+    try {
+      if (settings.scheduleAlarm || settings.groupAlarm) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const subscribed = await ensurePushSubscription();
+          if (!subscribed) {
+            appToast.info('푸시 알림 준비가 완료되지 않아 알림센터에서 먼저 확인할 수 있습니다');
+          }
+        }
+        return;
+      }
+
+      await removePushSubscription();
+    } catch (error) {
+      appToast.info('푸시 알림 연결에 실패해 알림센터에서 먼저 확인할 수 있습니다', error instanceof Error ? error.message : undefined);
+    }
+  };
 
   const handleSettingChange = async <K extends 'scheduleAlarm' | 'groupAlarm' | 'remindOneDayBefore' | 'remindSameDay' | 'importantAlarm'>(
     key: K,
     value: boolean,
     rollback: () => void,
   ) => {
+    const reminderKeys = ['remindOneDayBefore', 'remindSameDay', 'importantAlarm'];
+    if (!scheduleAlarm && reminderKeys.includes(key)) {
+      return;
+    }
+
     try {
-      await settingsApi.updateNotifications({ [key]: value });
-    } catch {
+      if (value && (key === 'scheduleAlarm' || key === 'groupAlarm')) {
+        await requestBrowserNotificationPermission();
+      }
+      const settings = await settingsApi.updateNotifications({ [key]: value });
+      applyNotificationSettings(settings);
+      await syncPushSubscription(settings);
+    } catch (error) {
       rollback();
-      toast.error('알림 설정 저장에 실패했습니다');
+      appToast.error('알림 설정 저장에 실패했습니다', error);
+    }
+  };
+
+  const handleScheduleAlarmChange = async (value: boolean) => {
+    const previous = {
+      scheduleAlarm,
+      remindOneDayBefore,
+      remindSameDay,
+      importantAlarm,
+    };
+
+    setScheduleAlarm(value);
+
+    try {
+      if (value) {
+        await requestBrowserNotificationPermission();
+      }
+      const settings = await settingsApi.updateNotifications(
+        value
+          ? { scheduleAlarm: true }
+          : { scheduleAlarm: false },
+      );
+      applyNotificationSettings(settings);
+      await syncPushSubscription(settings);
+    } catch (error) {
+      setScheduleAlarm(previous.scheduleAlarm);
+      setRemindOneDayBefore(previous.remindOneDayBefore);
+      setRemindSameDay(previous.remindSameDay);
+      setImportantAlarm(previous.importantAlarm);
+      appToast.error('알림 설정 저장에 실패했습니다', error);
     }
   };
 
@@ -65,10 +157,10 @@ const MyPage: React.FC = () => {
     setIsLoggingOut(true);
     try {
       await signOut();
-      toast.success('로그아웃 되었습니다');
+      appToast.success('로그아웃 되었습니다');
       navigate('/login');
-    } catch {
-      toast.error('로그아웃 중 오류가 발생했습니다');
+    } catch (error) {
+      appToast.error('로그아웃 중 오류가 발생했습니다', error);
     } finally {
       setIsLoggingOut(false);
     }
@@ -79,18 +171,18 @@ const MyPage: React.FC = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 업로드 가능합니다'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('5MB 이하의 이미지만 업로드 가능합니다'); return; }
+    if (!file.type.startsWith('image/')) { appToast.error('이미지 파일만 업로드 가능합니다'); return; }
+    if (file.size > 5 * 1024 * 1024) { appToast.error('5MB 이하의 이미지만 업로드 가능합니다'); return; }
 
     setIsUploading(true);
     try {
       const uploadResult = await storageApi.uploadProfileImage(file);
       await updateProfileMutation.mutateAsync({ avatarUrl: uploadResult.url });
       setProfileImage(uploadResult.url);
-      toast.success('프로필 이미지가 변경되었습니다');
+      appToast.success('프로필 이미지가 변경되었습니다');
     } catch (err) {
       console.error(err);
-      toast.error('이미지 업로드에 실패했습니다');
+      appToast.error('이미지 업로드에 실패했습니다', err);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -105,8 +197,8 @@ const MyPage: React.FC = () => {
       try {
         await updateProfileMutation.mutateAsync({ nickname: trimmed });
         setNickname(trimmed);
-        toast.success('닉네임이 변경되었습니다');
-      } catch { toast.error('닉네임 변경에 실패했습니다'); }
+        appToast.success('닉네임이 변경되었습니다');
+      } catch (error) { appToast.error('닉네임 변경에 실패했습니다', error); }
     }
     setIsEditingNickname(false);
   };
@@ -154,11 +246,7 @@ const MyPage: React.FC = () => {
         <section className="bg-card rounded-2xl shadow-soft overflow-hidden">
           <div className="px-5 pt-4 pb-2"><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">알림 설정</p></div>
           <div className="divide-y divide-border/60">
-            <SettingRow label="일정 알림" desc="일정 관련 알림을 받습니다" checked={scheduleAlarm} onChange={v => {
-              const previous = scheduleAlarm;
-              setScheduleAlarm(v);
-              handleSettingChange('scheduleAlarm', v, () => setScheduleAlarm(previous));
-            }} />
+            <SettingRow label="일정 알림" desc="일정과 리마인드 알림을 받습니다" checked={scheduleAlarm} onChange={handleScheduleAlarmChange} />
             <SettingRow label="그룹 알림" desc="그룹 일정 생성, 조율 시 알림" checked={groupAlarm} onChange={v => {
               const previous = groupAlarm;
               setGroupAlarm(v);
@@ -170,17 +258,17 @@ const MyPage: React.FC = () => {
         <section className="bg-card rounded-2xl shadow-soft overflow-hidden">
           <div className="px-5 pt-4 pb-2"><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">리마인드</p></div>
           <div className="divide-y divide-border/60">
-            <SettingRow label="1일 전 리마인드" desc="오후 10:00" checked={remindOneDayBefore} onChange={v => {
+            <SettingRow label="1일 전 리마인드" desc={scheduleAlarm ? '오후 10:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={remindOneDayBefore} disabled={!scheduleAlarm} onChange={v => {
               const previous = remindOneDayBefore;
               setRemindOneDayBefore(v);
               handleSettingChange('remindOneDayBefore', v, () => setRemindOneDayBefore(previous));
             }} />
-            <SettingRow label="당일 리마인드" desc="오전 8:00" checked={remindSameDay} onChange={v => {
+            <SettingRow label="당일 리마인드" desc={scheduleAlarm ? '오전 8:00' : '일정 알림을 켜면 설정할 수 있습니다'} checked={remindSameDay} disabled={!scheduleAlarm} onChange={v => {
               const previous = remindSameDay;
               setRemindSameDay(v);
               handleSettingChange('remindSameDay', v, () => setRemindSameDay(previous));
             }} />
-            <SettingRow label="중요 일정 알림" desc="오전 8:00 추가 알림" checked={importantAlarm} onChange={v => {
+            <SettingRow label="중요 일정 알림" desc={scheduleAlarm ? '오전 8:00 추가 알림' : '일정 알림을 켜면 설정할 수 있습니다'} checked={importantAlarm} disabled={!scheduleAlarm} onChange={v => {
               const previous = importantAlarm;
               setImportantAlarm(v);
               handleSettingChange('importantAlarm', v, () => setImportantAlarm(previous));
@@ -199,14 +287,14 @@ const MyPage: React.FC = () => {
   );
 };
 
-function SettingRow({ label, desc, checked, onChange }: { label: string; desc: string; checked: boolean; onChange: (v: boolean) => void }) {
+function SettingRow({ label, desc, checked, disabled = false, onChange }: { label: string; desc: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between px-5 py-4">
+    <div className={`flex items-center justify-between px-5 py-4 ${disabled ? 'opacity-70' : ''}`}>
       <div>
         <p className="text-sm font-medium text-foreground">{label}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>
       </div>
-      <ToggleSwitch checked={checked} onChange={onChange} />
+      <ToggleSwitch checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   );
 }

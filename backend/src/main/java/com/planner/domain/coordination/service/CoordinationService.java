@@ -12,7 +12,9 @@ import com.planner.domain.coordination.model.CoordinationResponse;
 import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
+import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
+import com.planner.domain.notification.service.NotificationService;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -33,6 +35,7 @@ public class CoordinationService {
 
     private final CoordinationRepository repository;
     private final GroupRepository groupRepository;
+    private final NotificationService notificationService;
     private final CursorCodec cursorCodec;
 
     public CoordinationResDTO create(String userId, String groupId, CoordinationCreateReqDTO req) {
@@ -48,6 +51,7 @@ public class CoordinationService {
                 .build();
 
         repository.saveCoordination(coord);
+        notifyCoordinationCreated(userId, coord);
         return CoordinationConverter.toResponse(coord);
     }
 
@@ -112,6 +116,8 @@ public class CoordinationService {
 
     public SubmitResultDTO submitResponses(String userId, String groupId, String coordId, CoordinationSubmitReqDTO req) {
         verifyMembership(groupId, userId);
+        Coordination coord = repository.findCoordination(groupId, coordId)
+                .orElseThrow(() -> new CoordinationException(CoordinationErrorCode.COORDINATION_NOT_FOUND));
 
         List<CoordinationResponse> existing = repository.findUserResponses(coordId, userId);
         for (CoordinationResponse r : existing) {
@@ -129,6 +135,7 @@ public class CoordinationService {
             repository.saveResponse(resp);
         }
 
+        notifyCoordinationSubmitted(userId, coord);
         return SubmitResultDTO.builder().submittedCount(req.getSlots().size()).build();
     }
 
@@ -152,5 +159,28 @@ public class CoordinationService {
     private void verifyMembership(String groupId, String userId) {
         groupRepository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+    }
+
+    private void notifyCoordinationCreated(String userId, Coordination coord) {
+        String title = "새 시간 조율이 시작되었습니다";
+        String content = "%s 조율에 참여해 주세요.".formatted(coord.getTitle());
+
+        for (GroupMember member : groupRepository.findMembersByGroupId(coord.getGroupId())) {
+            if (!userId.equals(member.getUserId())) {
+                notificationService.createGroupNotificationIfEnabled(member.getUserId(), title, content);
+            }
+        }
+    }
+
+    private void notifyCoordinationSubmitted(String userId, Coordination coord) {
+        if (userId.equals(coord.getCreatedBy())) {
+            return;
+        }
+
+        notificationService.createGroupNotificationIfEnabled(
+                coord.getCreatedBy(),
+                "조율 응답이 등록되었습니다",
+                "%s 조율에 새 응답이 등록되었습니다.".formatted(coord.getTitle())
+        );
     }
 }

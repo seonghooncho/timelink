@@ -13,6 +13,7 @@ public class AwsProperties {
     private String region;
     private DynamoDb dynamodb = new DynamoDb();
     private S3 s3 = new S3();
+    private Scheduler scheduler = new Scheduler();
 
     @Getter
     @Setter
@@ -26,5 +27,13 @@ public class AwsProperties {
     public static class S3 {
         private String bucketName;
         private String publicBaseUrl;
+    }
+
+    @Getter
+    @Setter
+    public static class Scheduler {
+        private String groupName;
+        private String targetArn;
+        private String roleArn;
     }
 }

@@ -3,8 +3,10 @@
 # ============================================
 
 locals {
+  lambda_zip_path = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
   api_lambda_environment = {
     APP_CONFIG_PREFIX = local.backend_ssm_prefix
+    APP_DEPLOY_SHA256 = filebase64sha256(local.lambda_zip_path)
   }
 }
 
@@ -18,8 +20,10 @@ resource "aws_lambda_function" "api" {
   timeout       = var.lambda_timeout
   architectures = ["arm64"] # Graviton2 — 최소 비용
 
-  filename         = "${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip"
-  source_code_hash = filebase64sha256("${path.module}/../../../backend/build/distributions/planner-backend-0.0.1-SNAPSHOT.zip")
+  s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket
+  s3_key            = aws_s3_object.backend_lambda_artifact.key
+  s3_object_version = aws_s3_object.backend_lambda_artifact.version_id
+  source_code_hash  = filebase64sha256(local.lambda_zip_path)
 
   role = aws_iam_role.lambda_exec.arn
 
@@ -36,11 +40,47 @@ resource "aws_lambda_function" "api" {
   }
 }
 
+resource "aws_lambda_function" "notification_worker" {
+  function_name = "${var.project_name}-${var.environment}-notification-worker"
+  description   = "Planner notification scheduler worker Lambda"
+  handler       = "com.planner.NotificationSchedulerLambdaHandler::handleRequest"
+  runtime       = "java21"
+  publish       = true
+  memory_size   = var.notification_worker_memory
+  timeout       = var.notification_worker_timeout
+  architectures = ["arm64"]
+
+  s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket
+  s3_key            = aws_s3_object.backend_lambda_artifact.key
+  s3_object_version = aws_s3_object.backend_lambda_artifact.version_id
+  source_code_hash  = filebase64sha256(local.lambda_zip_path)
+
+  role = aws_iam_role.lambda_exec.arn
+
+  environment {
+    variables = local.api_lambda_environment
+  }
+
+  snap_start {
+    apply_on = "PublishedVersions"
+  }
+
+  tags = {
+    Name = "${var.project_name}-notification-worker"
+  }
+}
+
 # Publish version for SnapStart
 resource "aws_lambda_alias" "live" {
   name             = "live"
   function_name    = aws_lambda_function.api.function_name
   function_version = aws_lambda_function.api.version
+}
+
+resource "aws_lambda_alias" "notification_worker_live" {
+  name             = "live"
+  function_name    = aws_lambda_function.notification_worker.function_name
+  function_version = aws_lambda_function.notification_worker.version
 }
 
 # ============================================
@@ -115,6 +155,25 @@ resource "aws_iam_role_policy" "dynamodb_access" {
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.backend_ssm_prefix}",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.backend_ssm_prefix}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "scheduler:CreateSchedule",
+          "scheduler:DeleteSchedule",
+          "scheduler:GetSchedule",
+          "scheduler:UpdateSchedule"
+        ]
+        Resource = [
+          "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/${aws_scheduler_schedule_group.notification_reminders.name}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = aws_iam_role.scheduler_invoke_lambda.arn
       }
     ]
   })

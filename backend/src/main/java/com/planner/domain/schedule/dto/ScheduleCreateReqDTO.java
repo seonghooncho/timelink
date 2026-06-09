@@ -13,6 +13,6 @@ public class ScheduleCreateReqDTO {
     @NotNull private String startTime;
     @NotNull private String endTime;
     private Double duration;
-    private Boolean hasAlarm = true;
+    private Boolean hasAlarm = false;
     private String groupId;
 }

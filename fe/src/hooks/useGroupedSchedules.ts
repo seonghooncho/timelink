@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Schedule } from '@/types/types';
+import { startOfLocalDay, toLocalDateKey } from '@/components/schedule/timetableUtils';
 
 interface ScheduleGroup {
   date: string;
@@ -14,14 +15,13 @@ export function useGroupedSchedules(schedules: Schedule[]): ScheduleGroup[] {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     const groups: ScheduleGroup[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfLocalDay(new Date());
 
     upcoming.forEach(s => {
-      const dateStr = s.startTime.slice(0, 10);
+      const dateStr = toLocalDateKey(s.startTime);
       let existing = groups.find(g => g.date === dateStr);
       if (!existing) {
-        const sDate = new Date(dateStr);
+        const sDate = startOfLocalDay(s.startTime);
         const diffDays = Math.round((sDate.getTime() - today.getTime()) / 86400000);
         let label: string;
         if (diffDays === 0) {

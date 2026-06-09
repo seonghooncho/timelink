@@ -7,6 +7,7 @@ import com.planner.domain.profile.error.ProfileErrorCode;
 import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.profile.util.GeneratedProfileDefaults;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -67,7 +68,18 @@ public class ProfileService {
         }
 
         String currentNickname = profile.getNickname();
-        return !StringUtils.hasText(currentNickname) || "사용자".equals(currentNickname);
+        String resolvedNickname = ProfileConverter.resolveNickname(nicknameHint);
+        return !resolvedNickname.equals(currentNickname)
+                && (!StringUtils.hasText(currentNickname) || isGeneratedNickname(currentNickname));
+    }
+
+    private boolean isGeneratedNickname(String nickname) {
+        String normalized = nickname.trim();
+        return "사용자".equals(normalized)
+                || "카카오유저".equals(normalized)
+                || "kakao-user".equalsIgnoreCase(normalized)
+                || "google-user".equalsIgnoreCase(normalized)
+                || GeneratedProfileDefaults.isGeneratedNickname(normalized);
     }
 
     private boolean shouldApplyAvatarHint(Profile profile, String avatarUrlHint) {
@@ -75,6 +87,8 @@ public class ProfileService {
             return false;
         }
 
-        return !StringUtils.hasText(profile.getAvatarUrl());
+        String currentAvatarUrl = profile.getAvatarUrl();
+        return !StringUtils.hasText(currentAvatarUrl)
+                || GeneratedProfileDefaults.isGeneratedAvatarUrl(currentAvatarUrl);
     }
 }

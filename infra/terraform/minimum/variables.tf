@@ -28,6 +28,18 @@ variable "lambda_timeout" {
   default     = 30
 }
 
+variable "notification_worker_memory" {
+  description = "Notification worker Lambda memory in MB."
+  type        = number
+  default     = 1024
+}
+
+variable "notification_worker_timeout" {
+  description = "Notification worker Lambda timeout in seconds."
+  type        = number
+  default     = 120
+}
+
 variable "frontend_origin_override" {
   description = "Optional custom frontend origin. Leave blank to use the CloudFront domain."
   type        = string
@@ -38,6 +50,25 @@ variable "backend_log_level" {
   description = "Application log level for the backend Lambda."
   type        = string
   default     = "INFO"
+}
+
+variable "push_vapid_public_key" {
+  description = "URL-safe base64 VAPID public key for browser push subscriptions."
+  type        = string
+  default     = ""
+}
+
+variable "push_vapid_private_key" {
+  description = "URL-safe base64 VAPID private key. Leave blank and set the SSM SecureString manually if preferred."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "push_subject" {
+  description = "VAPID subject, for example mailto:ops@example.com or https://example.com."
+  type        = string
+  default     = "mailto:admin@example.com"
 }
 
 # ── AI Lambda ──

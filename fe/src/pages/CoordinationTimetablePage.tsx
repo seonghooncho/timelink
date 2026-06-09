@@ -6,7 +6,8 @@ import { coordinationApi, CoordinationDetailResponse, HeatmapEntry, SlotEntry } 
 import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
+import { getScheduleColorStyle } from '@/utils';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -87,8 +88,8 @@ const CoordinationTimetablePage: React.FC = () => {
       const updated = await coordinationApi.getById(groupId, coordId);
       setCoordination(updated);
       setViewMode('result');
-      toast.success('가능 시간이 제출되었습니다');
-    } catch { toast.error('제출에 실패했습니다'); } finally { setIsSubmitting(false); }
+      appToast.success('가능 시간이 제출되었습니다');
+    } catch (error) { appToast.error('제출에 실패했습니다', error); } finally { setIsSubmitting(false); }
   };
 
   const getResultColor = (ratio: number) => ratio >= 0.75 ? 'bg-coord-blue' : ratio >= 0.5 ? 'bg-coord-green' : 'bg-coord-gray';
@@ -125,7 +126,14 @@ const CoordinationTimetablePage: React.FC = () => {
                     const existingSchedules = userSchedulesBySlot[key];
                     return (
                       <button key={dIdx} onClick={() => toggleSlot(dIdx, hour)} className={`flex-1 h-10 border-l border-border/50 transition-colors relative ${isSelected ? 'bg-primary/30' : 'hover:bg-muted'}`}>
-                        {existingSchedules && (<div className="absolute inset-0.5 rounded-sm bg-category-task/15 border border-category-task/20 flex items-center justify-center"><span className="text-[8px] text-category-task-strong font-medium truncate px-0.5">{existingSchedules[0].title}</span></div>)}
+                        {existingSchedules && (
+                          <div
+                            className="absolute inset-0.5 rounded-sm border flex items-center justify-center"
+                            style={getScheduleColorStyle(existingSchedules[0], 'soft')}
+                          >
+                            <span className="text-[8px] font-medium truncate px-0.5">{existingSchedules[0].title}</span>
+                          </div>
+                        )}
                       </button>
                     );
                   })}

@@ -1,4 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,6 +19,7 @@ import LoginPage from "./pages/LoginPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import NotFound from "./pages/NotFound";
+import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,8 +35,8 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <AppProvider>
-          <Toaster />
           <Sonner />
+          <PwaInstallPrompt />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />

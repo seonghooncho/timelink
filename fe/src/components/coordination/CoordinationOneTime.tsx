@@ -4,7 +4,7 @@ import { useGroups } from '@/hooks/useGroups';
 import { coordinationApi } from '@/services/api';
 import MemberSelector from '@/components/common/MemberSelector';
 import TimePicker from '@/components/common/TimePicker';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 interface CoordinationOneTimeProps {
   groupId?: string;
@@ -64,12 +64,28 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
   const dayHeaders = ['일', '월', '화', '수', '목', '금', '토'];
 
   const handleCreate = async () => {
-    if (!groupId) return;
+    if (!groupId) {
+      appToast.error('그룹 정보를 확인할 수 없습니다');
+      return;
+    }
+    if (!title.trim()) {
+      appToast.error('조율 제목을 입력해주세요');
+      return;
+    }
+    if (selectedDates.size === 0) {
+      appToast.error('조율할 날짜를 선택해주세요');
+      return;
+    }
+    if (endHour <= startHour) {
+      appToast.error('시간 범위를 확인해주세요', '종료 시간은 시작 시간보다 뒤여야 합니다.');
+      return;
+    }
+
     setIsCreating(true);
     try {
       const dates = Array.from(selectedDates).sort();
       const result = await coordinationApi.create(groupId, {
-        title,
+        title: title.trim(),
         mode: 'once',
         dates,
         startHour,
@@ -77,7 +93,7 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
       });
       navigate(`/groups/${groupId}/coordination/${result.id}/timetable`);
     } catch (err) {
-      toast.error('조율 생성에 실패했습니다');
+      appToast.error('조율 생성에 실패했습니다', err);
     } finally {
       setIsCreating(false);
     }
@@ -130,7 +146,7 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
       </div>
 
       <button onClick={handleCreate}
-        disabled={!title.trim() || selectedDates.size === 0 || isCreating}
+        disabled={isCreating}
         className="w-full mt-8 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-40">
         {isCreating ? '생성 중...' : '생성하기'}
       </button>

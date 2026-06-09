@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateGroup } from '@/hooks/useGroups';
 import { storageApi } from '@/services/api';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 import { Camera, X } from 'lucide-react';
 
 const GroupFormPage: React.FC = () => {
@@ -22,8 +22,8 @@ const GroupFormPage: React.FC = () => {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 업로드 가능합니다'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('이미지 크기는 5MB 이하여야 합니다'); return; }
+    if (!file.type.startsWith('image/')) { appToast.error('이미지 파일만 업로드 가능합니다'); return; }
+    if (file.size > 5 * 1024 * 1024) { appToast.error('이미지 크기는 5MB 이하여야 합니다'); return; }
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target?.result as string);
@@ -40,7 +40,7 @@ const GroupFormPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error('그룹 이름을 입력해주세요'); return; }
+    if (!name.trim()) { appToast.error('그룹 이름을 입력해주세요'); return; }
     setIsUploading(true);
     try {
       let imageUrl: string | null = null;
@@ -52,9 +52,9 @@ const GroupFormPage: React.FC = () => {
         imageUrl: imageUrl || undefined,
       });
 
-      toast.success('그룹이 생성되었습니다');
+      appToast.success('그룹이 생성되었습니다');
       navigate(`/groups/${result.id}`);
-    } catch { toast.error('그룹 생성 중 오류가 발생했습니다'); } finally { setIsUploading(false); }
+    } catch (error) { appToast.error('그룹 생성에 실패했습니다', error, '그룹 생성 중 오류가 발생했습니다.'); } finally { setIsUploading(false); }
   };
 
   return (

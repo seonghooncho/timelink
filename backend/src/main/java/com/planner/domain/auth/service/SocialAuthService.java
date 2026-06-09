@@ -2,6 +2,7 @@ package com.planner.domain.auth.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.planner.domain.auth.dto.AuthSessionResDTO;
+import com.planner.domain.profile.util.GeneratedProfileDefaults;
 import com.planner.global.config.CorsProperties;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.config.OAuthProperties;
@@ -37,7 +38,7 @@ public class SocialAuthService {
 
     private static final Duration STATE_TTL = Duration.ofMinutes(10);
     private static final String CALLBACK_PATH = "/auth/callback";
-
+    private static final String DEFAULT_KAKAO_PROFILE_SCOPE = "profile_nickname,profile_image";
     private final OAuthProperties oauthProperties;
     private final JwtProperties jwtProperties;
     private final CorsProperties corsProperties;
@@ -57,7 +58,7 @@ public class SocialAuthService {
         OAuthProperties.Provider config = getConfig(provider);
         ensureConfigured(provider, config);
 
-        String normalizedFrontendOrigin = normalizeFrontendOrigin(frontendOrigin);
+        String normalizedFrontendOrigin = resolveFrontendOrigin(frontendOrigin, request);
         String normalizedRedirectPath = normalizeRedirectPath(redirectPath);
         validateFrontendOrigin(normalizedFrontendOrigin);
 
@@ -75,15 +76,26 @@ public class SocialAuthService {
                     .queryParam("prompt", "select_account")
                     .build(true)
                     .toUri();
-            case KAKAO -> UriComponentsBuilder
-                    .fromUriString("https://kauth.kakao.com/oauth/authorize")
-                    .queryParam("response_type", "code")
-                    .queryParam("client_id", config.getClientId())
-                    .queryParam("redirect_uri", encode(callbackUri))
-                    .queryParam("state", state)
-                    .build(true)
-                    .toUri();
+            case KAKAO -> buildKakaoAuthorizationUri(config, callbackUri, state);
         };
+    }
+
+    private URI buildKakaoAuthorizationUri(OAuthProperties.Provider config, String callbackUri, String state) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString("https://kauth.kakao.com/oauth/authorize")
+                .queryParam("response_type", "code")
+                .queryParam("client_id", config.getClientId())
+                .queryParam("redirect_uri", encode(callbackUri))
+                .queryParam("state", state);
+
+        String scope = StringUtils.hasText(config.getScope())
+                ? config.getScope().trim()
+                : DEFAULT_KAKAO_PROFILE_SCOPE;
+        if (StringUtils.hasText(scope)) {
+            builder.queryParam("scope", scope);
+        }
+
+        return builder.build(true).toUri();
     }
 
     public URI buildCallbackRedirect(String providerName, String code, String stateToken, HttpServletRequest request) {
@@ -154,7 +166,7 @@ public class SocialAuthService {
                 .body(JsonNode.class);
 
         String providerUserId = readRequired(userInfo, "sub", "Google 사용자 식별자를 확인할 수 없습니다");
-        String nickname = firstText(userInfo, "name", fallbackNickname(userInfo.path("email").asText(""), "google"));
+        String nickname = resolveGoogleNickname(userInfo);
         String avatarUrl = firstText(userInfo, "picture", "");
 
         return new ProviderUser("google_" + providerUserId, nickname, avatarUrl);
@@ -186,10 +198,8 @@ public class SocialAuthService {
                 .body(JsonNode.class);
 
         String providerUserId = readRequired(userInfo, "id", "Kakao 사용자 식별자를 확인할 수 없습니다");
-        JsonNode account = userInfo.path("kakao_account");
-        JsonNode profile = account.path("profile");
-        String nickname = firstText(profile, "nickname", fallbackNickname(account.path("email").asText(""), "kakao"));
-        String avatarUrl = firstText(profile, "profile_image_url", "");
+        String nickname = resolveKakaoNickname(userInfo);
+        String avatarUrl = resolveKakaoAvatarUrl(userInfo);
 
         return new ProviderUser("kakao_" + providerUserId, nickname, avatarUrl);
     }
@@ -291,6 +301,11 @@ public class SocialAuthService {
     }
 
     private String buildApiBaseUrl(HttpServletRequest request) {
+        String configuredBaseUrl = normalizeFrontendOrigin(oauthProperties.getPublicApiBaseUrl());
+        if (StringUtils.hasText(configuredBaseUrl)) {
+            return configuredBaseUrl;
+        }
+
         return UriComponentsBuilder
                 .fromHttpUrl(request.getRequestURL().toString())
                 .replacePath(null)
@@ -305,6 +320,14 @@ public class SocialAuthService {
             return "";
         }
         return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
+    private String resolveFrontendOrigin(String frontendOrigin, HttpServletRequest request) {
+        if (StringUtils.hasText(frontendOrigin)) {
+            return normalizeFrontendOrigin(frontendOrigin);
+        }
+
+        return defaultFrontendOrigin(request);
     }
 
     private String normalizeRedirectPath(String redirectPath) {
@@ -373,7 +396,40 @@ public class SocialAuthService {
         return value;
     }
 
-    private String firstText(JsonNode node, String fieldName, String fallback) {
+    static String resolveGoogleNickname(JsonNode userInfo) {
+        return firstNonBlank(
+                firstText(userInfo, "name", null),
+                fallbackNickname(userInfo.path("email").asText(""), "google")
+        );
+    }
+
+    static String resolveKakaoNickname(JsonNode userInfo) {
+        JsonNode account = userInfo.path("kakao_account");
+        JsonNode profile = account.path("profile");
+        boolean defaultNickname = profile.path("is_default_nickname").asBoolean(false);
+        String seed = firstText(userInfo, "id", "kakao");
+
+        return firstNonBlank(
+                firstText(account, "name", null),
+                defaultNickname ? null : firstText(profile, "nickname", null),
+                defaultNickname ? null : firstText(userInfo.path("properties"), "nickname", null),
+                nicknameFromEmail(account.path("email").asText("")),
+                GeneratedProfileDefaults.nickname(seed)
+        );
+    }
+
+    static String resolveKakaoAvatarUrl(JsonNode userInfo) {
+        JsonNode profile = userInfo.path("kakao_account").path("profile");
+        String seed = firstText(userInfo, "id", "kakao");
+
+        return firstNonBlank(
+                firstText(profile, "profile_image_url", null),
+                firstText(profile, "thumbnail_image_url", null),
+                GeneratedProfileDefaults.avatarUrl(seed)
+        );
+    }
+
+    private static String firstText(JsonNode node, String fieldName, String fallback) {
         if (node == null) {
             return fallback;
         }
@@ -387,11 +443,26 @@ public class SocialAuthService {
         return StringUtils.hasText(value) ? value : fallback;
     }
 
-    private String fallbackNickname(String email, String prefix) {
-        if (StringUtils.hasText(email) && email.contains("@")) {
-            return email.substring(0, email.indexOf('@'));
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
         }
-        return prefix + "-user";
+
+        return "사용자";
+    }
+
+    private static String fallbackNickname(String email, String prefix) {
+        return firstNonBlank(nicknameFromEmail(email), prefix + "-user");
+    }
+
+    private static String nicknameFromEmail(String email) {
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            return null;
+        }
+
+        return email.substring(0, email.indexOf('@'));
     }
 
     private String encode(String value) {

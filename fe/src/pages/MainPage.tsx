@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '@/components/common/BrandMark';
@@ -13,6 +13,8 @@ import { Schedule } from '@/types/types';
 import { getDayLabel } from '@/utils';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
+import { getDefaultScheduleAnchor, getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
+import { appToast } from '@/lib/appToast';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,10 +22,11 @@ const MainPage: React.FC = () => {
   const { data: schedules = [] } = useSchedules();
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
-  const [timetableStart, setTimetableStart] = useState(new Date());
+  const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
 
   const groupedSchedules = useGroupedSchedules(schedules);
+  const scheduleAnchor = useMemo(() => getDefaultScheduleAnchor(schedules), [schedules]);
 
   const handleComplete = (schedule: Schedule) => {
     setConfirmDelete(schedule);
@@ -31,8 +34,15 @@ const MainPage: React.FC = () => {
 
   const handleDeleteConfirm = () => {
     if (confirmDelete) {
-      deleteMutation.mutate(confirmDelete.id);
-      setConfirmDelete(null);
+      deleteMutation.mutate(confirmDelete.id, {
+        onSuccess: () => {
+          appToast.success('일정을 삭제했습니다');
+          setConfirmDelete(null);
+        },
+        onError: (error) => {
+          appToast.error('일정 삭제에 실패했습니다', error);
+        },
+      });
     }
   };
 
@@ -59,7 +69,13 @@ const MainPage: React.FC = () => {
   };
 
   const handleUpdate = (id: string, updates: Partial<Schedule>) => {
-    updateMutation.mutate({ id, data: updates });
+    updateMutation.mutate(
+      { id, data: updates },
+      {
+        onSuccess: () => appToast.success('일정을 수정했습니다'),
+        onError: (error) => appToast.error('일정 수정에 실패했습니다', error),
+      },
+    );
   };
 
   const todayDate = new Date();
@@ -94,7 +110,13 @@ const MainPage: React.FC = () => {
             <p className="text-xs text-muted-foreground">+ 버튼을 눌러 일정을 추가해 보세요</p>
           </div>
         ) : (
-          <ScheduleStrip groups={groupedSchedules} onScheduleClick={handleScheduleClick} onComplete={handleComplete} />
+          <ScheduleStrip
+            groups={groupedSchedules}
+            initialScheduleId={scheduleAnchor.anchorScheduleId}
+            hasPreviousSchedules={scheduleAnchor.hasPreviousSchedules}
+            onScheduleClick={handleScheduleClick}
+            onComplete={handleComplete}
+          />
         )}
       </section>
 
