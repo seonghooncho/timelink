@@ -8,6 +8,7 @@ import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
+import { getScheduleEndDate } from '@/lib/scheduleTime';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const CoordinationTimetablePage: React.FC = () => {
     const map: Record<string, Schedule[]> = {};
     schedules.forEach(s => {
       const sDate = new Date(s.startTime);
-      const eDate = new Date(s.endTime);
+      const eDate = getScheduleEndDate(s);
       parsedDates.forEach((pd, dIdx) => {
         if (sDate.toDateString() === pd.toDateString()) {
           const sHour = sDate.getHours();

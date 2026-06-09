@@ -7,7 +7,7 @@ export interface Schedule {
   category: ScheduleCategory;
   isImportant: boolean;
   startTime: string;
-  endTime: string;
+  endTime?: string;
   duration: number;
   isCompleted: boolean;
   hasAlarm: boolean;

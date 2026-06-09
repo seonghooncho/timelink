@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Schedule } from '@/types/types';
 import { getDayLabel, getScheduleColorStyle } from '@/utils';
+import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import {
   getTimetableDraggedScrollTop,
   isScheduleVisibleOnDate,
@@ -210,7 +211,7 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
                       {seg.isFirst && (
                         <>
                           <p className="text-[9px] font-medium truncate">
-                            {new Date(s.startTime).getHours()}:{String(new Date(s.startTime).getMinutes()).padStart(2, '0')}
+                            {formatScheduleClock(s.startTime)}
                           </p>
                           <p className="text-[10px] font-semibold truncate">{s.title}</p>
                         </>
@@ -218,7 +219,7 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
                       {!seg.isFirst && seg.height > 20 && (
                         <p className="text-[10px] font-semibold truncate opacity-60">{s.title}</p>
                       )}
-                      {seg.height > 48 && <p className="text-[9px] opacity-75 truncate">{s.duration}h</p>}
+                      {seg.height > 48 && <p className="text-[9px] opacity-75 truncate">{formatDurationLabel(s.duration)}</p>}
                     </button>
 
                     {/* Overflow badge */}

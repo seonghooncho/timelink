@@ -1,8 +1,13 @@
 import { ScheduleCreateRequest } from '@/services/api';
 import { ScheduleCategory } from '@/types/types';
+import {
+  DEFAULT_SCHEDULE_DURATION_HOURS,
+  SCHEDULE_DURATION_STEP_HOURS,
+} from '@/lib/scheduleTime';
 
 export const SCHEDULE_TIME_STEP_SECONDS = 30 * 60;
 const HALF_HOUR_MINUTES = 30;
+const MIN_DURATION_HOURS = SCHEDULE_DURATION_STEP_HOURS;
 
 export interface ScheduleFormValues {
   title: string;
@@ -11,8 +16,6 @@ export interface ScheduleFormValues {
   isImportant: boolean;
   startDate: string;
   startTime: string;
-  endDate: string;
-  endTime: string;
   duration: string;
   hasAlarm: boolean;
   groupId?: string;
@@ -70,19 +73,19 @@ const formatLocalDateTime = (date: string, time: string) => `${date}T${time}:00`
 const parseDuration = (duration: string): ScheduleFormResult | { ok: true; duration: number } => {
   const trimmed = duration.trim();
   if (!trimmed) {
-    return { ok: true, duration: 0 };
+    return { ok: true, duration: DEFAULT_SCHEDULE_DURATION_HOURS };
   }
 
   const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || parsed < MIN_DURATION_HOURS) {
     return {
       ok: false,
       message: '소요 시간을 확인해주세요',
-      description: '소요 시간은 0 이상 숫자로 입력해주세요.',
+      description: '소요 시간은 30분 이상이어야 합니다.',
     };
   }
 
-  if (!Number.isInteger(parsed * 2)) {
+  if (!Number.isInteger(parsed / SCHEDULE_DURATION_STEP_HOURS)) {
     return {
       ok: false,
       message: '소요 시간을 확인해주세요',
@@ -92,6 +95,11 @@ const parseDuration = (duration: string): ScheduleFormResult | { ok: true; durat
 
   return { ok: true, duration: parsed };
 };
+
+const isSameLocalDate = (first: Date, second: Date) =>
+  first.getFullYear() === second.getFullYear()
+  && first.getMonth() === second.getMonth()
+  && first.getDate() === second.getDate();
 
 export const buildScheduleCreateRequest = (values: ScheduleFormValues): ScheduleFormResult => {
   const title = values.title.trim();
@@ -115,41 +123,20 @@ export const buildScheduleCreateRequest = (values: ScheduleFormValues): Schedule
     };
   }
 
-  const hasPartialEnd = Boolean(values.endDate) !== Boolean(values.endTime);
-  if (hasPartialEnd) {
-    return {
-      ok: false,
-      message: '종료 시간을 확인해주세요',
-      description: '종료 날짜와 종료 시간을 함께 입력해주세요.',
-    };
-  }
-
-  if (values.endTime && !isHalfHourTime(values.endTime)) {
-    return {
-      ok: false,
-      message: '종료 시간을 확인해주세요',
-      description: '시간은 30분 단위로 선택해주세요.',
-    };
-  }
-
   const parsedDuration = parseDuration(values.duration);
   if (!parsedDuration.ok) {
     return parsedDuration;
   }
 
-  const endDate = values.endDate || values.startDate;
-  const endTime = values.endTime || values.startTime;
-
-  if (values.endDate && values.endTime) {
-    const start = getLocalDateTime(values.startDate, values.startTime);
-    const end = getLocalDateTime(endDate, endTime);
-    if (end.getTime() <= start.getTime()) {
-      return {
-        ok: false,
-        message: '종료 시간을 확인해주세요',
-        description: '종료 시간은 시작 시간보다 뒤여야 합니다.',
-      };
-    }
+  const start = getLocalDateTime(values.startDate, values.startTime);
+  const end = new Date(start);
+  end.setMinutes(end.getMinutes() + parsedDuration.duration * 60);
+  if (!isSameLocalDate(start, end)) {
+    return {
+      ok: false,
+      message: '소요 시간을 확인해주세요',
+      description: '시작 시간과 소요시간은 같은 날짜 안에서 끝나야 합니다.',
+    };
   }
 
   return {
@@ -160,7 +147,6 @@ export const buildScheduleCreateRequest = (values: ScheduleFormValues): Schedule
       category: values.category,
       isImportant: values.isImportant,
       startTime: formatLocalDateTime(values.startDate, values.startTime),
-      endTime: formatLocalDateTime(endDate, endTime),
       duration: parsedDuration.duration,
       hasAlarm: values.hasAlarm,
       groupId: values.category === 'group' ? values.groupId : undefined,

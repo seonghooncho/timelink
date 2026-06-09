@@ -129,7 +129,7 @@ class ScheduleControllerTest {
     void create_valid_returns201() throws Exception {
         ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
         req.setTitle("New"); req.setCategory("work");
-        req.setStartTime("2025-03-10T09:00"); req.setEndTime("2025-03-10T10:00");
+        req.setStartTime("2025-03-10T09:00"); req.setDuration(1.0);
 
         when(service.create(eq("user1"), any())).thenReturn(sampleRes());
 

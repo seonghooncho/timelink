@@ -115,6 +115,17 @@ class ProfileServiceTest {
             assertThat(result.getNickname()).isEqualTo("테스트유저");
             then(repository).should(never()).save(any());
         }
+
+        @Test
+        @DisplayName("사용자가 정한 프로필 사진은 소셜 프로필 사진 힌트로 덮어쓰지 않는다")
+        void shouldKeepExistingUserAvatar() {
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(createProfile()));
+
+            ProfileResDTO result = service.getOrCreate(USER_ID, null, "https://img.example.com/kakao.jpg");
+
+            assertThat(result.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
+            then(repository).should(never()).save(any());
+        }
     }
 
     @Nested

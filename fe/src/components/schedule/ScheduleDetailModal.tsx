@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { appToast } from '@/lib/appToast';
+import { formatDurationLabel, formatScheduleDateClock } from '@/lib/scheduleTime';
 
 interface ScheduleDetailModalProps {
   schedule: Schedule | null;
@@ -18,9 +19,6 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
   const [editContent, setEditContent] = useState('');
 
   if (!schedule) return null;
-
-  const startDate = new Date(schedule.startTime);
-  const endDate = new Date(schedule.endTime);
 
   const handleEdit = () => {
     setEditTitle(schedule.title);
@@ -94,9 +92,8 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                 <h2 className="text-xl font-bold text-foreground mb-1">{schedule.title}</h2>
 
                 <div className="space-y-3 mt-5">
-                  <DetailRow label="시작" value={`${startDate.getMonth()+1}/${startDate.getDate()} ${startDate.getHours()}:${String(startDate.getMinutes()).padStart(2,'0')}`} />
-                  <DetailRow label="종료" value={`${endDate.getMonth()+1}/${endDate.getDate()} ${endDate.getHours()}:${String(endDate.getMinutes()).padStart(2,'0')}`} />
-                  <DetailRow label="소요" value={`${schedule.duration}시간`} />
+                  <DetailRow label="일시" value={formatScheduleDateClock(schedule.startTime)} />
+                  <DetailRow label="소요" value={formatDurationLabel(schedule.duration)} />
                 </div>
 
                 {schedule.content && (

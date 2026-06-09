@@ -1,7 +1,6 @@
 package com.planner.domain.schedule.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
@@ -10,8 +9,7 @@ public class ScheduleCreateReqDTO {
     private String content;
     @NotBlank private String category;
     private Boolean isImportant = false;
-    @NotNull private String startTime;
-    @NotNull private String endTime;
+    @NotBlank private String startTime;
     private Double duration;
     private Boolean hasAlarm = false;
     private String groupId;

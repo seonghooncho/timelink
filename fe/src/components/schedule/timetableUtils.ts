@@ -1,4 +1,5 @@
 import { Schedule } from '@/types/types';
+import { getScheduleEndDate, getScheduleDurationMinutes } from '@/lib/scheduleTime';
 
 export const TIMETABLE_HOUR_START = 0;
 export const TIMETABLE_HOUR_END = 24;
@@ -27,8 +28,17 @@ export const getScheduleStartHour = (schedule: Pick<Schedule, 'startTime'>) => {
 
 export const getScheduleEndHour = (schedule: Pick<Schedule, 'startTime' | 'endTime' | 'duration'>) => {
   const start = new Date(schedule.startTime);
-  const end = new Date(schedule.endTime);
   const startHour = start.getHours() + start.getMinutes() / 60;
+  if (schedule.duration > 0) {
+    const end = getScheduleEndDate(schedule);
+    const endHour = end.getHours() + end.getMinutes() / 60;
+    if (toLocalDateKey(end) !== toLocalDateKey(start)) {
+      return TIMETABLE_HOUR_END;
+    }
+    return endHour;
+  }
+
+  const end = schedule.endTime ? new Date(schedule.endTime) : new Date(start);
   const endHour = end.getHours() + end.getMinutes() / 60;
 
   if (end.getTime() > start.getTime()) {
@@ -38,7 +48,7 @@ export const getScheduleEndHour = (schedule: Pick<Schedule, 'startTime' | 'endTi
     return endHour;
   }
 
-  const fallbackDuration = schedule.duration > 0 ? schedule.duration : TIMETABLE_MIN_BLOCK_HOURS;
+  const fallbackDuration = getScheduleDurationMinutes(TIMETABLE_MIN_BLOCK_HOURS) / 60;
   return startHour + Math.max(fallbackDuration, TIMETABLE_MIN_BLOCK_HOURS);
 };
 
@@ -228,14 +238,7 @@ export function layoutSchedules(daySchedules: Schedule[]): RenderedTimetableSegm
 }
 
 export const isSchedulePastByEndDate = (schedule: Schedule, today = new Date()) => {
-  const end = new Date(schedule.endTime);
-  const fallbackEnd = new Date(schedule.startTime);
-  if (end.getTime() <= fallbackEnd.getTime() && schedule.duration > 0) {
-    fallbackEnd.setMinutes(fallbackEnd.getMinutes() + schedule.duration * 60);
-  }
-
-  const effectiveEnd = end.getTime() > fallbackEnd.getTime() ? end : fallbackEnd;
-  return effectiveEnd < startOfLocalDay(today);
+  return getScheduleEndDate(schedule) < startOfLocalDay(today);
 };
 
 export const getDefaultTimetableStart = (today = new Date()) => startOfLocalDay(today);

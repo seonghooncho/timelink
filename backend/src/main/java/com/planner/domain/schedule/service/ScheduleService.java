@@ -12,6 +12,7 @@ import com.planner.domain.schedule.error.ScheduleErrorCode;
 import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.domain.schedule.util.ScheduleTimeCalculator;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -76,12 +77,17 @@ public class ScheduleService {
         if (req.getContent() != null) schedule.setContent(req.getContent());
         if (req.getCategory() != null) schedule.setCategory(req.getCategory());
         if (req.getIsImportant() != null) schedule.setIsImportant(req.getIsImportant());
-        if (req.getStartTime() != null) {
-            schedule.setStartTime(req.getStartTime());
-            schedule.setGsi1sk(req.getStartTime());
+        if (req.getStartTime() != null || req.getDuration() != null) {
+            String nextStartTime = req.getStartTime() != null ? req.getStartTime() : schedule.getStartTime();
+            Double nextDurationHint = req.getDuration() != null ? req.getDuration() : schedule.getDuration();
+            double nextDuration = ScheduleTimeCalculator.resolveDuration(
+                    nextDurationHint != null && nextDurationHint > 0 ? nextDurationHint : null
+            );
+            schedule.setStartTime(nextStartTime);
+            schedule.setGsi1sk(nextStartTime);
+            schedule.setDuration(nextDuration);
+            schedule.setEndTime(ScheduleTimeCalculator.calculateEndTime(nextStartTime, nextDuration));
         }
-        if (req.getEndTime() != null) schedule.setEndTime(req.getEndTime());
-        if (req.getDuration() != null) schedule.setDuration(req.getDuration());
         if (req.getIsCompleted() != null) schedule.setIsCompleted(req.getIsCompleted());
         if (req.getHasAlarm() != null) schedule.setHasAlarm(req.getHasAlarm());
         schedule.setUpdatedAt(Instant.now().toString());

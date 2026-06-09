@@ -2,6 +2,7 @@ import React from 'react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { getScheduleColorStyle } from '@/utils';
+import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 
 interface ScheduleCardProps {
   schedule: Schedule;
@@ -10,9 +11,7 @@ interface ScheduleCardProps {
 }
 
 const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, onClick, onComplete }) => {
-  const startDate = new Date(schedule.startTime);
-  const endDate = new Date(schedule.endTime);
-  const timeStr = `${startDate.getHours()}:${String(startDate.getMinutes()).padStart(2, '0')} – ${endDate.getHours()}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+  const timeStr = `${formatScheduleClock(schedule.startTime)} · ${formatDurationLabel(schedule.duration)}`;
 
   return (
     <div
@@ -29,7 +28,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, onClick, onComple
         </div>
         <h3 className="text-sm font-bold text-foreground">{schedule.title}</h3>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{schedule.content}</p>
-        <p className="font-num text-[11px] text-muted-foreground mt-1.5">{timeStr} · {schedule.duration}h</p>
+        <p className="font-num text-[11px] text-muted-foreground mt-1.5">{timeStr}</p>
       </div>
 
       {/* Checkbox */}

@@ -151,7 +151,7 @@ export interface ScheduleResponse {
   category: string;
   isImportant: boolean;
   startTime: string;
-  endTime: string;
+  endTime?: string;
   duration: number;
   isCompleted: boolean;
   hasAlarm: boolean;
@@ -166,8 +166,7 @@ export interface ScheduleCreateRequest {
   category: string;
   isImportant?: boolean;
   startTime: string;
-  endTime: string;
-  duration?: number;
+  duration: number;
   hasAlarm?: boolean;
   groupId?: string;
 }
@@ -178,7 +177,6 @@ export interface ScheduleUpdateRequest {
   category?: string;
   isImportant?: boolean;
   startTime?: string;
-  endTime?: string;
   duration?: number;
   isCompleted?: boolean;
   hasAlarm?: boolean;

@@ -185,8 +185,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `category` | `schedule_category` | enum: task, appointment, group, important, repeat |
 | `is_important` | `boolean` | 중요 여부 (기본: false) |
 | `start_time` | `timestamptz` NOT NULL | 시작 시간 |
-| `end_time` | `timestamptz` NOT NULL | 종료 시간 |
-| `duration` | `real` | 소요 시간 (시간 단위) |
+| `end_time` | `timestamptz` | `start_time + duration`으로 계산된 파생 종료 시간 |
+| `duration` | `real` | 소요 시간 (시간 단위, 30분 단위, 기본 1시간) |
 | `is_completed` | `boolean` | 완료 여부 (기본: false) |
 | `has_alarm` | `boolean` | 알림 여부 (기본: true) |
 | `group_id` | `uuid` FK nullable | 그룹 일정 시 그룹 ID |
@@ -254,6 +254,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 일정 생성
 
+종료 시간은 요청으로 받지 않고 `start_time + duration`으로 계산한다. `duration`이 없으면 1시간으로 저장하며, 계산된 종료 시간이 시작 날짜를 넘으면 `400 SCHEDULE_CROSSES_DAY`를 반환한다.
+
 **Request Body**
 ```json
 {
@@ -262,7 +264,6 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "category": "task",
   "is_important": true,
   "start_time": "2026-03-08T12:00:00Z",
-  "end_time": "2026-03-08T15:00:00Z",
   "duration": 3,
   "has_alarm": true,
   "group_id": null
@@ -281,6 +282,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `PATCH` /api/planner/v1/schedules/:id
 
 일정 부분 수정
+
+`start_time` 또는 `duration`이 변경되면 서버가 `end_time`을 다시 계산한다.
 
 **Request Body** (변경할 필드만)
 ```json
@@ -965,6 +968,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `POST` /api/planner/v1/schedules/extract
 
 사진에서 일정 정보 AI 추출
+
+`end_date`와 `end_time`은 추출 결과 보조값이다. 일정 생성 요청에는 종료 시간을 보내지 않고, 클라이언트가 `duration`을 사용하거나 추출된 시작/종료 차이로 소요시간을 계산한다.
 
 **Request Body**
 ```json

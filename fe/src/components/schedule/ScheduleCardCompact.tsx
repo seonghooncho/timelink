@@ -1,6 +1,7 @@
 import React from 'react';
 import { Schedule } from '@/types/types';
 import { getCategoryLabel, getScheduleColorStyle } from '@/utils';
+import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 
 interface ScheduleCardCompactProps {
   schedule: Schedule;
@@ -9,8 +10,6 @@ interface ScheduleCardCompactProps {
 }
 
 const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete }) => {
-  const startDate = new Date(schedule.startTime);
-  const timeStr = `${startDate.getHours()}:${String(startDate.getMinutes()).padStart(2, '0')}`;
   const isImportant = schedule.isImportant;
   const cardColorStyle = getScheduleColorStyle(schedule, isImportant ? 'solid' : 'soft');
   const dotColorStyle = getScheduleColorStyle(schedule, 'line');
@@ -31,7 +30,7 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
             {getCategoryLabel(schedule.category)}
           </span>
         </div>
-        <p className="font-num text-xs font-semibold opacity-70">{timeStr}</p>
+        <p className="font-num text-xs font-semibold opacity-70">{formatScheduleClock(schedule.startTime)}</p>
         <p className="text-[13px] font-bold mt-1 leading-snug line-clamp-2">
           {schedule.title}
         </p>
@@ -39,11 +38,9 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
 
       {/* Bottom */}
       <div className="flex items-end justify-between mt-auto pt-2">
-        {schedule.duration > 0 && (
-          <span className={`font-num text-[10px] font-medium ${isImportant ? 'opacity-60' : 'text-muted-foreground'}`}>
-            {schedule.duration}h
-          </span>
-        )}
+        <span className={`font-num text-[10px] font-medium ${isImportant ? 'opacity-60' : 'text-muted-foreground'}`}>
+          {formatDurationLabel(schedule.duration)}
+        </span>
         <button
           onClick={(e) => { e.stopPropagation(); onComplete(schedule); }}
           className={`w-5 h-5 rounded-md border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
