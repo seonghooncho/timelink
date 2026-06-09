@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -160,22 +161,28 @@ public class GroupService {
     }
 
     private List<GroupMember> findMembersWithProfiles(String groupId) {
-        return repository.findMembersByGroupId(groupId).stream()
-                .map(this::applyProfileFallback)
+        List<GroupMember> members = repository.findMembersByGroupId(groupId);
+        Map<String, Profile> profilesByUserId = profileRepository.findByUserIds(
+                members.stream()
+                        .map(GroupMember::getUserId)
+                        .collect(Collectors.toSet())
+        );
+
+        return members.stream()
+                .map(member -> applyProfileDisplay(member, profilesByUserId.get(member.getUserId())))
                 .collect(Collectors.toList());
     }
 
-    private GroupMember applyProfileFallback(GroupMember member) {
-        Profile profile = profileRepository.findByUserId(member.getUserId()).orElse(null);
+    private GroupMember applyProfileDisplay(GroupMember member, Profile profile) {
         if (profile == null) {
             return member;
         }
 
-        if (!StringUtils.hasText(member.getNickname()) && StringUtils.hasText(profile.getNickname())) {
+        if (StringUtils.hasText(profile.getNickname())) {
             member.setNickname(profile.getNickname());
         }
 
-        if (!StringUtils.hasText(member.getAvatarUrl()) && StringUtils.hasText(profile.getAvatarUrl())) {
+        if (StringUtils.hasText(profile.getAvatarUrl())) {
             member.setAvatarUrl(profile.getAvatarUrl());
         }
 

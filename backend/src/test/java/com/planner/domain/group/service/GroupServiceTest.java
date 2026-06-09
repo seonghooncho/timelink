@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -37,6 +38,7 @@ class GroupServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
+        lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
     }
 
     private Group sampleGroup(String groupId, String createdBy) {
@@ -172,7 +174,8 @@ class GroupServiceTest {
         when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
         when(repository.findMembersByGroupId("g1")).thenReturn(
                 List.of(sampleMember("g1", "user1", "member")));
-        when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
+        when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of(
+                "user1",
                 Profile.builder().id("USER#user1").sk("PROFILE").nickname("닉네임").avatarUrl("https://img/member.png").build()
         ));
 
@@ -180,6 +183,28 @@ class GroupServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNickname()).isEqualTo("닉네임");
         assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://img/member.png");
+    }
+
+    @Test
+    @DisplayName("getMembers — group_member 닉네임보다 프로필 닉네임을 우선한다")
+    void getMembers_prefersProfileDisplayFields() {
+        GroupMember staleMember = sampleMember("g1", "user1", "member");
+        staleMember.setNickname("예전그룹닉");
+        staleMember.setAvatarUrl("https://img/old.png");
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(staleMember));
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(staleMember));
+        when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of(
+                "user1",
+                Profile.builder().id("USER#user1").sk("PROFILE").nickname("변경된닉네임").avatarUrl("https://img/new.png").build()
+        ));
+
+        List<GroupMemberResDTO> result = service.getMembers("user1", "g1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getNickname()).isEqualTo("변경된닉네임");
+        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://img/new.png");
+        verify(profileRepository).findByUserIds(argThat(userIds -> userIds.contains("user1")));
+        verify(profileRepository, never()).findByUserId("user1");
     }
 
     @Test
