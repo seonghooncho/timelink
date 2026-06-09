@@ -26,4 +26,19 @@ describe('Timetable scroll behavior', () => {
     expect(getTimetableDraggedScrollTop(336, 240, 120)).toBe(456);
     expect(getTimetableDraggedScrollTop(336, 120, 240)).toBe(216);
   });
+
+  it('일자 컬럼 수직선은 스크롤 가능한 전체 높이만큼 이어진다', () => {
+    render(
+      <Timetable
+        schedules={[]}
+        startDate={new Date('2026-03-12T00:00:00')}
+        days={4}
+        onBlockClick={vi.fn()}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('timetable-day-column-0')).toHaveStyle({ height: '1152px' });
+  });
 });
