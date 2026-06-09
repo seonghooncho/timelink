@@ -63,5 +63,5 @@ export const formatScheduleDateClock = (value: Date | string) => {
 };
 
 export const formatScheduleSlotLabel = (
-  schedule: Pick<Schedule, 'startTime' | 'duration'>,
-) => `${formatScheduleDateClock(schedule.startTime)} · ${formatDurationLabel(schedule.duration)}`;
+  schedule: Pick<Schedule, 'startTime'>,
+) => formatScheduleClock(schedule.startTime);

@@ -43,7 +43,7 @@ describe('Timetable scroll behavior', () => {
     expect(screen.getByTestId('timetable-day-column-0')).toHaveStyle({ height: '1152px' });
   });
 
-  it('일정 블럭은 시작 일시와 소요시간을 함께 표시한다', () => {
+  it('일정 블럭은 시작시간만 간략히 표시한다', () => {
     const schedules: Schedule[] = [
       {
         id: 'one-hour',
@@ -82,7 +82,9 @@ describe('Timetable scroll behavior', () => {
       />,
     );
 
-    expect(screen.getByText('3/12 9:00 · 1시간')).toBeInTheDocument();
-    expect(screen.getByText('3/12 11:30 · 30분')).toBeInTheDocument();
+    expect(screen.getByText('9:00')).toBeInTheDocument();
+    expect(screen.getByText('11:30')).toBeInTheDocument();
+    expect(screen.queryByText('3/12 9:00 · 1시간')).not.toBeInTheDocument();
+    expect(screen.queryByText('3/12 11:30 · 30분')).not.toBeInTheDocument();
   });
 });
