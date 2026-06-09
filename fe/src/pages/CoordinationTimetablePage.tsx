@@ -6,7 +6,7 @@ import { coordinationApi, CoordinationDetailResponse, HeatmapEntry, SlotEntry } 
 import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -87,8 +87,8 @@ const CoordinationTimetablePage: React.FC = () => {
       const updated = await coordinationApi.getById(groupId, coordId);
       setCoordination(updated);
       setViewMode('result');
-      toast.success('가능 시간이 제출되었습니다');
-    } catch { toast.error('제출에 실패했습니다'); } finally { setIsSubmitting(false); }
+      appToast.success('가능 시간이 제출되었습니다');
+    } catch (error) { appToast.error('제출에 실패했습니다', error); } finally { setIsSubmitting(false); }
   };
 
   const getResultColor = (ratio: number) => ratio >= 0.75 ? 'bg-coord-blue' : ratio >= 0.5 ? 'bg-coord-green' : 'bg-coord-gray';

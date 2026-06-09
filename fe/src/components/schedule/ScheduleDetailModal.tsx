@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
+import { appToast } from '@/lib/appToast';
 
 interface ScheduleDetailModalProps {
   schedule: Schedule | null;
@@ -28,7 +29,13 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
   };
 
   const handleSave = () => {
-    onUpdate(schedule.id, { title: editTitle, content: editContent });
+    const nextTitle = editTitle.trim();
+    if (!nextTitle) {
+      appToast.error('제목을 입력해주세요');
+      return;
+    }
+
+    onUpdate(schedule.id, { title: nextTitle, content: editContent.trim() });
     setIsEditing(false);
   };
 

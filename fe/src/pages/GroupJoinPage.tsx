@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { groupApi } from '@/services/api';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 const GroupJoinPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,11 +16,11 @@ const GroupJoinPage: React.FC = () => {
 
     groupApi.join(inviteCode)
       .then((group) => {
-        toast.success(`${group.name} 그룹에 참여했습니다`);
+        appToast.success(`${group.name} 그룹에 참여했습니다`);
         navigate(`/groups/${group.id}`, { replace: true });
       })
-      .catch(() => {
-        toast.error('초대 링크가 유효하지 않거나 이미 참여한 그룹입니다');
+      .catch((error) => {
+        appToast.error('초대 링크가 유효하지 않거나 이미 참여한 그룹입니다', error);
         navigate('/groups', { replace: true });
       });
   }, [inviteCode, navigate]);

@@ -5,6 +5,7 @@ import TabBar from '@/components/common/TabBar';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { notificationApi, NotificationResponse } from '@/services/api';
 import { ScheduleCategory } from '@/types/types';
+import { appToast } from '@/lib/appToast';
 
 const TABS = [
   { key: 'schedule', label: '일정 알림' },
@@ -20,15 +21,18 @@ const NotificationsPage: React.FC = () => {
     setIsLoading(true);
     notificationApi.getAll({ type: tab }).then(data => {
       setNotifications(data);
-    }).catch(() => {
+    }).catch((error) => {
       setNotifications([]);
+      appToast.error('알림을 불러오지 못했습니다', error);
     }).finally(() => setIsLoading(false));
   }, [tab]);
 
   const handleMarkRead = (id: string) => {
     notificationApi.markRead(id).then(() => {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    }).catch(() => {});
+    }).catch((error) => {
+      appToast.error('알림 읽음 처리에 실패했습니다', error);
+    });
   };
 
   const formatTime = (iso: string) => {

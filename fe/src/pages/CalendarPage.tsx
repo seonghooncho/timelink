@@ -6,6 +6,7 @@ import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { Schedule } from '@/types/types';
 import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
+import { appToast } from '@/lib/appToast';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -49,7 +50,13 @@ const CalendarPage: React.FC = () => {
   const selectedSchedules = selectedDay ? getSchedulesForDay(selectedDay) : [];
 
   const handleUpdate = (id: string, updates: Partial<Schedule>) => {
-    updateMutation.mutate({ id, data: updates });
+    updateMutation.mutate(
+      { id, data: updates },
+      {
+        onSuccess: () => appToast.success('일정을 수정했습니다'),
+        onError: (error) => appToast.error('일정 수정에 실패했습니다', error),
+      },
+    );
   };
 
   return (

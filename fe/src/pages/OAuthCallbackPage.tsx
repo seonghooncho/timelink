@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useAuth } from '@/context/AuthContext';
 import { clearStoredSession } from '@/services/session';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 
 const OAuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ const OAuthCallbackPage: React.FC = () => {
 
     if (!accessToken || !userId) {
       clearStoredSession();
-      toast.error('로그인 결과를 확인할 수 없습니다');
+      appToast.error('로그인 결과를 확인할 수 없습니다');
       navigate('/login', { replace: true });
       return;
     }

@@ -6,7 +6,12 @@ import { ScheduleCategory } from '@/types/types';
 import { Camera, Loader2, ImageIcon } from 'lucide-react';
 import { aiApi } from '@/services/api';
 import { useCreateSchedule } from '@/hooks/useSchedules';
-import { toast } from '@/hooks/use-toast';
+import { appToast, getErrorMessage } from '@/lib/appToast';
+import {
+  buildScheduleCreateRequest,
+  normalizeTimeToHalfHour,
+  SCHEDULE_TIME_STEP_SECONDS,
+} from '@/lib/scheduleForm';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
@@ -14,13 +19,6 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'repeat', label: '반복' },
   { value: 'group', label: '그룹' },
 ];
-
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return '사진 분석에 실패했습니다.';
-};
 
 const ScheduleFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -62,15 +60,15 @@ const ScheduleFormPage: React.FC = () => {
         if (data.content) setContent(data.content);
         if (data.category && categories.some(c => c.value === data.category)) setCategory(data.category as ScheduleCategory);
         if (data.startDate) setStartDate(data.startDate);
-        if (data.startTime) setStartTime(data.startTime);
+        if (data.startTime) setStartTime(normalizeTimeToHalfHour(data.startTime));
         if (data.endDate) setEndDate(data.endDate);
-        if (data.endTime) setEndTime(data.endTime);
+        if (data.endTime) setEndTime(normalizeTimeToHalfHour(data.endTime));
         if (data.duration !== undefined) setDuration(String(data.duration));
         if (data.isImportant !== undefined) setIsImportant(data.isImportant);
-        toast({ title: '✨ AI 분석 완료', description: '사진에서 일정 정보를 추출했습니다.' });
+        appToast.success('AI 분석 완료', '사진에서 일정 정보를 추출했습니다.');
       } catch (err: unknown) {
         console.error('AI extraction failed:', err);
-        toast({ title: '분석 실패', description: getErrorMessage(err), variant: 'destructive' });
+        appToast.error('분석 실패', getErrorMessage(err, '사진 분석에 실패했습니다.'));
       } finally {
         setIsAnalyzing(false);
       }
@@ -80,22 +78,31 @@ const ScheduleFormPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!title || !startDate || !startTime) return;
+    const result = buildScheduleCreateRequest({
+      title,
+      content,
+      category,
+      isImportant,
+      startDate,
+      startTime,
+      endDate,
+      endTime,
+      duration,
+      hasAlarm,
+      groupId: groupContext.groupId,
+    });
+
+    if (!result.ok) {
+      appToast.error(result.message, result.description);
+      return;
+    }
+
     try {
-      await createMutation.mutateAsync({
-        title,
-        content,
-        category,
-        isImportant,
-        startTime: `${startDate}T${startTime}:00`,
-        endTime: endDate && endTime ? `${endDate}T${endTime}:00` : `${startDate}T${startTime}:00`,
-        duration: parseFloat(duration) || 0,
-        hasAlarm,
-        groupId: category === 'group' ? groupContext.groupId : undefined,
-      });
+      await createMutation.mutateAsync(result.data);
+      appToast.success('일정이 등록되었습니다');
       navigate('/');
-    } catch {
-      toast({ title: '등록 실패', description: '일정 등록에 실패했습니다.', variant: 'destructive' });
+    } catch (err) {
+      appToast.error('등록 실패', err, '일정 등록에 실패했습니다.');
     }
   };
 
@@ -177,7 +184,14 @@ const ScheduleFormPage: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">시작 시간</label>
-            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
+            <input
+              type="time"
+              step={SCHEDULE_TIME_STEP_SECONDS}
+              value={startTime}
+              onChange={e => setStartTime(e.target.value)}
+              onBlur={() => setStartTime(prev => prev ? normalizeTimeToHalfHour(prev) : prev)}
+              className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 날짜</label>
@@ -185,14 +199,21 @@ const ScheduleFormPage: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 시간</label>
-            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
+            <input
+              type="time"
+              step={SCHEDULE_TIME_STEP_SECONDS}
+              value={endTime}
+              onChange={e => setEndTime(e.target.value)}
+              onBlur={() => setEndTime(prev => prev ? normalizeTimeToHalfHour(prev) : prev)}
+              className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
         </div>
 
         {/* Duration */}
         <div>
           <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">소요 시간 (시간)</label>
-          <input type="number" value={duration} onChange={e => setDuration(e.target.value)} placeholder="예: 3"
+          <input type="number" min="0" step="0.5" value={duration} onChange={e => setDuration(e.target.value)} placeholder="예: 3"
             className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50" />
         </div>
 
@@ -209,7 +230,7 @@ const ScheduleFormPage: React.FC = () => {
         </div>
 
         {/* Submit */}
-        <button onClick={handleSubmit} disabled={createMutation.isPending}
+        <button type="button" onClick={handleSubmit} disabled={createMutation.isPending}
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-50">
           {createMutation.isPending ? '등록 중...' : '등록하기'}
         </button>

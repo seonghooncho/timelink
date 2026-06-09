@@ -8,7 +8,7 @@ import { settingsApi, storageApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, Camera, Pencil, Check, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
 
 const MyPage: React.FC = () => {
@@ -41,8 +41,8 @@ const MyPage: React.FC = () => {
   useEffect(() => {
     settingsApi.getNotifications().then(s => {
       applyNotificationSettings(s);
-    }).catch(() => {
-      toast.error('알림 설정을 불러오지 못했습니다');
+    }).catch((error) => {
+      appToast.error('알림 설정을 불러오지 못했습니다', error);
     });
   }, []);
 
@@ -56,7 +56,7 @@ const MyPage: React.FC = () => {
 
   const requestBrowserNotificationPermission = async () => {
     if (!('Notification' in window) || typeof Notification.requestPermission !== 'function') {
-      toast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
+      appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
       return false;
     }
 
@@ -65,19 +65,19 @@ const MyPage: React.FC = () => {
     }
 
     if (Notification.permission === 'denied') {
-      toast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
+      appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
       return false;
     }
 
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'denied') {
-        toast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
+        appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
         return false;
       }
       return permission === 'granted';
     } catch {
-      toast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
+      appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
       return false;
     }
   };
@@ -88,15 +88,15 @@ const MyPage: React.FC = () => {
         if ('Notification' in window && Notification.permission === 'granted') {
           const subscribed = await ensurePushSubscription();
           if (!subscribed) {
-            toast.info('푸시 알림 준비가 완료되지 않아 알림센터에서 먼저 확인할 수 있습니다');
+            appToast.info('푸시 알림 준비가 완료되지 않아 알림센터에서 먼저 확인할 수 있습니다');
           }
         }
         return;
       }
 
       await removePushSubscription();
-    } catch {
-      toast.info('푸시 알림 연결에 실패해 알림센터에서 먼저 확인할 수 있습니다');
+    } catch (error) {
+      appToast.info('푸시 알림 연결에 실패해 알림센터에서 먼저 확인할 수 있습니다', error instanceof Error ? error.message : undefined);
     }
   };
 
@@ -117,9 +117,9 @@ const MyPage: React.FC = () => {
       const settings = await settingsApi.updateNotifications({ [key]: value });
       applyNotificationSettings(settings);
       await syncPushSubscription(settings);
-    } catch {
+    } catch (error) {
       rollback();
-      toast.error('알림 설정 저장에 실패했습니다');
+      appToast.error('알림 설정 저장에 실패했습니다', error);
     }
   };
 
@@ -144,12 +144,12 @@ const MyPage: React.FC = () => {
       );
       applyNotificationSettings(settings);
       await syncPushSubscription(settings);
-    } catch {
+    } catch (error) {
       setScheduleAlarm(previous.scheduleAlarm);
       setRemindOneDayBefore(previous.remindOneDayBefore);
       setRemindSameDay(previous.remindSameDay);
       setImportantAlarm(previous.importantAlarm);
-      toast.error('알림 설정 저장에 실패했습니다');
+      appToast.error('알림 설정 저장에 실패했습니다', error);
     }
   };
 
@@ -157,10 +157,10 @@ const MyPage: React.FC = () => {
     setIsLoggingOut(true);
     try {
       await signOut();
-      toast.success('로그아웃 되었습니다');
+      appToast.success('로그아웃 되었습니다');
       navigate('/login');
-    } catch {
-      toast.error('로그아웃 중 오류가 발생했습니다');
+    } catch (error) {
+      appToast.error('로그아웃 중 오류가 발생했습니다', error);
     } finally {
       setIsLoggingOut(false);
     }
@@ -171,18 +171,18 @@ const MyPage: React.FC = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 업로드 가능합니다'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('5MB 이하의 이미지만 업로드 가능합니다'); return; }
+    if (!file.type.startsWith('image/')) { appToast.error('이미지 파일만 업로드 가능합니다'); return; }
+    if (file.size > 5 * 1024 * 1024) { appToast.error('5MB 이하의 이미지만 업로드 가능합니다'); return; }
 
     setIsUploading(true);
     try {
       const uploadResult = await storageApi.uploadProfileImage(file);
       await updateProfileMutation.mutateAsync({ avatarUrl: uploadResult.url });
       setProfileImage(uploadResult.url);
-      toast.success('프로필 이미지가 변경되었습니다');
+      appToast.success('프로필 이미지가 변경되었습니다');
     } catch (err) {
       console.error(err);
-      toast.error('이미지 업로드에 실패했습니다');
+      appToast.error('이미지 업로드에 실패했습니다', err);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -197,8 +197,8 @@ const MyPage: React.FC = () => {
       try {
         await updateProfileMutation.mutateAsync({ nickname: trimmed });
         setNickname(trimmed);
-        toast.success('닉네임이 변경되었습니다');
-      } catch { toast.error('닉네임 변경에 실패했습니다'); }
+        appToast.success('닉네임이 변경되었습니다');
+      } catch (error) { appToast.error('닉네임 변경에 실패했습니다', error); }
     }
     setIsEditingNickname(false);
   };
