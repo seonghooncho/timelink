@@ -10,14 +10,13 @@ interface ScheduleGroup {
 
 export function useGroupedSchedules(schedules: Schedule[]): ScheduleGroup[] {
   return useMemo(() => {
-    const upcoming = schedules
-      .filter(s => !s.isCompleted)
+    const sortedSchedules = [...schedules]
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     const groups: ScheduleGroup[] = [];
     const today = startOfLocalDay(new Date());
 
-    upcoming.forEach(s => {
+    sortedSchedules.forEach(s => {
       const dateStr = toLocalDateKey(s.startTime);
       let existing = groups.find(g => g.date === dateStr);
       if (!existing) {

@@ -8,7 +8,7 @@ import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
-import { getScheduleEndDate } from '@/lib/scheduleTime';
+import { buildCoordinationSlotKey, groupSchedulesByCoordinationSlot } from '@/lib/coordinationTimetable';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,20 +52,8 @@ const CoordinationTimetablePage: React.FC = () => {
   }, [coordination, dates]);
 
   const userSchedulesBySlot = useMemo(() => {
-    const map: Record<string, Schedule[]> = {};
-    schedules.forEach(s => {
-      const sDate = new Date(s.startTime);
-      const eDate = getScheduleEndDate(s);
-      parsedDates.forEach((pd, dIdx) => {
-        if (sDate.toDateString() === pd.toDateString()) {
-          const sHour = sDate.getHours();
-          const eHour = eDate.getHours() || 24;
-          for (let h = sHour; h < eHour; h++) { const key = `${dIdx}-${h}`; if (!map[key]) map[key] = []; map[key].push(s); }
-        }
-      });
-    });
-    return map;
-  }, [schedules, parsedDates]);
+    return groupSchedulesByCoordinationSlot(schedules, parsedDates, hours);
+  }, [schedules, parsedDates, hours]);
 
   const toggleSlot = (dateIdx: number, hour: number) => {
     const key = `${dateIdx}-${hour}`;
@@ -91,6 +79,25 @@ const CoordinationTimetablePage: React.FC = () => {
       setViewMode('result');
       appToast.success('가능 시간이 제출되었습니다');
     } catch (error) { appToast.error('제출에 실패했습니다', error); } finally { setIsSubmitting(false); }
+  };
+
+  const renderExistingScheduleLayer = (existingSchedules?: Schedule[]) => {
+    if (!existingSchedules?.length) return null;
+
+    const firstSchedule = existingSchedules[0];
+    return (
+      <div
+        className="pointer-events-none absolute inset-1 z-0 flex items-center justify-center rounded-md border px-1 text-center opacity-70 shadow-sm"
+        style={getScheduleColorStyle(firstSchedule, 'soft')}
+      >
+        <span className="min-w-0 truncate text-[8px] font-semibold leading-none">{firstSchedule.title}</span>
+        {existingSchedules.length > 1 && (
+          <span className="ml-1 shrink-0 rounded-full bg-background/70 px-1 text-[7px] font-bold">
+            +{existingSchedules.length - 1}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const getResultColor = (ratio: number) => ratio >= 0.75 ? 'bg-coord-blue' : ratio >= 0.5 ? 'bg-coord-green' : 'bg-coord-gray';
@@ -122,18 +129,23 @@ const CoordinationTimetablePage: React.FC = () => {
                 <div key={hour} className="flex border-b border-border/50">
                   <div className="w-10 shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-1.5">{hour}</div>
                   {parsedDates.map((_, dIdx) => {
-                    const key = `${dIdx}-${hour}`;
+                    const key = buildCoordinationSlotKey(dIdx, hour);
                     const isSelected = selectedSlots.has(key);
                     const existingSchedules = userSchedulesBySlot[key];
                     return (
-                      <button key={dIdx} onClick={() => toggleSlot(dIdx, hour)} className={`flex-1 h-10 border-l border-border/50 transition-colors relative ${isSelected ? 'bg-primary/30' : 'hover:bg-muted'}`}>
-                        {existingSchedules && (
-                          <div
-                            className="absolute inset-0.5 rounded-sm border flex items-center justify-center"
-                            style={getScheduleColorStyle(existingSchedules[0], 'soft')}
-                          >
-                            <span className="text-[8px] font-medium truncate px-0.5">{existingSchedules[0].title}</span>
-                          </div>
+                      <button
+                        key={dIdx}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => toggleSlot(dIdx, hour)}
+                        className={`relative h-10 flex-1 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
+                      >
+                        {renderExistingScheduleLayer(existingSchedules)}
+                        {isSelected && (
+                          <div className="pointer-events-none absolute inset-0 z-10 bg-primary/35" />
+                        )}
+                        {isSelected && (
+                          <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 rounded-full bg-primary shadow-sm" />
                         )}
                       </button>
                     );

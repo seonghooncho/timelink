@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { getScheduleColorStyle } from '@/utils';
@@ -33,20 +34,20 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, onClick, onComple
 
       {/* Checkbox */}
       <button
+        type="button"
+        aria-label={schedule.isCompleted ? '완료 해제' : '완료'}
         onClick={(e) => {
           e.stopPropagation();
           onComplete(schedule);
         }}
-        className={`mt-1 w-5 h-5 rounded-md border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+        className={`mt-1 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
           schedule.isCompleted
             ? 'bg-primary border-primary'
             : 'border-muted-foreground/25 hover:border-primary'
         }`}
       >
         {schedule.isCompleted && (
-          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+          <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
         )}
       </button>
     </div>

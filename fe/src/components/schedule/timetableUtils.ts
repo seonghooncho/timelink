@@ -244,14 +244,13 @@ export const isSchedulePastByEndDate = (schedule: Schedule, today = new Date()) 
 export const getDefaultTimetableStart = (today = new Date()) => startOfLocalDay(today);
 
 export const getDefaultScheduleAnchor = (schedules: Schedule[], today = new Date()) => {
-  const activeSchedules = [...schedules]
-    .filter(schedule => !schedule.isCompleted)
+  const sortedSchedules = [...schedules]
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-  const anchor = activeSchedules.find(schedule => !isSchedulePastByEndDate(schedule, today))
-    ?? activeSchedules[activeSchedules.length - 1];
+  const anchor = sortedSchedules.find(schedule => !isSchedulePastByEndDate(schedule, today))
+    ?? sortedSchedules[sortedSchedules.length - 1];
   const hasPreviousSchedules = anchor
-    ? activeSchedules.some(schedule => new Date(schedule.startTime).getTime() < new Date(anchor.startTime).getTime())
+    ? sortedSchedules.some(schedule => new Date(schedule.startTime).getTime() < new Date(anchor.startTime).getTime())
     : false;
 
   return {
