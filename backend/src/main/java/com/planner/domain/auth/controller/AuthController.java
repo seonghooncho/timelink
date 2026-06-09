@@ -50,7 +50,7 @@ public class AuthController {
     @GetMapping("/oauth/{provider}/start")
     public ResponseEntity<Void> startOAuth(
             @PathVariable String provider,
-            @RequestParam String frontendOrigin,
+            @RequestParam(required = false) String frontendOrigin,
             @RequestParam(required = false, defaultValue = "/") String redirect,
             HttpServletRequest request) {
         URI location = socialAuthService.buildAuthorizationUri(provider, frontendOrigin, redirect, request);

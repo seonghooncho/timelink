@@ -88,6 +88,25 @@ class SocialAuthServiceTest {
     }
 
     @Test
+    @DisplayName("OAuth 시작 URL은 frontendOrigin이 없어도 첫 허용 origin으로 보정한다")
+    void buildAuthorizationUri_defaultsFrontendOriginWhenMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/planner/v1/auth/oauth/google/start");
+        request.setScheme("https");
+        request.setServerName("api.example.com");
+        request.setServerPort(443);
+
+        URI authorizationUri = socialAuthService.buildAuthorizationUri(
+                "google",
+                null,
+                "/calendar",
+                request
+        );
+
+        assertThat(authorizationUri.toString()).startsWith("https://accounts.google.com/o/oauth2/v2/auth?");
+        assertThat(authorizationUri.getRawQuery()).contains("state=");
+    }
+
+    @Test
     @DisplayName("Kakao 이름은 계정 이름을 우선 사용한다")
     void resolveKakaoNickname_prefersAccountName() throws Exception {
         JsonNode userInfo = OBJECT_MAPPER.readTree("""

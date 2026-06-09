@@ -58,7 +58,7 @@ public class SocialAuthService {
         OAuthProperties.Provider config = getConfig(provider);
         ensureConfigured(provider, config);
 
-        String normalizedFrontendOrigin = normalizeFrontendOrigin(frontendOrigin);
+        String normalizedFrontendOrigin = resolveFrontendOrigin(frontendOrigin, request);
         String normalizedRedirectPath = normalizeRedirectPath(redirectPath);
         validateFrontendOrigin(normalizedFrontendOrigin);
 
@@ -312,6 +312,14 @@ public class SocialAuthService {
             return "";
         }
         return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
+    private String resolveFrontendOrigin(String frontendOrigin, HttpServletRequest request) {
+        if (StringUtils.hasText(frontendOrigin)) {
+            return normalizeFrontendOrigin(frontendOrigin);
+        }
+
+        return defaultFrontendOrigin(request);
     }
 
     private String normalizeRedirectPath(String redirectPath) {
