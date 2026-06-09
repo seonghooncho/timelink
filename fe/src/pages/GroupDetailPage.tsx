@@ -13,6 +13,7 @@ import { useSchedules } from '@/hooks/useSchedules';
 import { coordinationApi, CoordinationResponse as CoordResp, groupApi, GroupMemberResponse } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
+import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 
 const MEMBER_PREVIEW_LIMIT = 3;
 const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
@@ -96,13 +97,10 @@ const GroupDetailPage: React.FC = () => {
     return source.slice(0, 1).toUpperCase();
   };
 
-  const formatScheduleRange = (startTime: string, endTime: string) => {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
+  const formatScheduleSummary = (schedule: typeof schedules[number]) => {
+    const start = new Date(schedule.startTime);
     const date = `${start.getMonth() + 1}.${String(start.getDate()).padStart(2, '0')}`;
-    const startLabel = `${start.getHours()}:${String(start.getMinutes()).padStart(2, '0')}`;
-    const endLabel = `${end.getHours()}:${String(end.getMinutes()).padStart(2, '0')}`;
-    return `${date} · ${startLabel} - ${endLabel}`;
+    return `${date} · ${formatScheduleClock(start)} · ${formatDurationLabel(schedule.duration)}`;
   };
 
   const formatHourLabel = (hour: number) => `${hour}:00`;
@@ -356,7 +354,7 @@ const GroupDetailPage: React.FC = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-medium text-muted-foreground">
-                        {formatScheduleRange(schedule.startTime, schedule.endTime)}
+                        {formatScheduleSummary(schedule)}
                       </p>
                       <p className="mt-1 truncate text-sm font-semibold text-foreground">{schedule.title}</p>
                       {groupSchedulesExpanded && schedule.content ? (

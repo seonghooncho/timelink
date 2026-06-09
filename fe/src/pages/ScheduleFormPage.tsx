@@ -11,7 +11,9 @@ import {
   buildScheduleCreateRequest,
   normalizeTimeToHalfHour,
 } from '@/lib/scheduleForm';
+import { SCHEDULE_DURATION_OPTIONS } from '@/lib/scheduleTime';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
+import DurationSelect from '@/components/common/DurationSelect';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
@@ -19,6 +21,25 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'repeat', label: '반복' },
   { value: 'group', label: '그룹' },
 ];
+
+const getExtractedDuration = (data: Awaited<ReturnType<typeof aiApi.extractSchedule>>) => {
+  if (data.duration !== undefined && SCHEDULE_DURATION_OPTIONS.includes(data.duration)) {
+    return String(data.duration);
+  }
+
+  if (!data.startDate || !data.startTime || !data.endTime) {
+    return null;
+  }
+
+  const startTime = normalizeTimeToHalfHour(data.startTime);
+  const endTime = normalizeTimeToHalfHour(data.endTime);
+  const endDate = data.endDate || data.startDate;
+  const start = new Date(`${data.startDate}T${startTime}:00`);
+  const end = new Date(`${endDate}T${endTime}:00`);
+  const duration = (end.getTime() - start.getTime()) / 3600000;
+
+  return duration > 0 && Number.isInteger(duration * 2) ? String(duration) : null;
+};
 
 const ScheduleFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,9 +59,7 @@ const ScheduleFormPage: React.FC = () => {
   const [content, setContent] = useState('');
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [duration, setDuration] = useState('');
+  const [duration, setDuration] = useState('1');
   const [isImportant, setIsImportant] = useState(false);
   const [hasAlarm, setHasAlarm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -61,9 +80,8 @@ const ScheduleFormPage: React.FC = () => {
         if (data.category && categories.some(c => c.value === data.category)) setCategory(data.category as ScheduleCategory);
         if (data.startDate) setStartDate(data.startDate);
         if (data.startTime) setStartTime(normalizeTimeToHalfHour(data.startTime));
-        if (data.endDate) setEndDate(data.endDate);
-        if (data.endTime) setEndTime(normalizeTimeToHalfHour(data.endTime));
-        if (data.duration !== undefined) setDuration(String(data.duration));
+        const extractedDuration = getExtractedDuration(data);
+        if (extractedDuration) setDuration(extractedDuration);
         if (data.isImportant !== undefined) setIsImportant(data.isImportant);
         appToast.success('AI 분석 완료', '사진에서 일정 정보를 추출했습니다.');
       } catch (err: unknown) {
@@ -85,8 +103,6 @@ const ScheduleFormPage: React.FC = () => {
       isImportant,
       startDate,
       startTime,
-      endDate,
-      endTime,
       duration,
       hasAlarm,
       groupId: groupContext.groupId,
@@ -179,28 +195,19 @@ const ScheduleFormPage: React.FC = () => {
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">시작 날짜</label>
+            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">날짜</label>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">시작 시간</label>
-            <HalfHourTimeSelect value={startTime} onChange={setStartTime} ariaLabel="시작 시간" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 날짜</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 시간</label>
-            <HalfHourTimeSelect value={endTime} onChange={setEndTime} ariaLabel="종료 시간" />
+            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">시간</label>
+            <HalfHourTimeSelect value={startTime} onChange={setStartTime} ariaLabel="시간" />
           </div>
         </div>
 
         {/* Duration */}
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">소요 시간 (시간)</label>
-          <input type="number" min="0" step="0.5" value={duration} onChange={e => setDuration(e.target.value)} placeholder="예: 3"
-            className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50" />
+          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">소요시간</label>
+          <DurationSelect value={duration} onChange={setDuration} />
         </div>
 
         {/* Toggles */}

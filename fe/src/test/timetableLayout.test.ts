@@ -120,6 +120,21 @@ describe('Timetable overlap handling', () => {
     expect(segments[0].height).toBe(2 * 48);
   });
 
+  it('prefers duration over a stale endTime', () => {
+    const schedule = makeSchedule({
+      id: 'stale-end',
+      startTime: '2025-03-08T14:00:00',
+      endTime: '2025-03-08T15:00:00',
+      duration: 3,
+    });
+
+    const segments = layoutSchedules([schedule]);
+
+    expect(getScheduleEndHour(schedule)).toBe(17);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].height).toBe(3 * 48);
+  });
+
   it('renders a minimum block for zero-duration schedules', () => {
     const schedule = makeSchedule({
       id: 'zero',

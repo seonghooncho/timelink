@@ -8,6 +8,7 @@ import com.planner.domain.schedule.converter.ScheduleConverter;
 import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
 import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
+import com.planner.domain.schedule.error.ScheduleErrorCode;
 import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
@@ -88,7 +89,6 @@ class ScheduleServiceTest {
             req.setContent("내용");
             req.setCategory("task");
             req.setStartTime("2025-03-10T09:00:00Z");
-            req.setEndTime("2025-03-10T10:00:00Z");
             req.setDuration(1.0);
             req.setHasAlarm(true);
 
@@ -109,7 +109,38 @@ class ScheduleServiceTest {
             assertThat(saved.getPk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1pk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1sk()).isEqualTo("2025-03-10T09:00:00Z");
+            assertThat(saved.getEndTime()).isEqualTo("2025-03-10T10:00:00Z");
+            assertThat(saved.getDuration()).isEqualTo(1.0);
             then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("소요시간이 없으면 1시간으로 저장한다")
+        void shouldUseDefaultDurationWhenMissing() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("새 일정");
+            req.setCategory("task");
+            req.setStartTime("2025-03-10T09:00:00");
+
+            ScheduleResDTO result = service.create(USER_ID, req);
+
+            assertThat(result.getDuration()).isEqualTo(1.0);
+            assertThat(result.getEndTime()).isEqualTo("2025-03-10T10:00:00");
+        }
+
+        @Test
+        @DisplayName("시작 시간과 소요시간이 날짜를 넘기면 예외를 던진다")
+        void shouldRejectScheduleCrossingDay() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("밤 일정");
+            req.setCategory("task");
+            req.setStartTime("2025-03-10T23:30:00");
+            req.setDuration(1.0);
+
+            assertThatThrownBy(() -> service.create(USER_ID, req))
+                    .isInstanceOf(ScheduleException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ScheduleErrorCode.SCHEDULE_CROSSES_DAY);
         }
 
         @Test
@@ -121,7 +152,6 @@ class ScheduleServiceTest {
             req.setContent("내용");
             req.setCategory("group");
             req.setStartTime("2025-03-10T09:00:00Z");
-            req.setEndTime("2025-03-10T10:00:00Z");
             req.setDuration(1.0);
             req.setHasAlarm(true);
             req.setGroupId("g1");
@@ -239,6 +269,40 @@ class ScheduleServiceTest {
             then(repository).should().save(captor.capture());
             assertThat(captor.getValue().getGsi1sk()).isEqualTo("2025-04-01T08:00:00Z");
             then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("소요시간 변경 시 종료 시간을 다시 계산한다")
+        void shouldRecalculateEndTimeOnDurationChange() {
+            Schedule schedule = createSampleSchedule("s1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setDuration(2.5);
+
+            ScheduleResDTO result = service.update(USER_ID, "s1", req);
+
+            assertThat(result.getDuration()).isEqualTo(2.5);
+            assertThat(result.getEndTime()).isEqualTo("2025-03-10T11:30:00Z");
+        }
+
+        @Test
+        @DisplayName("수정 후 날짜를 넘기는 소요시간은 예외를 던진다")
+        void shouldRejectUpdateCrossingDay() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setStartTime("2025-03-10T23:00:00");
+            schedule.setDuration(1.0);
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setDuration(1.5);
+
+            assertThatThrownBy(() -> service.update(USER_ID, "s1", req))
+                    .isInstanceOf(ScheduleException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ScheduleErrorCode.SCHEDULE_CROSSES_DAY);
         }
 
         @Test

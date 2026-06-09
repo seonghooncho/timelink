@@ -3,6 +3,7 @@ package com.planner.domain.schedule.converter;
 import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
 import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.model.Schedule;
+import com.planner.domain.schedule.util.ScheduleTimeCalculator;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,6 +15,8 @@ public final class ScheduleConverter {
     public static Schedule toEntity(String userId, ScheduleCreateReqDTO req) {
         String id = UUID.randomUUID().toString();
         String now = Instant.now().toString();
+        double duration = ScheduleTimeCalculator.resolveDuration(req.getDuration());
+        String endTime = ScheduleTimeCalculator.calculateEndTime(req.getStartTime(), duration);
 
         return Schedule.builder()
                 .pk("USER#" + userId)
@@ -25,8 +28,8 @@ public final class ScheduleConverter {
                 .category(req.getCategory())
                 .isImportant(req.getIsImportant())
                 .startTime(req.getStartTime())
-                .endTime(req.getEndTime())
-                .duration(req.getDuration())
+                .endTime(endTime)
+                .duration(duration)
                 .isCompleted(false)
                 .hasAlarm(req.getHasAlarm())
                 .groupId(req.getGroupId())

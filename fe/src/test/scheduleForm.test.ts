@@ -17,8 +17,6 @@ function makeValues(overrides: Partial<ScheduleFormValues> = {}): ScheduleFormVa
     isImportant: true,
     startDate: '2025-03-08',
     startTime: '14:00',
-    endDate: '2025-03-08',
-    endTime: '16:00',
     duration: '2',
     hasAlarm: true,
     ...overrides,
@@ -32,21 +30,18 @@ describe('Schedule form logic', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.startTime).toBe('2025-03-08T14:00:00');
-    expect(result.data.endTime).toBe('2025-03-08T16:00:00');
     expect(result.data.duration).toBe(2);
+    expect('endTime' in result.data).toBe(false);
   });
 
-  it('keeps endTime at startTime when end fields are empty', () => {
+  it('uses one hour as the default duration', () => {
     const result = buildScheduleCreateRequest(makeValues({
-      endDate: '',
-      endTime: '',
       duration: '',
     }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.endTime).toBe('2025-03-08T14:00:00');
-    expect(result.data.duration).toBe(0);
+    expect(result.data.duration).toBe(1);
   });
 
   it('requires title, start date, and start time with specific validation messages', () => {
@@ -95,31 +90,19 @@ describe('Schedule form logic', () => {
     expect(formatHalfHourTimeLabel('18:30')).toBe('오후 6:30');
   });
 
-  it('rejects partial end fields instead of silently falling back', () => {
-    const result = buildScheduleCreateRequest(makeValues({
-      endDate: '2025-03-08',
-      endTime: '',
-    }));
-
-    expect(result).toMatchObject({
+  it('rejects a duration that crosses into the next date', () => {
+    expect(buildScheduleCreateRequest(makeValues({ startTime: '23:30', duration: '1' }))).toMatchObject({
       ok: false,
-      message: '종료 시간을 확인해주세요',
-      description: '종료 날짜와 종료 시간을 함께 입력해주세요.',
-    });
-  });
-
-  it('rejects explicit end time earlier than or equal to start time', () => {
-    expect(buildScheduleCreateRequest(makeValues({ endTime: '13:30' }))).toMatchObject({
-      ok: false,
-      message: '종료 시간을 확인해주세요',
-    });
-    expect(buildScheduleCreateRequest(makeValues({ endTime: '14:00' }))).toMatchObject({
-      ok: false,
-      message: '종료 시간을 확인해주세요',
+      message: '소요 시간을 확인해주세요',
+      description: '시작 시간과 소요시간은 같은 날짜 안에서 끝나야 합니다.',
     });
   });
 
   it('rejects invalid duration values', () => {
+    expect(buildScheduleCreateRequest(makeValues({ duration: '0' }))).toMatchObject({
+      ok: false,
+      message: '소요 시간을 확인해주세요',
+    });
     expect(buildScheduleCreateRequest(makeValues({ duration: 'abc' }))).toMatchObject({
       ok: false,
       message: '소요 시간을 확인해주세요',

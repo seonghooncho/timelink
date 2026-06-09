@@ -8,6 +8,7 @@ import { Schedule } from '@/types/types';
 import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
+import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -112,7 +113,7 @@ const CalendarPage: React.FC = () => {
                         </div>
                         <p className="text-sm font-medium text-foreground">{s.title}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {new Date(s.startTime).getHours()}:{String(new Date(s.startTime).getMinutes()).padStart(2, '0')} - {new Date(s.endTime).getHours()}:{String(new Date(s.endTime).getMinutes()).padStart(2, '0')}
+                          {formatScheduleClock(s.startTime)} · {formatDurationLabel(s.duration)}
                         </p>
                       </div>
                     </button>
