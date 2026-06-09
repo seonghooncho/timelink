@@ -1,6 +1,6 @@
 import React from 'react';
-import { Schedule, ScheduleCategory } from '@/types/types';
-import { getCategoryLabel } from '@/utils';
+import { Schedule } from '@/types/types';
+import { getCategoryLabel, getScheduleColorStyle } from '@/utils';
 
 interface ScheduleCardCompactProps {
   schedule: Schedule;
@@ -8,51 +8,26 @@ interface ScheduleCardCompactProps {
   onComplete: (schedule: Schedule) => void;
 }
 
-const categoryBgMap: Record<ScheduleCategory, string> = {
-  task: 'bg-category-task-light',
-  appointment: 'bg-category-appointment-light',
-  group: 'bg-category-group-light',
-  important: 'bg-category-important-light',
-  repeat: 'bg-category-repeat-light',
-};
-
-const categoryStrongBgMap: Record<ScheduleCategory, string> = {
-  task: 'bg-category-task',
-  appointment: 'bg-category-appointment',
-  group: 'bg-category-group',
-  important: 'bg-category-important',
-  repeat: 'bg-category-repeat',
-};
-
-const categoryDotMap: Record<ScheduleCategory, string> = {
-  task: 'bg-category-task',
-  appointment: 'bg-category-appointment',
-  group: 'bg-category-group',
-  important: 'bg-category-important',
-  repeat: 'bg-category-repeat',
-};
-
 const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete }) => {
   const startDate = new Date(schedule.startTime);
   const timeStr = `${startDate.getHours()}:${String(startDate.getMinutes()).padStart(2, '0')}`;
   const isImportant = schedule.isImportant;
+  const cardColorStyle = getScheduleColorStyle(schedule, isImportant ? 'solid' : 'soft');
+  const dotColorStyle = getScheduleColorStyle(schedule, 'line');
 
   return (
     <div
-      className={`relative flex flex-col justify-between min-w-[120px] w-[120px] h-[144px] rounded-2xl p-3.5 cursor-pointer pressable shrink-0 shadow-soft ${
-        isImportant
-          ? `${categoryStrongBgMap[schedule.category]} text-primary-foreground`
-          : `${categoryBgMap[schedule.category]} text-foreground`
-      }`}
+      className="relative flex flex-col justify-between min-w-[120px] w-[120px] h-[144px] rounded-2xl border p-3.5 cursor-pointer pressable shrink-0 shadow-soft"
+      style={cardColorStyle}
       onClick={() => onClick(schedule)}
     >
       {/* Top */}
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           {!isImportant && (
-            <div className={`w-1.5 h-1.5 rounded-full ${categoryDotMap[schedule.category]}`} />
+            <div className="w-1.5 h-1.5 rounded-full" style={dotColorStyle} />
           )}
-          <span className={`text-[10px] font-medium ${isImportant ? 'opacity-80' : 'text-muted-foreground'}`}>
+          <span className={`text-[10px] font-medium ${isImportant ? 'opacity-80' : 'opacity-75'}`}>
             {getCategoryLabel(schedule.category)}
           </span>
         </div>

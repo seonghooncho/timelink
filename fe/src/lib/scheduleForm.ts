@@ -24,6 +24,24 @@ export type ScheduleFormResult =
 
 const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+export const HALF_HOUR_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const totalMinutes = index * HALF_HOUR_MINUTES;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+});
+
+export const formatHalfHourTimeLabel = (time: string) => {
+  const match = timePattern.exec(time);
+  if (!match) return time;
+
+  const hour = Number(match[1]);
+  const minute = match[2];
+  const period = hour < 12 ? '오전' : '오후';
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${period} ${displayHour}:${minute}`;
+};
+
 export const isHalfHourTime = (time: string) => {
   const match = timePattern.exec(time);
   if (!match) return false;

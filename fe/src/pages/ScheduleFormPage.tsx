@@ -10,8 +10,8 @@ import { appToast, getErrorMessage } from '@/lib/appToast';
 import {
   buildScheduleCreateRequest,
   normalizeTimeToHalfHour,
-  SCHEDULE_TIME_STEP_SECONDS,
 } from '@/lib/scheduleForm';
+import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
@@ -184,14 +184,7 @@ const ScheduleFormPage: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">시작 시간</label>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_STEP_SECONDS}
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-              onBlur={() => setStartTime(prev => prev ? normalizeTimeToHalfHour(prev) : prev)}
-              className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-            />
+            <HalfHourTimeSelect value={startTime} onChange={setStartTime} ariaLabel="시작 시간" />
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 날짜</label>
@@ -199,14 +192,7 @@ const ScheduleFormPage: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">종료 시간</label>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_STEP_SECONDS}
-              value={endTime}
-              onChange={e => setEndTime(e.target.value)}
-              onBlur={() => setEndTime(prev => prev ? normalizeTimeToHalfHour(prev) : prev)}
-              className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-            />
+            <HalfHourTimeSelect value={endTime} onChange={setEndTime} ariaLabel="종료 시간" />
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Schedule } from '@/types/types';
-import { getCategoryColor, getDayLabel } from '@/utils';
+import { getDayLabel, getScheduleColorStyle } from '@/utils';
 import {
   getTimetableDraggedScrollTop,
   isScheduleVisibleOnDate,
@@ -197,15 +197,14 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
                         }
                         onBlockClick(s);
                       }}
-                      className={`absolute px-1 py-0.5 text-left overflow-hidden transition-transform active:scale-[0.97] z-10 ${
-                        s.isImportant ? getCategoryColor(s.category, 'strong') : getCategoryColor(s.category, 'light')
-                      }`}
+                      className="absolute px-1 py-0.5 text-left overflow-hidden border transition-transform active:scale-[0.97] z-10"
                       style={{
                         top: seg.connectedTop ? seg.top - 1 : seg.top,
                         height: seg.connectedTop ? seg.height + 1 : seg.height,
                         left: seg.left,
                         width: seg.width,
                         borderRadius,
+                        ...getScheduleColorStyle(s, s.isImportant ? 'strong' : 'soft'),
                       }}
                     >
                       {seg.isFirst && (

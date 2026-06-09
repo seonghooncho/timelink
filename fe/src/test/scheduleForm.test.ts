@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildScheduleCreateRequest,
+  formatHalfHourTimeLabel,
+  HALF_HOUR_TIME_OPTIONS,
   isHalfHourTime,
   normalizeTimeToHalfHour,
   SCHEDULE_TIME_STEP_SECONDS,
@@ -64,6 +66,10 @@ describe('Schedule form logic', () => {
 
   it('uses 30 minute time steps and rejects off-step times', () => {
     expect(SCHEDULE_TIME_STEP_SECONDS).toBe(1800);
+    expect(HALF_HOUR_TIME_OPTIONS).toHaveLength(48);
+    expect(HALF_HOUR_TIME_OPTIONS[0]).toBe('00:00');
+    expect(HALF_HOUR_TIME_OPTIONS[1]).toBe('00:30');
+    expect(HALF_HOUR_TIME_OPTIONS[47]).toBe('23:30');
     expect(isHalfHourTime('09:00')).toBe(true);
     expect(isHalfHourTime('09:30')).toBe(true);
     expect(isHalfHourTime('09:15')).toBe(false);
@@ -80,6 +86,13 @@ describe('Schedule form logic', () => {
     expect(normalizeTimeToHalfHour('09:14')).toBe('09:00');
     expect(normalizeTimeToHalfHour('09:16')).toBe('09:30');
     expect(normalizeTimeToHalfHour('23:46')).toBe('23:30');
+  });
+
+  it('formats half hour options for compact mobile selection', () => {
+    expect(formatHalfHourTimeLabel('00:00')).toBe('오전 12:00');
+    expect(formatHalfHourTimeLabel('09:30')).toBe('오전 9:30');
+    expect(formatHalfHourTimeLabel('12:00')).toBe('오후 12:00');
+    expect(formatHalfHourTimeLabel('18:30')).toBe('오후 6:30');
   });
 
   it('rejects partial end fields instead of silently falling back', () => {

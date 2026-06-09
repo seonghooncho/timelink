@@ -7,6 +7,7 @@ import CategoryBadge from '@/components/common/CategoryBadge';
 import { Schedule } from '@/types/types';
 import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
+import { getScheduleColorStyle } from '@/utils';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -83,9 +84,7 @@ const CalendarPage: React.FC = () => {
                   <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>{day}</span>
                   <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5">
                     {daySchedules.slice(0, 2).map(s => (
-                      <div key={s.id} className={`h-1 rounded-full ${
-                        s.isImportant ? 'bg-category-important' : s.category === 'task' ? 'bg-category-task' : s.category === 'appointment' ? 'bg-category-appointment' : s.category === 'group' ? 'bg-category-group' : 'bg-category-repeat'
-                      }`} />
+                      <div key={s.id} className="h-1 rounded-full" style={getScheduleColorStyle(s, 'line')} />
                     ))}
                     {daySchedules.length > 2 && <span className="text-[8px] text-muted-foreground text-center">+{daySchedules.length - 2}</span>}
                   </div>
@@ -105,9 +104,7 @@ const CalendarPage: React.FC = () => {
                   {selectedSchedules.map(s => (
                     <button key={s.id} onClick={() => setDetailSchedule(s)}
                       className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border text-left hover:border-muted-foreground/20 transition-all">
-                      <div className={`w-1 h-8 rounded-full ${
-                        s.isImportant ? 'bg-category-important' : s.category === 'task' ? 'bg-category-task' : s.category === 'appointment' ? 'bg-category-appointment' : s.category === 'group' ? 'bg-category-group' : 'bg-category-repeat'
-                      }`} />
+                      <div className="w-1 h-8 rounded-full" style={getScheduleColorStyle(s, 'line')} />
                       <div className="flex-1">
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <CategoryBadge category={s.category} />

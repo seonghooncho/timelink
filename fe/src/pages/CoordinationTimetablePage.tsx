@@ -7,6 +7,7 @@ import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
+import { getScheduleColorStyle } from '@/utils';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -125,7 +126,14 @@ const CoordinationTimetablePage: React.FC = () => {
                     const existingSchedules = userSchedulesBySlot[key];
                     return (
                       <button key={dIdx} onClick={() => toggleSlot(dIdx, hour)} className={`flex-1 h-10 border-l border-border/50 transition-colors relative ${isSelected ? 'bg-primary/30' : 'hover:bg-muted'}`}>
-                        {existingSchedules && (<div className="absolute inset-0.5 rounded-sm bg-category-task/15 border border-category-task/20 flex items-center justify-center"><span className="text-[8px] text-category-task-strong font-medium truncate px-0.5">{existingSchedules[0].title}</span></div>)}
+                        {existingSchedules && (
+                          <div
+                            className="absolute inset-0.5 rounded-sm border flex items-center justify-center"
+                            style={getScheduleColorStyle(existingSchedules[0], 'soft')}
+                          >
+                            <span className="text-[8px] font-medium truncate px-0.5">{existingSchedules[0].title}</span>
+                          </div>
+                        )}
                       </button>
                     );
                   })}
