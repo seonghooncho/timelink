@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { Schedule } from '@/types/types';
 import { getCategoryLabel, getScheduleColorStyle } from '@/utils';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
@@ -42,8 +43,10 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
           {formatDurationLabel(schedule.duration)}
         </span>
         <button
+          type="button"
+          aria-label={schedule.isCompleted ? '완료 해제' : '완료'}
           onClick={(e) => { e.stopPropagation(); onComplete(schedule); }}
-          className={`w-5 h-5 rounded-md border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+          className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
             schedule.isCompleted
               ? 'bg-primary border-primary'
               : isImportant
@@ -52,9 +55,7 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
           }`}
         >
           {schedule.isCompleted && (
-            <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+            <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
           )}
         </button>
       </div>

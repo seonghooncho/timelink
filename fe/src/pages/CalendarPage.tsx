@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import { Schedule } from '@/types/types';
-import { useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
+import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
@@ -15,10 +16,12 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const CalendarPage: React.FC = () => {
   const { data: schedules = [] } = useSchedules();
   const updateMutation = useUpdateSchedule();
+  const deleteMutation = useDeleteSchedule();
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
   const [detailSchedule, setDetailSchedule] = useState<Schedule | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -59,6 +62,23 @@ const CalendarPage: React.FC = () => {
         onError: (error) => appToast.error('일정 수정에 실패했습니다', error),
       },
     );
+  };
+
+  const handleDeleteRequest = (schedule: Schedule) => {
+    setConfirmDelete(schedule);
+    setDetailSchedule(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+
+    deleteMutation.mutate(confirmDelete.id, {
+      onSuccess: () => {
+        appToast.success('일정을 삭제했습니다');
+        setConfirmDelete(null);
+      },
+      onError: (error) => appToast.error('일정 삭제에 실패했습니다', error),
+    });
   };
 
   return (
@@ -124,7 +144,23 @@ const CalendarPage: React.FC = () => {
           )}
         </div>
       </div>
-      <ScheduleDetailModal schedule={detailSchedule} open={!!detailSchedule} onClose={() => setDetailSchedule(null)} onUpdate={handleUpdate} />
+      <ScheduleDetailModal
+        schedule={detailSchedule}
+        open={!!detailSchedule}
+        onClose={() => setDetailSchedule(null)}
+        onUpdate={handleUpdate}
+        onDelete={handleDeleteRequest}
+      />
+      <ConfirmModal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDeleteConfirm}
+        title="일정을 삭제하시겠습니까?"
+        description="삭제한 일정은 되돌릴 수 없습니다."
+        confirmLabel="삭제"
+        cancelLabel="유지"
+        variant="destructive"
+      />
     </MobileLayout>
   );
 };

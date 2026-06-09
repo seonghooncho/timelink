@@ -9,15 +9,14 @@ interface ScheduleGroup {
 }
 
 function groupSchedules(schedules: Schedule[], now: Date): ScheduleGroup[] {
-  const upcoming = schedules
-    .filter(s => !s.isCompleted)
+  const sortedSchedules = schedules
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   const groups: ScheduleGroup[] = [];
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
-  upcoming.forEach(s => {
+  sortedSchedules.forEach(s => {
     const dateStr = s.startTime.slice(0, 10);
     let existing = groups.find(g => g.date === dateStr);
     if (!existing) {
@@ -61,11 +60,14 @@ describe('groupSchedules logic', () => {
     expect(groupSchedules([], now)).toEqual([]);
   });
 
-  it('filters out completed schedules', () => {
+  it('keeps completed schedules so the completion state remains visible', () => {
     const schedules = [
       makeSchedule({ id: '1', startTime: '2025-03-08T12:00:00', isCompleted: true }),
     ];
-    expect(groupSchedules(schedules, now)).toEqual([]);
+    const result = groupSchedules(schedules, now);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].schedules[0].isCompleted).toBe(true);
   });
 
   it('groups today schedules with "오늘" label', () => {

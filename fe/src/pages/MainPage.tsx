@@ -29,7 +29,24 @@ const MainPage: React.FC = () => {
   const scheduleAnchor = useMemo(() => getDefaultScheduleAnchor(schedules), [schedules]);
 
   const handleComplete = (schedule: Schedule) => {
+    const nextCompleted = !schedule.isCompleted;
+    updateMutation.mutate(
+      { id: schedule.id, data: { isCompleted: nextCompleted } },
+      {
+        onSuccess: () => {
+          appToast.success(nextCompleted ? '일정을 완료했습니다' : '완료를 해제했습니다');
+          if (nextCompleted) {
+            setConfirmDelete({ ...schedule, isCompleted: true });
+          }
+        },
+        onError: (error) => appToast.error('완료 상태 변경에 실패했습니다', error),
+      },
+    );
+  };
+
+  const handleDeleteRequest = (schedule: Schedule) => {
     setConfirmDelete(schedule);
+    setShowScheduleDetail(false);
   };
 
   const handleDeleteConfirm = () => {
@@ -126,10 +143,16 @@ const MainPage: React.FC = () => {
 
       <FAB to="/schedule/new" />
 
-      <ScheduleDetailModal schedule={selectedSchedule} open={showScheduleDetail} onClose={() => setShowScheduleDetail(false)} onUpdate={handleUpdate} />
+      <ScheduleDetailModal
+        schedule={selectedSchedule}
+        open={showScheduleDetail}
+        onClose={() => setShowScheduleDetail(false)}
+        onUpdate={handleUpdate}
+        onDelete={handleDeleteRequest}
+      />
 
       <ConfirmModal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDeleteConfirm}
-        title="일정을 완료하였습니다." description="일정을 삭제하시겠습니까?" confirmLabel="삭제" cancelLabel="유지" variant="destructive" />
+        title="일정을 삭제하시겠습니까?" description="삭제하지 않으면 일정은 현재 상태로 유지됩니다." confirmLabel="삭제" cancelLabel="유지" variant="destructive" />
     </MobileLayout>
   );
 };
