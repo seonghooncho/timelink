@@ -20,5 +20,6 @@ public class OAuthProperties {
     public static class Provider {
         private String clientId;
         private String clientSecret;
+        private String scope;
     }
 }
