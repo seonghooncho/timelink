@@ -293,6 +293,11 @@ public class SocialAuthService {
     }
 
     private String buildApiBaseUrl(HttpServletRequest request) {
+        String configuredBaseUrl = normalizeFrontendOrigin(oauthProperties.getPublicApiBaseUrl());
+        if (StringUtils.hasText(configuredBaseUrl)) {
+            return configuredBaseUrl;
+        }
+
         return UriComponentsBuilder
                 .fromHttpUrl(request.getRequestURL().toString())
                 .replacePath(null)

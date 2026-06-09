@@ -30,6 +30,7 @@ class SocialAuthServiceTest {
     @BeforeEach
     void setUp() {
         OAuthProperties oauthProperties = new OAuthProperties();
+        oauthProperties.setPublicApiBaseUrl("https://timelink.example.com");
         OAuthProperties.Provider google = new OAuthProperties.Provider();
         google.setClientId("google-client-id");
         google.setClientSecret("google-client-secret");
@@ -63,7 +64,7 @@ class SocialAuthServiceTest {
         assertThat(authorizationUri.toString()).startsWith("https://accounts.google.com/o/oauth2/v2/auth?");
         assertThat(authorizationUri.getRawQuery()).containsPattern("scope=openid(%20|\\+)profile(%20|\\+)email");
         assertThat(authorizationUri.getRawQuery())
-                .contains("redirect_uri=https%3A%2F%2Fapi.example.com%2Fapi%2Fplanner%2Fv1%2Fauth%2Foauth%2Fgoogle%2Fcallback");
+                .contains("redirect_uri=https%3A%2F%2Ftimelink.example.com%2Fapi%2Fplanner%2Fv1%2Fauth%2Foauth%2Fgoogle%2Fcallback");
         assertThat(authorizationUri.getRawQuery()).doesNotContain(" ");
     }
 
