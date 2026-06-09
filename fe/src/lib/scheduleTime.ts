@@ -61,3 +61,7 @@ export const formatScheduleDateClock = (value: Date | string) => {
   const date = value instanceof Date ? value : new Date(value);
   return `${date.getMonth() + 1}/${date.getDate()} ${formatScheduleClock(date)}`;
 };
+
+export const formatScheduleSlotLabel = (
+  schedule: Pick<Schedule, 'startTime' | 'duration'>,
+) => `${formatScheduleDateClock(schedule.startTime)} · ${formatDurationLabel(schedule.duration)}`;
