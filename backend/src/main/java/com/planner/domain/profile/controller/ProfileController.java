@@ -28,4 +28,10 @@ public class ProfileController {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.update(userId, req)));
     }
+
+    @PostMapping("/me/consents/required")
+    public ResponseEntity<CustomResponse<ProfileResDTO>> agreeRequiredConsents() {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.agreeRequiredConsents(userId)));
+    }
 }

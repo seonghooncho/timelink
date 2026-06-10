@@ -93,4 +93,26 @@ class ProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nickname").value("Jane"));
     }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /profiles/me/consents/required — 필수 약관 동의 200")
+    void agreeRequiredConsents_returns200() throws Exception {
+        when(service.agreeRequiredConsents("user1")).thenReturn(
+                ProfileResDTO.builder()
+                        .id("user1")
+                        .nickname("John")
+                        .termsVersion("2026-06-10")
+                        .termsAgreedAt("2026-06-10T00:00:00Z")
+                        .privacyVersion("2026-06-10")
+                        .privacyAgreedAt("2026-06-10T00:00:00Z")
+                        .requiredConsentCompleted(true)
+                        .build());
+
+        mockMvc.perform(post(BASE + "/me/consents/required").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requiredConsentCompleted").value(true))
+                .andExpect(jsonPath("$.data.termsVersion").value("2026-06-10"))
+                .andExpect(jsonPath("$.data.privacyVersion").value("2026-06-10"));
+    }
 }

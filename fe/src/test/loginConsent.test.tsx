@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '@/pages/LoginPage';
@@ -47,26 +47,20 @@ describe('LoginPage consent', () => {
     mocks.getProviders.mockResolvedValue({ google: true, kakao: true });
   });
 
-  it('shows legal links and blocks login until required consent is checked', async () => {
+  it('shows post-login consent guidance without blocking social login on a checkbox', async () => {
     render(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
-    expect(screen.getByRole('link', { name: '개인정보 수집·이용' })).toHaveAttribute('href', '/privacy');
-
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /카카오로 시작하기/ })).not.toBeDisabled();
+      expect(mocks.getProviders).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /카카오로 시작하기/ }));
-
-    expect(mocks.toastInfo).toHaveBeenCalledWith(
-      '필수 약관에 동의해주세요',
-      '서비스 이용약관과 개인정보 수집·이용 동의가 필요합니다.',
-    );
-    expect(mocks.getOAuthStartUrl).not.toHaveBeenCalled();
+    expect(screen.queryByRole('checkbox', { name: '필수 약관 동의' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
+    expect(screen.getByRole('link', { name: '개인정보 안내' })).toHaveAttribute('href', '/privacy');
+    expect(screen.getByText(/처음 시작할 때/)).toBeInTheDocument();
   });
 });

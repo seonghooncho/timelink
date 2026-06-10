@@ -17,6 +17,10 @@ public class Profile {
     private String sk;
     private String nickname;
     private String avatarUrl;
+    private String termsVersion;
+    private String termsAgreedAt;
+    private String privacyVersion;
+    private String privacyAgreedAt;
     private String createdAt;
     private String updatedAt;
 

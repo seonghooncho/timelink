@@ -52,6 +52,7 @@ class ProfileServiceTest {
 
             assertThat(result.getNickname()).isEqualTo("테스트유저");
             assertThat(result.getId()).isEqualTo(USER_ID);
+            assertThat(result.getRequiredConsentCompleted()).isFalse();
             then(repository).should(never()).save(any());
         }
 
@@ -168,6 +169,38 @@ class ProfileServiceTest {
 
             assertThatThrownBy(() -> service.update(USER_ID, new ProfileUpdateReqDTO()))
                     .isInstanceOf(ProfileException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("agreeRequiredConsents")
+    class AgreeRequiredConsents {
+
+        @Test
+        @DisplayName("필수 약관 동의 버전과 시각을 저장한다")
+        void shouldStoreRequiredConsentVersions() {
+            Profile profile = createProfile();
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.of(profile));
+
+            ProfileResDTO result = service.agreeRequiredConsents(USER_ID);
+
+            assertThat(result.getRequiredConsentCompleted()).isTrue();
+            assertThat(result.getTermsVersion()).isEqualTo("2026-06-10");
+            assertThat(result.getTermsAgreedAt()).isNotBlank();
+            assertThat(result.getPrivacyVersion()).isEqualTo("2026-06-10");
+            assertThat(result.getPrivacyAgreedAt()).isNotBlank();
+            then(repository).should().save(profile);
+        }
+
+        @Test
+        @DisplayName("프로필이 없어도 생성 후 동의를 저장한다")
+        void shouldCreateProfileBeforeConsent() {
+            given(repository.findByUserId(USER_ID)).willReturn(Optional.empty());
+
+            ProfileResDTO result = service.agreeRequiredConsents(USER_ID);
+
+            assertThat(result.getRequiredConsentCompleted()).isTrue();
+            then(repository).should().save(any(Profile.class));
         }
     }
 }

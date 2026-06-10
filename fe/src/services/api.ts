@@ -202,6 +202,11 @@ export interface ProfileResponse {
   id: string;
   nickname: string;
   avatarUrl: string;
+  termsVersion?: string;
+  termsAgreedAt?: string;
+  privacyVersion?: string;
+  privacyAgreedAt?: string;
+  requiredConsentCompleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -210,6 +215,7 @@ export const profileApi = {
   getMe: () => request<ProfileResponse>('GET', '/profiles/me'),
   updateMe: (data: { nickname?: string; avatarUrl?: string }) =>
     request<ProfileResponse>('PATCH', '/profiles/me', data),
+  agreeRequiredConsents: () => request<ProfileResponse>('POST', '/profiles/me/consents/required'),
 };
 
 // ── Groups ──

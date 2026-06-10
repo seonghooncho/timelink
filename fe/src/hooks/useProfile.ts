@@ -7,10 +7,7 @@ export function useProfile() {
 
   return useQuery({
     queryKey: ['profile'],
-    queryFn: async () => {
-      const data = await profileApi.getMe();
-      return { nickname: data.nickname, avatarUrl: data.avatarUrl };
-    },
+    queryFn: profileApi.getMe,
     enabled: isAuthenticated,
   });
 }
