@@ -22,6 +22,17 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'group', label: '그룹' },
 ];
 
+interface ScheduleFormLocationState {
+  groupId?: string;
+  groupName?: string;
+  title?: string;
+  content?: string;
+  startDate?: string;
+  startTime?: string;
+  duration?: string | number;
+  sourceLabel?: string;
+}
+
 const getExtractedDuration = (data: Awaited<ReturnType<typeof aiApi.extractSchedule>>) => {
   if (data.duration !== undefined && SCHEDULE_DURATION_OPTIONS.includes(data.duration)) {
     return String(data.duration);
@@ -46,20 +57,27 @@ const ScheduleFormPage: React.FC = () => {
   const location = useLocation();
   const createMutation = useCreateSchedule();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const groupContext = useMemo(() => {
-    const state = location.state as { groupId?: string; groupName?: string } | null;
+
+  const initialContext = useMemo(() => {
+    const state = location.state as ScheduleFormLocationState | null;
     return {
       groupId: state?.groupId,
       groupName: state?.groupName,
+      title: state?.title ?? '',
+      content: state?.content ?? '',
+      startDate: state?.startDate ?? '',
+      startTime: state?.startTime ? normalizeTimeToHalfHour(state.startTime) : '',
+      duration: state?.duration !== undefined ? String(state.duration) : '1',
+      sourceLabel: state?.sourceLabel,
     };
   }, [location.state]);
 
-  const [category, setCategory] = useState<ScheduleCategory>(groupContext.groupId ? 'group' : 'task');
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [duration, setDuration] = useState('1');
+  const [category, setCategory] = useState<ScheduleCategory>(initialContext.groupId ? 'group' : 'task');
+  const [title, setTitle] = useState(initialContext.title);
+  const [content, setContent] = useState(initialContext.content);
+  const [startDate, setStartDate] = useState(initialContext.startDate);
+  const [startTime, setStartTime] = useState(initialContext.startTime);
+  const [duration, setDuration] = useState(initialContext.duration);
   const [isImportant, setIsImportant] = useState(false);
   const [hasAlarm, setHasAlarm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -105,7 +123,7 @@ const ScheduleFormPage: React.FC = () => {
       startTime,
       duration,
       hasAlarm,
-      groupId: groupContext.groupId,
+      groupId: initialContext.groupId,
     });
 
     if (!result.ok) {
@@ -126,6 +144,17 @@ const ScheduleFormPage: React.FC = () => {
     <MobileLayout>
       <PageHeader title="일정 등록" showBack />
       <div className="px-4 py-4 space-y-5">
+        {initialContext.sourceLabel ? (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <p className="text-xs font-semibold text-primary">
+              {initialContext.sourceLabel}에서 가져온 그룹 일정입니다.
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              일시와 소요시간을 확인한 뒤 등록하세요.
+            </p>
+          </div>
+        ) : null}
+
         {/* AI Photo Upload */}
         <div>
           <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
@@ -171,9 +200,9 @@ const ScheduleFormPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {groupContext.groupId ? (
+          {initialContext.groupId ? (
             <p className="text-[11px] text-muted-foreground mt-2">
-              현재 그룹: {groupContext.groupName || '선택된 그룹'}
+              현재 그룹: {initialContext.groupName || '선택된 그룹'}
             </p>
           ) : null}
         </div>

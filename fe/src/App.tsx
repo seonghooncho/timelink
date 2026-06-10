@@ -18,6 +18,8 @@ import MyPage from "./pages/MyPage";
 import LoginPage from "./pages/LoginPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 
@@ -41,6 +43,8 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/schedule/new" element={<ProtectedRoute><ScheduleFormPage /></ProtectedRoute>} />

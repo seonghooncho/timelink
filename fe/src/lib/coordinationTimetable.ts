@@ -3,6 +3,42 @@ import type { Schedule } from '@/types/types';
 
 export const buildCoordinationSlotKey = (dateIndex: number, hour: number) => `${dateIndex}-${hour}`;
 
+export interface CoordinationAvailabilitySlot {
+  date: string;
+  hour: number;
+  count: number;
+}
+
+const isSchedulableSlot = (slot: CoordinationAvailabilitySlot, dates: string[]) =>
+  Boolean(slot.date)
+  && Number.isFinite(slot.hour)
+  && slot.count > 0
+  && dates.includes(slot.date);
+
+export const formatCoordinationHourTime = (hour: number) =>
+  `${String(hour).padStart(2, '0')}:00`;
+
+export const getRecommendedCoordinationScheduleSlot = (
+  heatmap: CoordinationAvailabilitySlot[] = [],
+  dates: string[] = [],
+  selectedSlot?: CoordinationAvailabilitySlot | null,
+) => {
+  if (selectedSlot && isSchedulableSlot(selectedSlot, dates)) {
+    return selectedSlot;
+  }
+
+  return heatmap
+    .filter((slot) => isSchedulableSlot(slot, dates))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+
+      const dateOrder = dates.indexOf(a.date) - dates.indexOf(b.date);
+      if (dateOrder !== 0) return dateOrder;
+
+      return a.hour - b.hour;
+    })[0] ?? null;
+};
+
 const getHourSlotRange = (date: Date, hour: number) => {
   const start = new Date(date);
   start.setHours(hour, 0, 0, 0);
