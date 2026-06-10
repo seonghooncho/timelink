@@ -164,8 +164,8 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("updateSettings — 일정 알림이 꺼져 있어도 리마인드 선택값은 저장한다")
-    void updateSettings_preservesRemindersWhenScheduleAlarmOff() {
+    @DisplayName("updateSettings — 일정 알림이 꺼져 있으면 리마인드를 새로 켤 수 없다")
+    void updateSettings_rejectsReminderOnWhenScheduleAlarmOff() {
         when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, false)));
 
         NotificationSettingsUpdateReqDTO req = new NotificationSettingsUpdateReqDTO();
@@ -173,13 +173,10 @@ class NotificationServiceTest {
         req.setRemindSameDay(true);
         req.setImportantAlarm(true);
 
-        NotificationSettingsResDTO result = service.updateSettings("user1", req);
-
-        assertThat(result.getScheduleAlarm()).isFalse();
-        assertThat(result.getRemindOneDayBefore()).isTrue();
-        assertThat(result.getRemindSameDay()).isTrue();
-        assertThat(result.getImportantAlarm()).isTrue();
-        verify(reminderSchedulingService).syncUserReminders(eq("user1"), any(NotificationSettings.class));
+        assertThatThrownBy(() -> service.updateSettings("user1", req))
+                .isInstanceOf(NotificationException.class);
+        verify(repository, never()).saveSettings(any());
+        verify(reminderSchedulingService, never()).syncUserReminders(anyString(), any());
     }
 
     @Test

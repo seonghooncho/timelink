@@ -21,9 +21,14 @@ import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +45,7 @@ public class CoordinationService {
 
     public CoordinationResDTO create(String userId, String groupId, CoordinationCreateReqDTO req) {
         verifyMembership(groupId, userId);
+        validateCreateRequest(req);
 
         String coordId = UUID.randomUUID().toString();
         Coordination coord = Coordination.builder()
@@ -95,19 +101,22 @@ public class CoordinationService {
     }
 
     public CoordinationResDTO update(String userId, String groupId, String coordId, CoordinationUpdateReqDTO req) {
-        Coordination coord = repository.findCoordination(groupId, coordId)
-                .orElseThrow(() -> new CoordinationException(CoordinationErrorCode.COORDINATION_NOT_FOUND));
+        verifyMembership(groupId, userId);
+        Coordination coord = findCoordinationOrThrow(groupId, coordId);
         if (!coord.getCreatedBy().equals(userId)) {
             throw new CoordinationException(CoordinationErrorCode.NOT_COORDINATION_CREATOR);
         }
-        if (req.getStatus() != null) coord.setStatus(req.getStatus());
+        if (req.getStatus() != null) {
+            validateStatus(req.getStatus());
+            coord.setStatus(req.getStatus());
+        }
         repository.saveCoordination(coord);
         return CoordinationConverter.toResponse(coord);
     }
 
     public void delete(String userId, String groupId, String coordId) {
-        Coordination coord = repository.findCoordination(groupId, coordId)
-                .orElseThrow(() -> new CoordinationException(CoordinationErrorCode.COORDINATION_NOT_FOUND));
+        verifyMembership(groupId, userId);
+        Coordination coord = findCoordinationOrThrow(groupId, coordId);
         if (!coord.getCreatedBy().equals(userId)) {
             throw new CoordinationException(CoordinationErrorCode.NOT_COORDINATION_CREATOR);
         }
@@ -116,15 +125,18 @@ public class CoordinationService {
 
     public SubmitResultDTO submitResponses(String userId, String groupId, String coordId, CoordinationSubmitReqDTO req) {
         verifyMembership(groupId, userId);
-        Coordination coord = repository.findCoordination(groupId, coordId)
-                .orElseThrow(() -> new CoordinationException(CoordinationErrorCode.COORDINATION_NOT_FOUND));
+        Coordination coord = findCoordinationOrThrow(groupId, coordId);
+        if (!"active".equals(coord.getStatus())) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+        Map<String, SlotEntryDTO> slots = normalizeSlots(req, coord);
 
         List<CoordinationResponse> existing = repository.findUserResponses(coordId, userId);
         for (CoordinationResponse r : existing) {
             repository.deleteResponse(coordId, r.getSk());
         }
 
-        for (SlotEntryDTO slot : req.getSlots()) {
+        for (SlotEntryDTO slot : slots.values()) {
             String sk = "RESP#" + userId + "#" + slot.getDate() + "#" + slot.getHour();
             CoordinationResponse resp = CoordinationResponse.builder()
                     .pk("COORD#" + coordId).sk(sk)
@@ -136,11 +148,12 @@ public class CoordinationService {
         }
 
         notifyCoordinationSubmitted(userId, coord);
-        return SubmitResultDTO.builder().submittedCount(req.getSlots().size()).build();
+        return SubmitResultDTO.builder().submittedCount(slots.size()).build();
     }
 
     public MyResponsesResultDTO getMyResponses(String userId, String groupId, String coordId) {
         verifyMembership(groupId, userId);
+        findCoordinationOrThrow(groupId, coordId);
         List<CoordinationResponse> responses = repository.findUserResponses(coordId, userId);
         List<SlotEntryDTO> slots = responses.stream()
                 .map(r -> SlotEntryDTO.builder().date(r.getDate()).hour(r.getHour()).build())
@@ -150,6 +163,7 @@ public class CoordinationService {
 
     public void deleteMyResponses(String userId, String groupId, String coordId) {
         verifyMembership(groupId, userId);
+        findCoordinationOrThrow(groupId, coordId);
         List<CoordinationResponse> existing = repository.findUserResponses(coordId, userId);
         for (CoordinationResponse r : existing) {
             repository.deleteResponse(coordId, r.getSk());
@@ -159,6 +173,73 @@ public class CoordinationService {
     private void verifyMembership(String groupId, String userId) {
         groupRepository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+    }
+
+    private Coordination findCoordinationOrThrow(String groupId, String coordId) {
+        return repository.findCoordination(groupId, coordId)
+                .orElseThrow(() -> new CoordinationException(CoordinationErrorCode.COORDINATION_NOT_FOUND));
+    }
+
+    private void validateCreateRequest(CoordinationCreateReqDTO req) {
+        if (!"once".equals(req.getMode()) && !"repeat".equals(req.getMode())) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+
+        if (req.getDates() == null || req.getDates().isEmpty()) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+
+        req.getDates().forEach(this::validateDate);
+        validateHourRange(req.getStartHour(), req.getEndHour());
+    }
+
+    private void validateHourRange(Integer startHour, Integer endHour) {
+        if (startHour == null || endHour == null
+                || startHour < 0 || startHour > 23
+                || endHour < 1 || endHour > 24
+                || endHour <= startHour) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+    }
+
+    private void validateStatus(String status) {
+        if (!"active".equals(status) && !"closed".equals(status)) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+    }
+
+    private Map<String, SlotEntryDTO> normalizeSlots(CoordinationSubmitReqDTO req, Coordination coord) {
+        if (req.getSlots() == null) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+
+        Map<String, SlotEntryDTO> slots = new LinkedHashMap<>();
+        for (SlotEntryDTO slot : req.getSlots()) {
+            validateSlot(slot, coord);
+            slots.put(slot.getDate() + "#" + slot.getHour(), slot);
+        }
+        return slots;
+    }
+
+    private void validateSlot(SlotEntryDTO slot, Coordination coord) {
+        if (slot == null || !StringUtils.hasText(slot.getDate()) || slot.getHour() == null) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+
+        validateDate(slot.getDate());
+        if (!coord.getDates().contains(slot.getDate())
+                || slot.getHour() < coord.getStartHour()
+                || slot.getHour() >= coord.getEndHour()) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
+    }
+
+    private void validateDate(String value) {
+        try {
+            LocalDate.parse(value);
+        } catch (DateTimeParseException | NullPointerException e) {
+            throw new CoordinationException(CoordinationErrorCode.INVALID_COORDINATION_REQUEST);
+        }
     }
 
     private void notifyCoordinationCreated(String userId, Coordination coord) {

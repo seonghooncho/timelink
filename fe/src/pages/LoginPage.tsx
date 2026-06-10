@@ -34,7 +34,8 @@ const LoginPage: React.FC = () => {
   const providerError = new URLSearchParams(location.search).get('error');
   const errorMessage = new URLSearchParams(location.search).get('message');
   const hasConfiguredProvider = Boolean(providers?.google || providers?.kakao);
-  const showGuestFallback = Boolean(providers) || providerFetchFailed || Boolean(providerError);
+  const isDevLoginEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true';
+  const showGuestFallback = isDevLoginEnabled && (Boolean(providers) || providerFetchFailed || Boolean(providerError));
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -51,10 +52,13 @@ const LoginPage: React.FC = () => {
       .catch((err) => {
         setProviders({ google: false, kakao: false });
         setProviderFetchFailed(true);
-        appToast.error('소셜 로그인 설정을 확인하지 못했습니다', err, '임시 로그인으로 계속할 수 있습니다.');
-        console.error(err);
+        appToast.error(
+          '소셜 로그인 설정을 확인하지 못했습니다',
+          err,
+          isDevLoginEnabled ? '임시 로그인으로 계속할 수 있습니다.' : undefined,
+        );
       });
-  }, []);
+  }, [isDevLoginEnabled]);
 
   useEffect(() => {
     if (!providerError) {
@@ -84,7 +88,6 @@ const LoginPage: React.FC = () => {
       });
       navigate(redirectPath, { replace: true });
     } catch (err) {
-      console.error(err);
       appToast.error('임시 로그인에 실패했습니다', err);
     } finally {
       setIsLoading(null);

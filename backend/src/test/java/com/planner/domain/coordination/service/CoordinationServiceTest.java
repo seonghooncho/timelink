@@ -117,6 +117,23 @@ class CoordinationServiceTest {
             assertThatThrownBy(() -> service.create(USER_ID, GROUP_ID, req))
                     .isInstanceOf(GroupException.class);
         }
+
+        @Test
+        @DisplayName("날짜나 시간 범위가 올바르지 않으면 생성하지 않는다")
+        void shouldThrowWhenRequestInvalid() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+
+            CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
+            req.setTitle("조율");
+            req.setMode("once");
+            req.setDates(List.of());
+            req.setStartHour(18);
+            req.setEndHour(9);
+
+            assertThatThrownBy(() -> service.create(USER_ID, GROUP_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).saveCoordination(any());
+        }
     }
 
     @Nested
@@ -179,6 +196,7 @@ class CoordinationServiceTest {
         @Test
         @DisplayName("생성자가 상태를 변경한다")
         void shouldUpdateStatus() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
             given(repository.findCoordination(GROUP_ID, COORD_ID))
                     .willReturn(Optional.of(createCoordination(USER_ID)));
 
@@ -193,11 +211,27 @@ class CoordinationServiceTest {
         @Test
         @DisplayName("생성자가 아니면 예외를 던진다")
         void shouldThrowWhenNotCreator() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
             given(repository.findCoordination(GROUP_ID, COORD_ID))
                     .willReturn(Optional.of(createCoordination("other-user")));
 
             assertThatThrownBy(() -> service.update(USER_ID, GROUP_ID, COORD_ID, new CoordinationUpdateReqDTO()))
                     .isInstanceOf(CoordinationException.class);
+        }
+
+        @Test
+        @DisplayName("허용되지 않은 상태값은 저장하지 않는다")
+        void shouldThrowWhenStatusInvalid() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination(USER_ID)));
+
+            CoordinationUpdateReqDTO req = new CoordinationUpdateReqDTO();
+            req.setStatus("paused");
+
+            assertThatThrownBy(() -> service.update(USER_ID, GROUP_ID, COORD_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).saveCoordination(any());
         }
     }
 
@@ -230,6 +264,59 @@ class CoordinationServiceTest {
             then(notificationService).should()
                     .createGroupNotificationIfEnabled(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
         }
+
+        @Test
+        @DisplayName("응답 슬롯은 조율 날짜와 시간 범위 안에서만 저장한다")
+        void shouldRejectOutOfRangeSlotsBeforeDeletingExistingResponses() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination("creator")));
+
+            CoordinationSubmitReqDTO req = new CoordinationSubmitReqDTO();
+            req.setSlots(List.of(new SlotEntryDTO("2025-03-16", 10)));
+
+            assertThatThrownBy(() -> service.submitResponses(USER_ID, GROUP_ID, COORD_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).findUserResponses(anyString(), anyString());
+            then(repository).should(never()).deleteResponse(anyString(), anyString());
+            then(repository).should(never()).saveResponse(any());
+        }
+
+        @Test
+        @DisplayName("중복 응답 슬롯은 한 번만 저장한다")
+        void shouldDeduplicateSlots() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination("creator")));
+            given(repository.findUserResponses(COORD_ID, USER_ID)).willReturn(List.of());
+
+            CoordinationSubmitReqDTO req = new CoordinationSubmitReqDTO();
+            req.setSlots(List.of(
+                    new SlotEntryDTO("2025-03-15", 10),
+                    new SlotEntryDTO("2025-03-15", 10)
+            ));
+
+            SubmitResultDTO result = service.submitResponses(USER_ID, GROUP_ID, COORD_ID, req);
+
+            assertThat(result.getSubmittedCount()).isEqualTo(1);
+            then(repository).should(times(1)).saveResponse(any());
+        }
+
+        @Test
+        @DisplayName("닫힌 조율에는 응답을 제출할 수 없다")
+        void shouldRejectClosedCoordination() {
+            Coordination closed = createCoordination("creator");
+            closed.setStatus("closed");
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID)).willReturn(Optional.of(closed));
+
+            CoordinationSubmitReqDTO req = new CoordinationSubmitReqDTO();
+            req.setSlots(List.of(new SlotEntryDTO("2025-03-15", 10)));
+
+            assertThatThrownBy(() -> service.submitResponses(USER_ID, GROUP_ID, COORD_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).findUserResponses(anyString(), anyString());
+        }
     }
 
     @Nested
@@ -239,6 +326,7 @@ class CoordinationServiceTest {
         @Test
         @DisplayName("생성자가 아니면 삭제 시 예외를 던진다")
         void shouldThrowWhenNotCreator() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
             given(repository.findCoordination(GROUP_ID, COORD_ID))
                     .willReturn(Optional.of(createCoordination("other")));
 

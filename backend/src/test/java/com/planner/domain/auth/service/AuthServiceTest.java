@@ -3,6 +3,8 @@ package com.planner.domain.auth.service;
 import com.planner.domain.auth.dto.AuthLoginReqDTO;
 import com.planner.domain.auth.dto.AuthSessionResDTO;
 import com.planner.domain.profile.service.ProfileService;
+import com.planner.global.config.AuthProperties;
+import com.planner.global.error.CustomException;
 import com.planner.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,8 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -23,6 +27,9 @@ class AuthServiceTest {
 
     @Mock
     private ProfileService profileService;
+
+    @Mock
+    private AuthProperties authProperties;
 
     @InjectMocks
     private AuthService authService;
@@ -34,6 +41,7 @@ class AuthServiceTest {
         req.setUserId(" Cho_User ");
         req.setNickname("초");
 
+        given(authProperties.isDevLoginEnabled()).willReturn(true);
         given(jwtTokenProvider.generateToken("cho_user")).willReturn("jwt-token");
 
         AuthSessionResDTO result = authService.login(req);
@@ -41,6 +49,20 @@ class AuthServiceTest {
         assertThat(result.getUserId()).isEqualTo("cho_user");
         assertThat(result.getAccessToken()).isEqualTo("jwt-token");
         then(profileService).should().getOrCreate("cho_user", "초", null);
+    }
+
+    @Test
+    @DisplayName("login은 개발 로그인 허용 설정이 꺼져 있으면 토큰을 발급하지 않는다")
+    void login_rejectsWhenDevLoginDisabled() {
+        AuthLoginReqDTO req = new AuthLoginReqDTO();
+        req.setUserId("user_1");
+
+        given(authProperties.isDevLoginEnabled()).willReturn(false);
+
+        assertThatThrownBy(() -> authService.login(req))
+                .isInstanceOf(CustomException.class)
+                .hasMessage("개발 로그인은 현재 사용할 수 없습니다");
+        verifyNoInteractions(profileService, jwtTokenProvider);
     }
 
     @Test
