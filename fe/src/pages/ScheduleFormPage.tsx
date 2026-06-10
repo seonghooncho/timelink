@@ -103,7 +103,6 @@ const ScheduleFormPage: React.FC = () => {
         if (data.isImportant !== undefined) setIsImportant(data.isImportant);
         appToast.success('AI 분석 완료', '사진에서 일정 정보를 추출했습니다.');
       } catch (err: unknown) {
-        console.error('AI extraction failed:', err);
         appToast.error('분석 실패', getErrorMessage(err, '사진 분석에 실패했습니다.'));
       } finally {
         setIsAnalyzing(false);

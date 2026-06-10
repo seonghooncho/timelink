@@ -104,6 +104,7 @@ public class NotificationService {
         if (req.getRemindSameDayTime() != null) settings.setRemindSameDayTime(req.getRemindSameDayTime());
         if (req.getImportantAlarm() != null) settings.setImportantAlarm(req.getImportantAlarm());
         if (req.getImportantAlarmTime() != null) settings.setImportantAlarmTime(req.getImportantAlarmTime());
+        validateReminderSettings(settings, req);
         settings.setUpdatedAt(Instant.now().toString());
 
         repository.saveSettings(settings);
@@ -201,6 +202,15 @@ public class NotificationService {
                 .build();
         repository.saveNotification(notification);
         webPushService.sendNotification(userId, notification);
+    }
+
+    private void validateReminderSettings(NotificationSettings settings, NotificationSettingsUpdateReqDTO req) {
+        boolean requestedReminderOn = Boolean.TRUE.equals(req.getRemindOneDayBefore())
+                || Boolean.TRUE.equals(req.getRemindSameDay())
+                || Boolean.TRUE.equals(req.getImportantAlarm());
+        if (requestedReminderOn && !Boolean.TRUE.equals(settings.getScheduleAlarm())) {
+            throw new NotificationException(NotificationErrorCode.INVALID_NOTIFICATION_SETTINGS);
+        }
     }
 
 }

@@ -181,7 +181,6 @@ const MyPage: React.FC = () => {
       setProfileImage(uploadResult.url);
       appToast.success('프로필 이미지가 변경되었습니다');
     } catch (err) {
-      console.error(err);
       appToast.error('이미지 업로드에 실패했습니다', err);
     } finally {
       setIsUploading(false);
