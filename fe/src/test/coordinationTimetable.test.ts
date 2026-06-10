@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCoordinationSlotKey,
+  formatCoordinationHourTime,
+  getRecommendedCoordinationScheduleSlot,
   groupSchedulesByCoordinationSlot,
   scheduleOverlapsCoordinationSlot,
 } from '@/lib/coordinationTimetable';
@@ -49,5 +51,35 @@ describe('coordination timetable slot helpers', () => {
 
     expect(scheduleOverlapsCoordinationSlot(schedule, date, 9)).toBe(true);
     expect(scheduleOverlapsCoordinationSlot(schedule, date, 10)).toBe(false);
+  });
+
+  it('선택한 결과 슬롯이 유효하면 그룹 일정 생성 후보로 우선 사용한다', () => {
+    const selected = { date: '2026-03-13', hour: 15, count: 1 };
+
+    expect(getRecommendedCoordinationScheduleSlot(
+      [
+        { date: '2026-03-12', hour: 9, count: 4 },
+        selected,
+      ],
+      ['2026-03-12', '2026-03-13'],
+      selected,
+    )).toEqual(selected);
+  });
+
+  it('선택한 슬롯이 없으면 가장 많이 겹치는 빠른 시간으로 추천한다', () => {
+    expect(getRecommendedCoordinationScheduleSlot(
+      [
+        { date: '2026-03-13', hour: 10, count: 0 },
+        { date: '2026-03-13', hour: 12, count: 3 },
+        { date: '2026-03-12', hour: 14, count: 3 },
+        { date: '2026-03-12', hour: 9, count: 2 },
+      ],
+      ['2026-03-12', '2026-03-13'],
+    )).toEqual({ date: '2026-03-12', hour: 14, count: 3 });
+  });
+
+  it('조율 시간 슬롯을 일정 생성 폼 시간 형식으로 변환한다', () => {
+    expect(formatCoordinationHourTime(9)).toBe('09:00');
+    expect(formatCoordinationHourTime(15)).toBe('15:00');
   });
 });

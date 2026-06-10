@@ -8,7 +8,12 @@ import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
-import { buildCoordinationSlotKey, groupSchedulesByCoordinationSlot } from '@/lib/coordinationTimetable';
+import {
+  buildCoordinationSlotKey,
+  formatCoordinationHourTime,
+  getRecommendedCoordinationScheduleSlot,
+  groupSchedulesByCoordinationSlot,
+} from '@/lib/coordinationTimetable';
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
@@ -79,6 +84,37 @@ const CoordinationTimetablePage: React.FC = () => {
       setViewMode('result');
       appToast.success('가능 시간이 제출되었습니다');
     } catch (error) { appToast.error('제출에 실패했습니다', error); } finally { setIsSubmitting(false); }
+  };
+
+  const handleCreateGroupSchedule = () => {
+    if (!groupId) {
+      appToast.error('그룹 정보를 찾을 수 없습니다');
+      return;
+    }
+
+    const selectedEntry = selectedSlotDetail ? heatmapMap[selectedSlotDetail] : null;
+    const slot = getRecommendedCoordinationScheduleSlot(
+      coordination?.heatmap ?? [],
+      dates,
+      selectedEntry,
+    );
+
+    if (!slot) {
+      appToast.info('일정을 만들 수 있는 시간이 없습니다', '한 명 이상 가능한 시간이 생기면 그룹 일정을 만들 수 있습니다.');
+      return;
+    }
+
+    navigate('/schedule/new', {
+      state: {
+        groupId,
+        title,
+        content: '시간 조율 결과에서 생성한 그룹 일정입니다.',
+        startDate: slot.date,
+        startTime: formatCoordinationHourTime(slot.hour),
+        duration: '1',
+        sourceLabel: '모두 가능한 시간',
+      },
+    });
   };
 
   const renderExistingScheduleLayer = (existingSchedules?: Schedule[]) => {
@@ -202,6 +238,18 @@ const CoordinationTimetablePage: React.FC = () => {
               </div>
             );
           })()}
+          <div className="px-4 mt-4">
+            <button
+              type="button"
+              onClick={handleCreateGroupSchedule}
+              className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-colors active:scale-[0.98]"
+            >
+              그룹 일정 생성하기
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              선택한 시간이 없으면 가장 많이 겹치는 시간으로 시작합니다.
+            </p>
+          </div>
         </>
       )}
       <div className="h-24" />
