@@ -62,6 +62,21 @@ public class ProfileService {
         return ProfileConverter.toResponse(userId, profile);
     }
 
+    public ProfileResDTO agreeRequiredConsents(String userId) {
+        Profile profile = repository.findByUserId(userId)
+                .orElseGet(() -> ProfileConverter.createDefault(userId, null));
+
+        String now = Instant.now().toString();
+        profile.setTermsVersion(ProfileConverter.CURRENT_TERMS_VERSION);
+        profile.setTermsAgreedAt(now);
+        profile.setPrivacyVersion(ProfileConverter.CURRENT_PRIVACY_VERSION);
+        profile.setPrivacyAgreedAt(now);
+        profile.setUpdatedAt(now);
+
+        repository.save(profile);
+        return ProfileConverter.toResponse(userId, profile);
+    }
+
     private boolean shouldApplyNicknameHint(Profile profile, String nicknameHint) {
         if (!StringUtils.hasText(nicknameHint)) {
             return false;

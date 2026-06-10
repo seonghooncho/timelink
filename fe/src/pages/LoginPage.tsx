@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import BrandMark from '@/components/common/BrandMark';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/context/AuthContext';
 import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
@@ -30,7 +29,6 @@ const LoginPage: React.FC = () => {
   const [providers, setProviders] = useState<AuthProvidersResponse | null>(null);
   const [providerFetchFailed, setProviderFetchFailed] = useState(false);
   const [guestNickname, setGuestNickname] = useState('');
-  const [hasRequiredConsent, setHasRequiredConsent] = useState(false);
 
   const redirectPath = new URLSearchParams(location.search).get('redirect') || '/';
   const providerError = new URLSearchParams(location.search).get('error');
@@ -66,16 +64,7 @@ const LoginPage: React.FC = () => {
     appToast.error(errorMessage || `${providerError} 로그인에 실패했습니다`);
   }, [providerError, errorMessage]);
 
-  const ensureRequiredConsent = () => {
-    if (hasRequiredConsent) return true;
-
-    appToast.info('필수 약관에 동의해주세요', '서비스 이용약관과 개인정보 수집·이용 동의가 필요합니다.');
-    return false;
-  };
-
   const handleSocialLogin = (provider: SocialAuthProvider) => {
-    if (!ensureRequiredConsent()) return;
-
     if (!providers?.[provider]) {
       appToast.info(`${provider === 'google' ? 'Google' : '카카오'} 로그인은 아직 설정되지 않았습니다`);
       return;
@@ -86,8 +75,6 @@ const LoginPage: React.FC = () => {
   };
 
   const handleGuestLogin = async () => {
-    if (!ensureRequiredConsent()) return;
-
     const nickname = guestNickname.trim() || 'Timelink 게스트';
     setIsLoading('guest');
     try {
@@ -112,32 +99,6 @@ const LoginPage: React.FC = () => {
           <h1 className="text-[26px] font-bold text-foreground tracking-tight">Timelink</h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
             개인과 그룹 일정을<br />자연스럽게 연결하세요
-          </p>
-        </div>
-
-        <div className="w-full max-w-sm mb-4 rounded-2xl border border-border bg-card/80 p-3.5">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="required-consent"
-              checked={hasRequiredConsent}
-              onCheckedChange={(checked) => setHasRequiredConsent(checked === true)}
-              className="mt-0.5"
-              aria-label="필수 약관 동의"
-            />
-            <label htmlFor="required-consent" className="min-w-0 flex-1 text-xs leading-relaxed text-foreground">
-              <span className="font-semibold">필수</span>{' '}
-              <Link to="/terms" className="font-semibold text-primary underline-offset-2 hover:underline">
-                이용약관
-              </Link>
-              과{' '}
-              <Link to="/privacy" className="font-semibold text-primary underline-offset-2 hover:underline">
-                개인정보 수집·이용
-              </Link>
-              에 동의합니다.
-            </label>
-          </div>
-          <p className="mt-2 pl-7 text-[11px] leading-relaxed text-muted-foreground">
-            로그인, 일정·그룹 관리, 알림 제공에 필요한 최소 정보만 사용합니다.
           </p>
         </div>
 
@@ -210,8 +171,16 @@ const LoginPage: React.FC = () => {
           </div>
         ) : null}
 
-        <p className="mt-10 text-[11px] text-muted-foreground/60 text-center leading-relaxed">
-          Timelink는 개인 일정과 그룹 조율을 위한 정보를 서비스 제공 목적으로만 처리합니다.
+        <p className="mt-10 text-[11px] text-muted-foreground/70 text-center leading-relaxed">
+          처음 시작할 때{' '}
+          <Link to="/terms" className="font-semibold text-primary underline-offset-2 hover:underline">
+            이용약관
+          </Link>
+          과{' '}
+          <Link to="/privacy" className="font-semibold text-primary underline-offset-2 hover:underline">
+            개인정보 안내
+          </Link>
+          를 확인합니다.
         </p>
       </div>
     </MobileLayout>
