@@ -128,7 +128,7 @@ const CalendarPage: React.FC = () => {
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
           {selectedDay && (
-            <div className="px-4 pt-4 pb-24 animate-fade-in">
+            <div className="px-4 pt-4 pb-4 animate-fade-in">
               <h3 className="text-sm font-semibold text-foreground mb-2">{month + 1}월 {selectedDay}일 일정</h3>
               {selectedSchedules.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">일정이 없습니다</p>

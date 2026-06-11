@@ -20,7 +20,7 @@ const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default' }) => 
   return (
     <button
       onClick={handleClick}
-      className="fixed bottom-24 right-5 z-40 w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable bg-primary text-primary-foreground"
+      className="fixed app-floating-action right-5 z-40 w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable bg-primary text-primary-foreground"
     >
       {icon || <Plus className="w-6 h-6" strokeWidth={2.2} />}
     </button>
