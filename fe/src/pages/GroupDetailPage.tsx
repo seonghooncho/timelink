@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, UserPlus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, Pencil, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useGroups } from '@/hooks/useGroups';
@@ -41,6 +44,7 @@ const getCategoryLabel = (category: string) => {
 const GroupDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { userId } = useAuth();
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [] } = useGroups();
@@ -62,6 +66,13 @@ const GroupDetailPage: React.FC = () => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [showManageMembersModal, setShowManageMembersModal] = useState(false);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
+  const [kickTarget, setKickTarget] = useState<GroupMemberResponse | null>(null);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [copied, setCopied] = useState(false);
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
   const [coordinationNextCursor, setCoordinationNextCursor] = useState<string | null>(null);
@@ -123,6 +134,8 @@ const GroupDetailPage: React.FC = () => {
   }, [groupSchedules]);
 
   const memberCount = members.length || group?.memberCount || 0;
+  const currentMember = sortedMembers.find((member) => member.userId === userId);
+  const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
   const visibleGroupSchedules = groupSchedulesExpanded ? sortedGroupSchedules : sortedGroupSchedules.slice(0, GROUP_SCHEDULE_PREVIEW_LIMIT);
   const visibleCoordinations = coordinationsExpanded ? coordinations : coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
@@ -203,6 +216,53 @@ const GroupDetailPage: React.FC = () => {
     }
   };
 
+  const openEditGroupModal = () => {
+    if (!group) return;
+    setEditGroupName(group.name);
+    setEditGroupDescription(group.description || '');
+    setShowEditGroupModal(true);
+  };
+
+  const handleUpdateGroup = async () => {
+    if (!id) return;
+    const name = editGroupName.trim();
+    const description = editGroupDescription.trim();
+
+    if (!name) {
+      appToast.error('그룹 이름을 입력해주세요');
+      return;
+    }
+
+    setIsUpdatingGroup(true);
+    try {
+      await groupApi.update(id, { name, description });
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      setShowEditGroupModal(false);
+      appToast.success('그룹 정보를 수정했습니다');
+    } catch (error) {
+      appToast.error('그룹 정보 수정에 실패했습니다', error);
+    } finally {
+      setIsUpdatingGroup(false);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!id || !kickTarget) return;
+
+    setIsRemovingMember(true);
+    try {
+      await groupApi.removeMember(id, kickTarget.userId);
+      setMembers(prev => prev.filter(member => member.userId !== kickTarget.userId));
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      appToast.success('멤버를 내보냈습니다');
+      setKickTarget(null);
+    } catch (error) {
+      appToast.error('멤버를 내보내지 못했습니다', error);
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
   const handleLeave = async () => {
     if (!id) return;
     try {
@@ -240,7 +300,27 @@ const GroupDetailPage: React.FC = () => {
       />
 
       {showMenu && (
-        <div className="absolute right-4 top-12 z-50 w-44 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
+        <div className="absolute right-4 top-12 z-50 w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
+          <button
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+            onClick={() => {
+              setShowMenu(false);
+              openEditGroupModal();
+            }}
+          >
+            <Pencil className="w-4 h-4" /> 그룹 정보 수정
+          </button>
+          {isManager ? (
+            <button
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+              onClick={() => {
+                setShowMenu(false);
+                setShowManageMembersModal(true);
+              }}
+            >
+              <Users className="w-4 h-4" /> 멤버 관리
+            </button>
+          ) : null}
           <button
             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
             onClick={() => {
@@ -420,6 +500,145 @@ const GroupDetailPage: React.FC = () => {
         </div>
       )}
 
+      {showEditGroupModal && (
+        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowEditGroupModal(false)}>
+          <div
+            className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-bold text-foreground">그룹 정보 수정</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">그룹 멤버라면 이름과 설명을 수정할 수 있습니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditGroupModal(false)}
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">그룹 이름</label>
+                <Input
+                  value={editGroupName}
+                  onChange={(event) => setEditGroupName(event.target.value)}
+                  maxLength={30}
+                  className="rounded-xl bg-muted"
+                  placeholder="그룹 이름"
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{editGroupName.length}/30</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">그룹 설명</label>
+                <Textarea
+                  value={editGroupDescription}
+                  onChange={(event) => setEditGroupDescription(event.target.value)}
+                  maxLength={200}
+                  rows={4}
+                  className="resize-none rounded-xl bg-muted"
+                  placeholder="그룹 설명"
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{editGroupDescription.length}/200</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowEditGroupModal(false)}
+                  className="rounded-xl bg-muted py-3 text-sm font-semibold text-foreground"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateGroup}
+                  disabled={isUpdatingGroup}
+                  className="rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+                >
+                  {isUpdatingGroup ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showManageMembersModal && (
+        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowManageMembersModal(false)}>
+          <div
+            className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-bold text-foreground">멤버 관리</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">관리자는 멤버를 그룹에서 내보낼 수 있습니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManageMembersModal(false)}
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-2">
+                {sortedMembers.map((member) => {
+                  const isMe = member.userId === userId;
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3"
+                    >
+                      <Avatar className="h-11 w-11 border border-border/70">
+                        <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                        <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                          {getMemberFallback(member)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                            {member.nickname || member.userId}
+                          </p>
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            {getRoleLabel(member.role)}
+                          </span>
+                          {isMe ? (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              나
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setKickTarget(member)}
+                        disabled={isMe}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-destructive/20 px-2.5 py-2 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                        내보내기
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 px-4">
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -530,19 +749,25 @@ const GroupDetailPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mx-4 mt-6 space-y-2.5">
-        <button
-          onClick={() => navigate(`/groups/${id}/coordination`)}
-          className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          시간 조율하기
-        </button>
-        <button
-          onClick={() => navigate('/schedule/new', { state: { groupId: id, groupName: group.name } })}
-          className="w-full rounded-xl bg-category-group py-3.5 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          그룹 일정 생성
-        </button>
+      <div className="h-24" aria-hidden="true" />
+
+      <div className="fixed inset-x-0 z-40 app-bottom-sheet-root pointer-events-none">
+        <div className="pointer-events-auto mx-auto max-w-lg border-t border-border/70 bg-background/95 px-4 py-3 shadow-elevated glass">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => navigate('/schedule/new', { state: { groupId: id, groupName: group.name } })}
+              className="w-full rounded-xl bg-category-group py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              그룹 일정 생성
+            </button>
+            <button
+              onClick={() => navigate(`/groups/${id}/coordination`)}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              시간 조율하기
+            </button>
+          </div>
+        </div>
       </div>
 
       <ConfirmModal
@@ -552,6 +777,16 @@ const GroupDetailPage: React.FC = () => {
         title="그룹을 나가시겠습니까?"
         description="그룹에서 나가면 다시 초대받아야 합니다."
         confirmLabel="나가기"
+        cancelLabel="취소"
+        variant="destructive"
+      />
+      <ConfirmModal
+        open={!!kickTarget}
+        onClose={() => setKickTarget(null)}
+        onConfirm={handleRemoveMember}
+        title="멤버를 내보내시겠습니까?"
+        description={kickTarget ? `${kickTarget.nickname || '선택한 멤버'}님은 초대 링크로 다시 참여해야 합니다.` : undefined}
+        confirmLabel={isRemovingMember ? '처리 중...' : '내보내기'}
         cancelLabel="취소"
         variant="destructive"
       />

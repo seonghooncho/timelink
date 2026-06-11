@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCoordinationSlotKey,
   formatCoordinationHourTime,
+  getCoordinationDateWindowStarts,
+  getRecommendedCoordinationAvailabilityWindow,
   getRecommendedCoordinationScheduleSlot,
   groupSchedulesByCoordinationSlot,
   scheduleOverlapsCoordinationSlot,
@@ -78,8 +80,33 @@ describe('coordination timetable slot helpers', () => {
     )).toEqual({ date: '2026-03-12', hour: 14, count: 3 });
   });
 
+  it('최대 투표수가 같으면 더 오래 연속으로 겹치는 구간을 추천한다', () => {
+    expect(getRecommendedCoordinationAvailabilityWindow(
+      [
+        { date: '2026-03-12', hour: 9, count: 4 },
+        { date: '2026-03-12', hour: 10, count: 4 },
+        { date: '2026-03-13', hour: 9, count: 4 },
+        { date: '2026-03-13', hour: 11, count: 4 },
+        { date: '2026-03-12', hour: 11, count: 3 },
+      ],
+      ['2026-03-12', '2026-03-13'],
+    )).toMatchObject({
+      date: '2026-03-12',
+      startHour: 9,
+      endHour: 11,
+      count: 4,
+    });
+  });
+
   it('조율 시간 슬롯을 일정 생성 폼 시간 형식으로 변환한다', () => {
     expect(formatCoordinationHourTime(9)).toBe('09:00');
     expect(formatCoordinationHourTime(15)).toBe('15:00');
+  });
+
+  it('조율 날짜가 5개를 넘으면 마지막 페이지도 5개가 보이도록 시작점을 겹쳐 잡는다', () => {
+    expect(getCoordinationDateWindowStarts(3)).toEqual([0]);
+    expect(getCoordinationDateWindowStarts(8)).toEqual([0, 3]);
+    expect(getCoordinationDateWindowStarts(10)).toEqual([0, 5]);
+    expect(getCoordinationDateWindowStarts(12)).toEqual([0, 5, 7]);
   });
 });

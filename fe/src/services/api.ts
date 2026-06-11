@@ -259,6 +259,8 @@ export const groupApi = {
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
   leaveGroup: (groupId: string) => request<void>('DELETE', `/groups/${groupId}/members/me`),
+  removeMember: (groupId: string, memberUserId: string) =>
+    request<void>('DELETE', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}`),
 };
 
 // ── Coordinations ──
