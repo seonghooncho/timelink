@@ -17,7 +17,7 @@ const TimeCoordinationPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title="시간 조율하기" showBack />
+      <PageHeader title="시간 조율하기" showBack backTo={id ? `/groups/${id}` : '/groups'} />
 
       <TabBar tabs={TABS} activeKey={tab} onChange={setTab} className="mx-4 mt-2" />
 

@@ -243,8 +243,8 @@ const CoordinationTimetablePage: React.FC = () => {
     );
   };
 
-  if (isLoading) return (<MobileLayout><PageHeader title="시간 조율" showBack /><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div></MobileLayout>);
-  if (!coordination) return (<MobileLayout><PageHeader title="시간 조율" showBack /><div className="p-8 text-center text-muted-foreground">조율 정보를 찾을 수 없습니다</div></MobileLayout>);
+  if (isLoading) return (<MobileLayout><PageHeader title="시간 조율" showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} /><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div></MobileLayout>);
+  if (!coordination) return (<MobileLayout><PageHeader title="시간 조율" showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} /><div className="p-8 text-center text-muted-foreground">조율 정보를 찾을 수 없습니다</div></MobileLayout>);
 
   const allUsers = new Set<string>();
   coordination.heatmap?.forEach(h => h.users?.forEach(u => allUsers.add(u)));
@@ -252,7 +252,7 @@ const CoordinationTimetablePage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title={title} showBack />
+      <PageHeader title={title} showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} />
       <div className="flex gap-2 px-4 py-3">
         <button onClick={() => setViewMode('select')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'select' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>내가 가능한 시간</button>
         <button onClick={() => setViewMode('result')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'result' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>모두 가능한 시간</button>

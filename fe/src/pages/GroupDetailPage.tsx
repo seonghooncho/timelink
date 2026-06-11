@@ -292,64 +292,71 @@ const GroupDetailPage: React.FC = () => {
       <PageHeader
         title="나의 그룹"
         showBack
+        backTo="/groups"
         rightElement={
-          <button onClick={() => setShowMenu(!showMenu)} className="p-1 text-muted-foreground">
-            <Menu className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="그룹 메뉴 열기"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  onClick={() => {
+                    setShowMenu(false);
+                    openEditGroupModal();
+                  }}
+                >
+                  <Pencil className="w-4 h-4" /> 그룹 정보 수정
+                </button>
+                {isManager ? (
+                  <button
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowManageMembersModal(true);
+                    }}
+                  >
+                    <Users className="w-4 h-4" /> 멤버 관리
+                  </button>
+                ) : null}
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowInviteModal(true);
+                  }}
+                >
+                  <UserPlus className="w-4 h-4" /> 멤버 초대
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  onClick={() => {
+                    setShowMenu(false);
+                    handleShare();
+                  }}
+                >
+                  <LinkIcon className="w-4 h-4" /> 링크 공유
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-muted"
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowLeaveConfirm(true);
+                  }}
+                >
+                  <LogOut className="w-4 h-4" /> 그룹 나가기
+                </button>
+              </div>
+            )}
+          </div>
         }
       />
-
-      {showMenu && (
-        <div className="absolute right-4 top-12 z-50 w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
-          <button
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-            onClick={() => {
-              setShowMenu(false);
-              openEditGroupModal();
-            }}
-          >
-            <Pencil className="w-4 h-4" /> 그룹 정보 수정
-          </button>
-          {isManager ? (
-            <button
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-              onClick={() => {
-                setShowMenu(false);
-                setShowManageMembersModal(true);
-              }}
-            >
-              <Users className="w-4 h-4" /> 멤버 관리
-            </button>
-          ) : null}
-          <button
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-            onClick={() => {
-              setShowMenu(false);
-              setShowInviteModal(true);
-            }}
-          >
-            <UserPlus className="w-4 h-4" /> 멤버 초대
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-            onClick={() => {
-              setShowMenu(false);
-              handleShare();
-            }}
-          >
-            <LinkIcon className="w-4 h-4" /> 링크 공유
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-muted"
-            onClick={() => {
-              setShowMenu(false);
-              setShowLeaveConfirm(true);
-            }}
-          >
-            <LogOut className="w-4 h-4" /> 그룹 나가기
-          </button>
-        </div>
-      )}
 
       <div className="mx-4 mt-4 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center gap-3">
