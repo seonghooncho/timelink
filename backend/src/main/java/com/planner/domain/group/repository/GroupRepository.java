@@ -1,6 +1,7 @@
 package com.planner.domain.group.repository;
 
 import com.planner.domain.group.model.Group;
+import com.planner.domain.group.model.GroupInvite;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.global.config.AwsProperties;
 import com.planner.global.cursor.Cursor;
@@ -8,7 +9,9 @@ import com.planner.global.cursor.CursorPageResult;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
@@ -26,17 +29,17 @@ public class GroupRepository {
 
     private final DynamoDbTable<Group> groupTable;
     private final DynamoDbTable<GroupMember> memberTable;
+    private final DynamoDbTable<GroupInvite> inviteTable;
     private final DynamoDbIndex<GroupMember> userGroupsIndex;
     private final DynamoDbClient dynamoDbClient;
-    private final TableSchema<Group> groupSchema;
     private final String tableName;
 
     public GroupRepository(DynamoDbEnhancedClient client, DynamoDbClient dynamoDbClient, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
         this.tableName = prefix + "main";
-        this.groupSchema = TableSchema.fromBean(Group.class);
-        this.groupTable = client.table(tableName, groupSchema);
+        this.groupTable = client.table(tableName, TableSchema.fromBean(Group.class));
         this.memberTable = client.table(tableName, TableSchema.fromBean(GroupMember.class));
+        this.inviteTable = client.table(tableName, TableSchema.fromBean(GroupInvite.class));
         this.userGroupsIndex = memberTable.index("GSI2");
         this.dynamoDbClient = dynamoDbClient;
     }
@@ -55,22 +58,61 @@ public class GroupRepository {
         groupTable.deleteItem(key);
     }
 
-    public Optional<Group> findByInviteCode(String inviteCode) {
-        var request = ScanRequest.builder()
+    public boolean saveInviteIfAbsent(GroupInvite invite) {
+        try {
+            dynamoDbClient.putItem(PutItemRequest.builder()
+                    .tableName(tableName)
+                    .item(Map.of(
+                            "PK", AttributeValue.builder().s(invite.getPk()).build(),
+                            "SK", AttributeValue.builder().s(invite.getSk()).build(),
+                            "inviteCode", AttributeValue.builder().s(invite.getInviteCode()).build(),
+                            "groupId", AttributeValue.builder().s(invite.getGroupId()).build(),
+                            "createdAt", AttributeValue.builder().s(invite.getCreatedAt()).build()
+                    ))
+                    .conditionExpression("attribute_not_exists(PK)")
+                    .build());
+            return true;
+        } catch (ConditionalCheckFailedException e) {
+            return false;
+        }
+    }
+
+    public Optional<GroupInvite> findInvite(String inviteCode) {
+        var key = Key.builder().partitionValue("INVITE#" + inviteCode).sortValue("METADATA").build();
+        return Optional.ofNullable(inviteTable.getItem(key));
+    }
+
+    public void deleteInvite(String inviteCode) {
+        var key = Key.builder().partitionValue("INVITE#" + inviteCode).sortValue("METADATA").build();
+        inviteTable.deleteItem(key);
+    }
+
+    public void updateMemberCount(String groupId, int delta) {
+        dynamoDbClient.updateItem(UpdateItemRequest.builder()
                 .tableName(tableName)
-                .filterExpression("#sk = :metadata AND #inviteCode = :inviteCode")
-                .expressionAttributeNames(Map.of(
-                        "#sk", "SK",
-                        "#inviteCode", "inviteCode"
+                .key(Map.of(
+                        "PK", AttributeValue.builder().s("GROUP#" + groupId).build(),
+                        "SK", AttributeValue.builder().s("METADATA").build()
                 ))
+                .updateExpression("ADD memberCount :delta")
                 .expressionAttributeValues(Map.of(
-                        ":metadata", AttributeValue.builder().s("METADATA").build(),
-                        ":inviteCode", AttributeValue.builder().s(inviteCode).build()
+                        ":delta", AttributeValue.builder().n(String.valueOf(delta)).build()
                 ))
-                .build();
-        return dynamoDbClient.scan(request).items().stream()
-                .findFirst()
-                .map(groupSchema::mapToItem);
+                .build());
+    }
+
+    public void setMemberCount(String groupId, int count) {
+        dynamoDbClient.updateItem(UpdateItemRequest.builder()
+                .tableName(tableName)
+                .key(Map.of(
+                        "PK", AttributeValue.builder().s("GROUP#" + groupId).build(),
+                        "SK", AttributeValue.builder().s("METADATA").build()
+                ))
+                .updateExpression("SET memberCount = :count")
+                .expressionAttributeValues(Map.of(
+                        ":count", AttributeValue.builder().n(String.valueOf(Math.max(0, count))).build()
+                ))
+                .build());
     }
 
     public void saveMember(GroupMember member) {

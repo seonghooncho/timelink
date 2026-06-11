@@ -13,7 +13,7 @@ Terraform 상태 관리와 실제 애플리케이션 인프라를 분리해서, 
 ```text
 infra/terraform/
 ├── init/      # tfstate S3 bucket + DynamoDB lock table bootstrap
-├── minimum/   # 현재 운영 최소 스택 (frontend/backend/ai/dynamodb/ssm)
+├── minimum/   # 현재 운영 최소 스택 (frontend/backend/ai/dynamodb/ssm/monitoring)
 └── cloudflare_free/ # workers.dev 기반 무료 프론트 서빙
 ```
 

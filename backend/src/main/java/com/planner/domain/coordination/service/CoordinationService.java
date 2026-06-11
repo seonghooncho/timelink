@@ -53,6 +53,7 @@ public class CoordinationService {
                 .id(coordId).groupId(groupId).createdBy(userId)
                 .title(req.getTitle()).mode(req.getMode())
                 .dates(req.getDates()).startHour(req.getStartHour()).endHour(req.getEndHour())
+                .responseCount(0)
                 .status("active").createdAt(Instant.now().toString())
                 .build();
 
@@ -71,7 +72,7 @@ public class CoordinationService {
 
         List<CoordinationResDTO> filtered = page.getItems().stream()
                 .filter(c -> status == null || c.getStatus().equals(status))
-                .map(c -> CoordinationConverter.toResponseWithCount(c, repository.findResponses(c.getId()).size()))
+                .map(c -> CoordinationConverter.toResponseWithCount(c, resolveResponseCount(c)))
                 .collect(Collectors.toList());
 
         return CursorPageResult.<CoordinationResDTO>builder()
@@ -147,6 +148,7 @@ public class CoordinationService {
             repository.saveResponse(resp);
         }
 
+        refreshResponseCountAfterChange(coord, slots.size() - existing.size());
         notifyCoordinationSubmitted(userId, coord);
         return SubmitResultDTO.builder().submittedCount(slots.size()).build();
     }
@@ -163,11 +165,12 @@ public class CoordinationService {
 
     public void deleteMyResponses(String userId, String groupId, String coordId) {
         verifyMembership(groupId, userId);
-        findCoordinationOrThrow(groupId, coordId);
+        Coordination coord = findCoordinationOrThrow(groupId, coordId);
         List<CoordinationResponse> existing = repository.findUserResponses(coordId, userId);
         for (CoordinationResponse r : existing) {
             repository.deleteResponse(coordId, r.getSk());
         }
+        refreshResponseCountAfterChange(coord, -existing.size());
     }
 
     private void verifyMembership(String groupId, String userId) {
@@ -191,6 +194,24 @@ public class CoordinationService {
 
         req.getDates().forEach(this::validateDate);
         validateHourRange(req.getStartHour(), req.getEndHour());
+    }
+
+    private int resolveResponseCount(Coordination coord) {
+        if (coord.getResponseCount() != null && coord.getResponseCount() >= 0) {
+            return coord.getResponseCount();
+        }
+        return repository.findResponses(coord.getId()).size();
+    }
+
+    private void refreshResponseCountAfterChange(Coordination coord, int delta) {
+        if (delta == 0 && coord.getResponseCount() != null) {
+            return;
+        }
+        if (coord.getResponseCount() == null) {
+            repository.setResponseCount(coord.getGroupId(), coord.getId(), repository.findResponses(coord.getId()).size());
+            return;
+        }
+        repository.updateResponseCount(coord.getGroupId(), coord.getId(), delta);
     }
 
     private void validateHourRange(Integer startHour, Integer endHour) {

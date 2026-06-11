@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 import { isIos, isMobileDevice, isStandalonePwa } from "@/utils/pwa";
+
+const renderPrompt = (route = "/") => render(
+  React.createElement(
+    MemoryRouter,
+    { initialEntries: [route] },
+    React.createElement(PwaInstallPrompt),
+  ),
+);
 
 describe("pwa utilities", () => {
   beforeEach(() => {
@@ -42,7 +51,7 @@ describe("pwa utilities", () => {
   });
 
   it("shows compact install banner on regular web access", async () => {
-    render(React.createElement(PwaInstallPrompt));
+    renderPrompt();
 
     await waitFor(() => {
       expect(screen.getByText("Timelink를 홈 화면에 추가")).toBeInTheDocument();
@@ -57,7 +66,7 @@ describe("pwa utilities", () => {
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
     );
 
-    render(React.createElement(PwaInstallPrompt));
+    renderPrompt();
 
     await waitFor(() => {
       expect(screen.getByText("공유 → 홈 화면에 추가를 누르면 앱처럼 열려요.")).toBeInTheDocument();
@@ -69,11 +78,39 @@ describe("pwa utilities", () => {
     localStorage.setItem("timelink:pwa-install-accepted", "true");
     localStorage.setItem("timelink:pwa-install-snoozed-until", String(Date.now() + 100000));
 
-    render(React.createElement(PwaInstallPrompt));
+    renderPrompt();
 
     await waitFor(() => {
       expect(screen.getByText("Timelink를 홈 화면에 추가")).toBeInTheDocument();
     });
+  });
+
+  it("does not show install prompt on focused workflow routes", async () => {
+    renderPrompt("/groups/group-1/coordination/coord-1/timetable");
+
+    await waitFor(() => {
+      expect(screen.queryByText("Timelink를 홈 화면에 추가")).not.toBeInTheDocument();
+    });
+  });
+
+  it("hides install prompt for a while after close", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+
+    renderPrompt();
+
+    const close = await screen.findByRole("button", { name: "설치 안내 닫기" });
+    fireEvent.click(close);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Timelink를 홈 화면에 추가")).not.toBeInTheDocument();
+    });
+
+    const hiddenUntil = Number(localStorage.getItem("timelink:pwa-install-dismissed-until"));
+    expect(hiddenUntil).toBeGreaterThan(1_000_000);
+
+    renderPrompt();
+
+    expect(screen.queryByText("Timelink를 홈 화면에 추가")).not.toBeInTheDocument();
   });
 
   it("uses the browser install prompt when it is available", async () => {
@@ -85,7 +122,7 @@ describe("pwa utilities", () => {
     installEvent.prompt = prompt;
     installEvent.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
 
-    render(React.createElement(PwaInstallPrompt));
+    renderPrompt();
 
     await act(async () => {
       window.dispatchEvent(installEvent);
@@ -114,7 +151,7 @@ describe("pwa utilities", () => {
     installEvent.prompt = prompt;
     installEvent.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
 
-    render(React.createElement(PwaInstallPrompt));
+    renderPrompt();
 
     await act(async () => {
       window.dispatchEvent(installEvent);

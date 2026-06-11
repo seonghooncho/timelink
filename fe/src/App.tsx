@@ -39,8 +39,8 @@ const App = () => (
       <AuthProvider>
         <AppProvider>
           <Sonner />
-          <PwaInstallPrompt />
           <BrowserRouter>
+            <PwaInstallPrompt />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />

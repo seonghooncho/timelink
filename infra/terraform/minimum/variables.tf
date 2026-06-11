@@ -71,6 +71,12 @@ variable "push_subject" {
   default     = "mailto:admin@example.com"
 }
 
+variable "monitoring_alert_email" {
+  description = "Email endpoint for low-cost CloudWatch alarm notifications."
+  type        = string
+  default     = "sunghunch127@gmail.com"
+}
+
 # ── AI Lambda ──
 
 variable "ai_log_level" {

@@ -10,7 +10,9 @@ import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,15 +22,31 @@ public class CoordinationRepository {
 
     private final DynamoDbTable<Coordination> coordTable;
     private final DynamoDbTable<CoordinationResponse> respTable;
+    private final DynamoDbClient dynamoDbClient;
+    private final String tableName;
 
-    public CoordinationRepository(DynamoDbEnhancedClient client, AwsProperties awsProperties) {
+    public CoordinationRepository(DynamoDbEnhancedClient client, DynamoDbClient dynamoDbClient, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
-        this.coordTable = client.table(prefix + "main", TableSchema.fromBean(Coordination.class));
-        this.respTable = client.table(prefix + "main", TableSchema.fromBean(CoordinationResponse.class));
+        this.tableName = prefix + "main";
+        this.coordTable = client.table(tableName, TableSchema.fromBean(Coordination.class));
+        this.respTable = client.table(tableName, TableSchema.fromBean(CoordinationResponse.class));
+        this.dynamoDbClient = dynamoDbClient;
     }
 
     public void saveCoordination(Coordination coord) {
         coordTable.putItem(coord);
+    }
+
+    public void updateResponseCount(String groupId, String coordId, int delta) {
+        updateCoordinationCount(groupId, coordId, "ADD responseCount :delta", Map.of(
+                ":delta", AttributeValue.builder().n(String.valueOf(delta)).build()
+        ));
+    }
+
+    public void setResponseCount(String groupId, String coordId, int count) {
+        updateCoordinationCount(groupId, coordId, "SET responseCount = :count", Map.of(
+                ":count", AttributeValue.builder().n(String.valueOf(Math.max(0, count))).build()
+        ));
     }
 
     public Optional<Coordination> findCoordination(String groupId, String coordId) {
@@ -101,6 +119,18 @@ public class CoordinationRepository {
     public void deleteResponse(String coordId, String sk) {
         var key = Key.builder().partitionValue("COORD#" + coordId).sortValue(sk).build();
         respTable.deleteItem(key);
+    }
+
+    private void updateCoordinationCount(String groupId, String coordId, String updateExpression, Map<String, AttributeValue> values) {
+        dynamoDbClient.updateItem(UpdateItemRequest.builder()
+                .tableName(tableName)
+                .key(Map.of(
+                        "PK", AttributeValue.builder().s("GROUP#" + groupId).build(),
+                        "SK", AttributeValue.builder().s("COORD#" + coordId).build()
+                ))
+                .updateExpression(updateExpression)
+                .expressionAttributeValues(values)
+                .build());
     }
 
     // ── DynamoDB key ↔ Cursor 변환 ──

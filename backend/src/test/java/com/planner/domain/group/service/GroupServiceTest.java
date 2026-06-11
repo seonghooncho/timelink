@@ -6,6 +6,7 @@ import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
+import com.planner.domain.group.model.GroupInvite;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
@@ -42,6 +43,7 @@ class GroupServiceTest {
     void setUp() {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
         lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
+        lenient().when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(true);
     }
 
     private Group sampleGroup(String groupId, String createdBy) {
@@ -49,6 +51,15 @@ class GroupServiceTest {
                 .pk("GROUP#" + groupId).sk("METADATA")
                 .id(groupId).name("Study").createdBy(createdBy)
                 .inviteCode("ABC123").createdAt("2025-01-01T00:00:00Z")
+                .memberCount(1)
+                .build();
+    }
+
+    private GroupInvite sampleInvite(String groupId) {
+        return GroupInvite.builder()
+                .pk("INVITE#ABC123").sk("METADATA")
+                .inviteCode("ABC123").groupId(groupId)
+                .createdAt("2025-01-01T00:00:00Z")
                 .build();
     }
 
@@ -71,6 +82,7 @@ class GroupServiceTest {
         ));
 
         assertThatCode(() -> service.create("user1", req)).doesNotThrowAnyException();
+        verify(repository).saveInviteIfAbsent(any(GroupInvite.class));
         verify(repository).saveGroup(any(Group.class));
         verify(repository).saveMember(argThat(m ->
                 "manager".equals(m.getRole())
@@ -89,6 +101,25 @@ class GroupServiceTest {
         List<GroupResDTO> result = service.getMyGroups("user1");
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Study");
+        assertThat(result.get(0).getMemberCount()).isEqualTo(1);
+        verify(repository, never()).findMembersByGroupId("g1");
+    }
+
+    @Test
+    @DisplayName("getMyGroups — memberCount가 없는 기존 그룹은 멤버 수를 계산한다")
+    void getMyGroups_fallsBackWhenMemberCountMissing() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        Group group = sampleGroup("g1", "other");
+        group.setMemberCount(null);
+        when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMembersByGroupId("g1")).thenReturn(
+                List.of(sampleMember("g1", "user1", "member"), sampleMember("g1", "other", "manager")));
+
+        List<GroupResDTO> result = service.getMyGroups("user1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getMemberCount()).isEqualTo(2);
     }
 
     @Test
@@ -160,14 +191,30 @@ class GroupServiceTest {
         service.delete("user1", "g1");
 
         verify(repository, times(2)).deleteMember(eq("g1"), anyString());
+        verify(repository).deleteInvite("ABC123");
         verify(repository).deleteGroup("g1");
+    }
+
+    @Test
+    @DisplayName("create — 초대코드가 충돌하면 재시도한다")
+    void create_retriesInviteCodeCollision() {
+        GroupCreateReqDTO req = new GroupCreateReqDTO();
+        req.setName("Study");
+        when(repository.saveInviteIfAbsent(any(GroupInvite.class)))
+                .thenReturn(false)
+                .thenReturn(true);
+
+        assertThatCode(() -> service.create("user1", req)).doesNotThrowAnyException();
+
+        verify(repository, times(2)).saveInviteIfAbsent(any(GroupInvite.class));
+        verify(repository).saveGroup(any(Group.class));
     }
 
     @Test
     @DisplayName("join — 초대코드로 그룹 가입")
     void join_success() {
         Group group = sampleGroup("g1", "other");
-        when(repository.findByInviteCode("ABC123")).thenReturn(Optional.of(group));
+        when(repository.findInvite("ABC123")).thenReturn(Optional.of(sampleInvite("g1")));
         when(repository.findMember("g1", "user1"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
@@ -185,6 +232,7 @@ class GroupServiceTest {
                         && "테스터".equals(m.getNickname())
                         && "https://img/join.png".equals(m.getAvatarUrl())
         ));
+        verify(repository).updateMemberCount("g1", 1);
         verify(notificationService).createGroupNotificationIfEnabled(
                 eq("other"),
                 eq("새 멤버가 참여했습니다"),
@@ -198,13 +246,14 @@ class GroupServiceTest {
     void join_alreadyMember_returnsDetail() {
         Group group = sampleGroup("g1", "other");
         GroupMember member = sampleMember("g1", "user1", "member");
-        when(repository.findByInviteCode("ABC123")).thenReturn(Optional.of(group));
+        when(repository.findInvite("ABC123")).thenReturn(Optional.of(sampleInvite("g1")));
         when(repository.findMember("g1", "user1")).thenReturn(Optional.of(member));
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
         when(repository.findMembersByGroupId("g1")).thenReturn(List.of(member));
 
         assertThatCode(() -> service.join("user1", "ABC123")).doesNotThrowAnyException();
         verify(repository, never()).saveMember(any());
+        verify(repository, never()).updateMemberCount(anyString(), anyInt());
     }
 
     @Test
@@ -254,6 +303,7 @@ class GroupServiceTest {
 
         service.leave("user1", "g1");
         verify(repository).deleteMember("g1", "user1");
+        verify(repository).updateMemberCount("g1", -1);
     }
 
     @Test
@@ -266,6 +316,7 @@ class GroupServiceTest {
         service.removeMember("user1", "g1", "user2");
 
         verify(repository).deleteMember("g1", "user2");
+        verify(repository).updateMemberCount("g1", -1);
     }
 
     @Test

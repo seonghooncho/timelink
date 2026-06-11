@@ -21,6 +21,7 @@ public class Group {
     private String imageUrl;
     private String createdBy;
     private String inviteCode;
+    private Integer memberCount;
     private String createdAt;
     private String updatedAt;
 

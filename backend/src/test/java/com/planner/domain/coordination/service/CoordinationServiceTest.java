@@ -69,6 +69,7 @@ class CoordinationServiceTest {
                 .id(COORD_ID).groupId(GROUP_ID).createdBy(createdBy)
                 .title("회의 시간 조율").mode("once")
                 .dates(List.of("2025-03-15")).startHour(9).endHour(18)
+                .responseCount(0)
                 .status("active").createdAt("2025-03-09T00:00:00Z")
                 .build();
     }
@@ -144,6 +145,7 @@ class CoordinationServiceTest {
         @DisplayName("목록 조회는 각 조율의 응답 수를 함께 반환한다")
         void shouldReturnResponseCount() {
             Coordination coordination = createCoordination(USER_ID);
+            coordination.setResponseCount(null);
 
             given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
             given(repository.findByGroupIdPaged(GROUP_ID, 20, null))
@@ -159,6 +161,25 @@ class CoordinationServiceTest {
 
             assertThat(result.getItems()).hasSize(1);
             assertThat(result.getItems().get(0).getResponseCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("목록 조회는 저장된 responseCount가 있으면 응답 전체를 다시 읽지 않는다")
+        void shouldUseStoredResponseCount() {
+            Coordination coordination = createCoordination(USER_ID);
+            coordination.setResponseCount(5);
+
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findByGroupIdPaged(GROUP_ID, 20, null))
+                    .willReturn(CursorPageResult.<Coordination>builder()
+                            .items(List.of(coordination))
+                            .build());
+
+            CursorPageResult<CoordinationResDTO> result = service.getByGroupIdPaged(USER_ID, GROUP_ID, "active", 20, null);
+
+            assertThat(result.getItems()).hasSize(1);
+            assertThat(result.getItems().get(0).getResponseCount()).isEqualTo(5);
+            then(repository).should(never()).findResponses(COORD_ID);
         }
     }
 
@@ -261,6 +282,7 @@ class CoordinationServiceTest {
             assertThat(result.getSubmittedCount()).isEqualTo(2);
             then(repository).should().deleteResponse(eq(COORD_ID), anyString());
             then(repository).should(times(2)).saveResponse(any());
+            then(repository).should().updateResponseCount(GROUP_ID, COORD_ID, 1);
             then(notificationService).should()
                     .createGroupNotificationIfEnabled(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
         }
@@ -300,6 +322,7 @@ class CoordinationServiceTest {
 
             assertThat(result.getSubmittedCount()).isEqualTo(1);
             then(repository).should(times(1)).saveResponse(any());
+            then(repository).should().updateResponseCount(GROUP_ID, COORD_ID, 1);
         }
 
         @Test
