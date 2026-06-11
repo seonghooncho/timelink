@@ -149,13 +149,14 @@
 - 좌측 카테고리 컬러 바 + 뱃지 + 제목 + 시간 + 체크박스
 
 ### `ScheduleCardCompact`
-> 컴팩트 일정 카드 (110×140px, 수평 스크롤용)
+> 컴팩트 일정 카드 (120×144px, 수평 스크롤용)
 - 카테고리별 배경색 + 시간 + 제목 + 소요시간 + 체크박스
 - `isImportant`일 때 진한 색 배경
 
 ### `ScheduleStrip` ✨ NEW
 > 날짜별 그룹화된 수평 스크롤 일정 카드 목록
 - Props: `groups`, `onScheduleClick`, `onComplete`, `emptyMessage`
+- 과거/오늘/미래 일정을 모두 날짜별로 묶고, 화면별 기본 앵커에서 필요한 구간을 보여준다.
 - MainPage, GroupDetailPage에서 공통 사용
 
 ```tsx
@@ -174,7 +175,7 @@
 
 ### `Timetable`
 > 타임테이블 그리드 뷰 (4일 단위)
-- 시간 축 (7~20시) + 겹침 처리 (최대 2열 + overflow 뱃지)
+- 시간 축 (0~24시, 기본 스크롤 위치 7시) + 시작 일시와 소요시간 기반 블럭 표시 + 겹침 처리 (최대 2열 + overflow 뱃지)
 - 현재 시간 인디케이터 (빨간 선)
 
 ---
@@ -226,12 +227,17 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/calendar` | CalendarPage | 캘린더 그리드, ScheduleDetailModal |
 | `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
 | `/groups` | GroupsPage | GroupAvatar, FAB |
+| `/groups/join/:inviteCode` | GroupJoinPage | 초대 코드 가입 처리 |
 | `/groups/new` | GroupFormPage | 이미지 업로드 |
 | `/groups/:id` | GroupDetailPage | GroupAvatar, ScheduleStrip |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
-| `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
+| `/groups/:id/coordination/:coordId/timetable` | CoordinationTimetablePage | 히트맵, 가능 시간 제출, 그룹 일정 생성 |
 | `/mypage` | MyPage | ToggleSwitch |
-| `/login` | LoginPage | Google OAuth |
+| `/login` | LoginPage | Google/Kakao OAuth |
+| `/auth/callback` | OAuthCallbackPage | OAuth 결과 저장 |
+| `/consent` | ConsentPage | 최초 필수 약관 동의 |
+| `/terms` | TermsPage | 이용약관 |
+| `/privacy` | PrivacyPolicyPage | 개인정보 처리방침 |
 | `/notifications` | NotificationsPage | TabBar, CategoryBadge |
 
 ---
@@ -247,4 +253,4 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-*마지막 업데이트: 2026-03-08*
+*마지막 업데이트: 2026-06-11*

@@ -2,6 +2,17 @@
 #
 # 이 프로젝트는 단일 DynamoDB 테이블(Single Table Design)을 사용합니다.
 # 모든 엔티티가 하나의 테이블에 저장되며, PK/SK 패턴으로 구분합니다.
+
+## 근본 목적
+
+운영 DynamoDB 테이블의 실제 PK/SK/GSI 접근 패턴을 빠르게 확인할 수 있게 해서, 장애 조사나 데이터 점검 시 잘못된 키로 조회하는 시간을 줄이는 것이 목적입니다.
+
+## 비목적
+
+이 문서는 애플리케이션의 모든 필드 정의를 중복 설명하거나 DynamoDB 외 저장소 설계를 제안하기 위한 문서가 아닙니다.
+
+## 키 패턴
+
 #
 # ┌─────────────────────┬──────────────────────────────┬──────────────────┐
 # │ Entity              │ PK                           │ SK               │
@@ -9,7 +20,9 @@
 # │ Profile             │ USER#{userId}                │ PROFILE          │
 # │ Schedule            │ USER#{userId}                │ SCHEDULE#{id}    │
 # │ NotificationSettings│ USER#{userId}                │ NOTIF_SETTINGS   │
-# │ Notification        │ USER#{userId}                │ NOTIF#{ts}#{id}  │
+# │ Notification        │ USER#{userId}                │ NOTIF#{id}       │
+# │ PushSubscription    │ USER#{userId}                │ PUSH_SUB#{hash}  │
+# │ ReminderJob         │ USER#{userId}                │ REMINDER_JOB#..  │
 # │ Group               │ GROUP#{groupId}              │ METADATA         │
 # │ GroupMember          │ GROUP#{groupId}              │ MEMBER#{userId}  │
 # │ Coordination        │ GROUP#{groupId}              │ COORD#{coordId}  │
@@ -24,6 +37,10 @@
 #
 # PartiQL reference:
 # - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
+# - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND begins_with(SK, 'SCHEDULE#')
+# - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND begins_with(SK, 'NOTIF#')
+# - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND begins_with(SK, 'PUSH_SUB#')
+# - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND begins_with(SK, 'REMINDER_JOB#')
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')
 # - SELECT * FROM "planner_prod_main" WHERE SK='METADATA' AND inviteCode='ABC123'
 #
