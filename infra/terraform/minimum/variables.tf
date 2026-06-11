@@ -68,13 +68,13 @@ variable "push_vapid_private_key" {
 variable "push_subject" {
   description = "VAPID subject, for example mailto:ops@example.com or https://example.com."
   type        = string
-  default     = "mailto:admin@example.com"
+  default     = "mailto:sunghuncho127@gmail.com"
 }
 
 variable "monitoring_alert_email" {
   description = "Email endpoint for low-cost CloudWatch alarm notifications."
   type        = string
-  default     = "sunghunch127@gmail.com"
+  default     = "sunghuncho127@gmail.com"
 }
 
 # ── AI Lambda ──
