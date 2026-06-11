@@ -63,13 +63,13 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
       {canScrollStart && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-foreground/20 to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/18 via-black/8 to-transparent"
         />
       )}
       {canScrollEnd && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background via-background/85 to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/18 via-black/8 to-transparent"
         />
       )}
       <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">

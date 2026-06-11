@@ -437,7 +437,6 @@ const GroupDetailPage: React.FC = () => {
               {sortedMembers.length > 0 ? (
                 <ScrollableFadeList
                   ariaLabel="참여 멤버 목록"
-                  fadeFromClassName="from-card"
                   maxHeightClassName="max-h-[22rem]"
                 >
                   {sortedMembers.map((member) => (
@@ -655,7 +654,6 @@ const GroupDetailPage: React.FC = () => {
           {sortedGroupSchedules.length > 0 ? (
             <ScrollableFadeList
               ariaLabel="그룹 일정 목록"
-              fadeFromClassName="from-card"
               onReachEnd={handleLoadMoreGroupSchedules}
               isLoadingMore={isFetchingNextSchedulePage}
               loadingLabel="일정을 더 불러오는 중..."
@@ -708,7 +706,6 @@ const GroupDetailPage: React.FC = () => {
           ) : coordinations.length > 0 ? (
             <ScrollableFadeList
               ariaLabel="조율 중인 일정 목록"
-              fadeFromClassName="from-card"
               onReachEnd={handleLoadMoreCoordinations}
               isLoadingMore={isFetchingMoreCoordinations}
               loadingLabel="조율을 더 불러오는 중..."
