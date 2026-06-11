@@ -20,14 +20,18 @@
 - DynamoDB 문서는 PartiQL 기준 운영 예시를 함께 남기고, 런타임 hot path는 단일 테이블 키 조회를 유지한다.
 - 그룹 초대 링크는 `inviteCode` 기반 join 라우트와 로그인 후 복귀 경로까지 연결했다.
 - 그룹 일정 생성은 `groupId`를 전달하도록 정리했고, 그룹 목록 멤버 수는 백엔드 값과 맞췄다.
+- 시간 조율 대상은 그룹 전체 멤버로 정의했고, 프론트의 멤버 선택 UI와 더미 `members` 상태를 제거했다.
+- 조율 목록의 응답 수는 백엔드 `responseCount` 값을 프론트 목록 화면에서 그대로 사용하도록 연결했다.
+- 프론트 공통 request 레이어가 목록 API의 `meta.nextCursor`를 유지하도록 맞췄다.
 - AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
 
 ## 즉시 수정이 필요한 항목
 
-- 목록 API의 `meta.nextCursor`는 프론트 공통 request 레이어에서 버려져 페이징이 확장되지 않는다.
+- 현재 확인된 라우팅/API 계약 불일치 중 즉시 수정이 필요한 항목은 없다.
 
 ## 추후 구조 개선 후보
 
-- 조율 화면의 멤버 선택과 `responseCount`는 현재 DTO/훅/화면이 완전히 연결돼 있지 않아서 API 계약 재정리가 필요하다.
+- 조율 히트맵의 `users` 값은 현재 사용자 ID 배열이므로, 장기적으로는 프로필 배치 조회를 붙여 닉네임/프로필 이미지로 표시해야 한다.
+- 커스텀 도메인 `/health`는 CloudFront SPA fallback으로 처리될 수 있으므로, 운영 헬스체크는 API Gateway `/health`를 기준으로 두거나 `/api/planner/v1/health` 같은 API 경로를 별도 계약으로 추가하는 편이 낫다.
+- 프론트의 오래된 공용 타입은 실제 서비스 API 타입과 분리되어 남아 있을 수 있으므로, 기능 단위로 더 이상 쓰지 않는 타입을 계속 제거한다.
 - 백엔드 컨트롤러의 `AuthUtil.getCurrentUserId()` 반복은 `@CurrentUserId` 같은 argument resolver로 줄일 수 있다.
-- 그룹/알림/조율 목록은 cursor pagination을 실제 프론트 훅까지 연결해야 대량 데이터에서 화면 일관성이 유지된다.

@@ -125,13 +125,13 @@ const CalendarPage: React.FC = () => {
                   {selectedSchedules.map(s => (
                     <button key={s.id} onClick={() => setDetailSchedule(s)}
                       className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border text-left hover:border-muted-foreground/20 transition-all">
-                      <div className="w-1 h-8 rounded-full" style={getScheduleColorStyle(s, 'line')} />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
+                      <div className="h-8 w-1 shrink-0 rounded-full" style={getScheduleColorStyle(s, 'line')} />
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
                           <CategoryBadge category={s.category} />
                           {s.isImportant && <CategoryBadge category="important" />}
                         </div>
-                        <p className="text-sm font-medium text-foreground">{s.title}</p>
+                        <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
                         <p className="text-[11px] text-muted-foreground">
                           {formatScheduleClock(s.startTime)} · {formatDurationLabel(s.duration)}
                         </p>

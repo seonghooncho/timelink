@@ -130,11 +130,6 @@
 <GroupAvatar image={group.image} name={group.name} size="md" />
 ```
 
-### `MemberSelector` ✨ NEW
-> 멤버 선택 칩 UI
-- Props: `members`, `selectedIds`, `onToggle`
-- 선택: 검정 배경, 미선택: 카드 배경 + 테두리
-
 ### `TimeChip` ✨ NEW
 > 시간 표시 칩
 - Props: `label`, `active`
@@ -183,9 +178,11 @@
 
 ### `CoordinationOneTime`
 > 일회성 시간 조율 폼 (캘린더 날짜 선택)
+- 대상은 그룹 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
 
 ### `CoordinationRepeat`
 > 반복 시간 조율 폼 (요일 선택)
+- 대상은 그룹 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
 
 ---
 
@@ -227,7 +224,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
 | `/groups` | GroupsPage | GroupAvatar, FAB |
 | `/groups/new` | GroupFormPage | 이미지 업로드 |
-| `/groups/:id` | GroupDetailPage | GroupAvatar, ScheduleStrip |
+| `/groups/:id` | GroupDetailPage | GroupAvatar, 참여 멤버 모달, 일정/조율 더보기 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
 | `/mypage` | MyPage | ToggleSwitch |

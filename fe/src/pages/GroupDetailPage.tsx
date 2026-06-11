@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, UserPlus } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, UserPlus, X } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -48,10 +48,10 @@ const GroupDetailPage: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
-  const [membersExpanded, setMembersExpanded] = useState(false);
   const [groupSchedulesExpanded, setGroupSchedulesExpanded] = useState(false);
   const [coordinationsExpanded, setCoordinationsExpanded] = useState(false);
 
@@ -206,26 +206,32 @@ const GroupDetailPage: React.FC = () => {
       <div className="mx-4 mt-4 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center gap-3">
           <GroupAvatar image={group.image} name={group.name} size="md" />
-          <div className="flex-1">
-            <h2 className="text-base font-bold text-foreground">{group.name}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{group.description}</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-base font-bold text-foreground">{group.name}</h2>
+            {group.description ? (
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{group.description}</p>
+            ) : null}
           </div>
-          <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
             멤버 {memberCount}명
           </span>
         </div>
       </div>
 
       <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-border bg-card px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowMembersModal(true)}
+          className="w-full rounded-2xl border border-border bg-card px-4 py-4 text-left transition-colors hover:bg-muted/30 active:scale-[0.99]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
               <h3 className="text-sm font-bold text-foreground">참여 멤버</h3>
               <p className="mt-1 text-[11px] text-muted-foreground">({memberCount}명)</p>
             </div>
 
             {previewMembers.length > 0 ? (
-              <div className="min-w-0 flex flex-1 justify-end overflow-hidden">
+              <div className="min-w-0 flex max-w-[62%] justify-end overflow-hidden">
                 <div className="flex max-w-full justify-end gap-2 overflow-hidden">
                   {previewMembers.map((member) => (
                     <div
@@ -249,56 +255,78 @@ const GroupDetailPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground">아직 참여 멤버가 없습니다.</p>
+              <p className="shrink-0 text-[11px] text-muted-foreground">비어 있음</p>
             )}
 
-            {sortedMembers.length > MEMBER_PREVIEW_LIMIT ? (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+          </div>
+        </button>
+      </div>
+
+      {showMembersModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setShowMembersModal(false)}>
+          <div
+            className="flex max-h-[82vh] w-full max-w-lg flex-col rounded-t-3xl bg-card shadow-elevated animate-fade-in"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-bold text-foreground">참여 멤버</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">{memberCount}명</p>
+              </div>
               <button
                 type="button"
-                onClick={() => setMembersExpanded((prev) => !prev)}
-                className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setShowMembersModal(false)}
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="닫기"
               >
-                {membersExpanded ? '접기' : '더보기'}
+                <X className="h-4 w-4" />
               </button>
-            ) : null}
-          </div>
-
-          {membersExpanded ? (
-            <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
-              {sortedMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3"
-                >
-                  <Avatar className="h-11 w-11 border border-border/70">
-                    <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
-                    <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
-                      {getMemberFallback(member)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {member.nickname || member.userId}
-                      </p>
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        {getRoleLabel(member.role)}
-                      </span>
-                      {member.userId === userId ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                          나
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
-                  </div>
-                </div>
-              ))}
             </div>
-          ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              {sortedMembers.length > 0 ? (
+                <div className="space-y-2">
+                  {sortedMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3"
+                    >
+                      <Avatar className="h-11 w-11 border border-border/70">
+                        <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                        <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                          {getMemberFallback(member)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                            {member.nickname || member.userId}
+                          </p>
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            {getRoleLabel(member.role)}
+                          </span>
+                          {member.userId === userId ? (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              나
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
+                  아직 참여 멤버가 없습니다.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowInviteModal(false)}>
@@ -326,8 +354,8 @@ const GroupDetailPage: React.FC = () => {
       <div className="mt-6 px-4">
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-foreground">그룹 일정 ({sortedGroupSchedules.length}개)</h3>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-foreground">그룹 일정 ({sortedGroupSchedules.length}개)</h3>
               <p className="mt-1 text-[11px] text-muted-foreground">기본으로 최근 일정 3개만 보여줍니다.</p>
             </div>
             {sortedGroupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT ? (
@@ -352,7 +380,7 @@ const GroupDetailPage: React.FC = () => {
                   className="w-full rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-left transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-medium text-muted-foreground">
                         {formatScheduleSummary(schedule)}
                       </p>
@@ -361,7 +389,7 @@ const GroupDetailPage: React.FC = () => {
                         <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{schedule.content}</p>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+                    <span className="max-w-[92px] shrink-0 truncate rounded-full bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">
                       {getCategoryLabel(schedule.category)}
                     </span>
                   </div>
@@ -379,8 +407,8 @@ const GroupDetailPage: React.FC = () => {
       <div className="mt-6 px-4">
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-foreground">조율 중인 일정 ({coordinations.length}개)</h3>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinations.length}개)</h3>
               <p className="mt-1 text-[11px] text-muted-foreground">기본으로 진행 중인 조율 2개만 보여줍니다.</p>
             </div>
             {coordinations.length > COORDINATION_PREVIEW_LIMIT ? (
@@ -405,13 +433,13 @@ const GroupDetailPage: React.FC = () => {
                   className="w-full rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-left transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-medium text-muted-foreground">
                         {coord.mode === 'repeat' ? '반복 조율' : '일회성 조율'} · {coord.dates.length}일
                       </p>
                       <p className="mt-1 truncate text-sm font-semibold text-foreground">{coord.title}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        응답 {coord.responseCount}건 · {formatHourLabel(coord.startHour)} - {formatHourLabel(coord.endHour)}
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                        응답 {coord.responseCount ?? 0}건 · {formatHourLabel(coord.startHour)} - {formatHourLabel(coord.endHour)}
                       </p>
                     </div>
                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

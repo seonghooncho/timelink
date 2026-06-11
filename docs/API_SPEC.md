@@ -516,6 +516,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `status` | `coordination_status` | enum: active, closed |
 | `created_at` | `timestamptz` | 생성일 |
 
+**대상 정책**
+
+- 시간 조율 대상은 해당 그룹의 전체 멤버다.
+- 생성자는 그룹 멤버이므로 별도 선택 없이 항상 대상에 포함된다.
+- 생성 요청은 `memberIds`, `participantIds` 같은 대상 선택 필드를 받지 않는다.
+- 향후 일부 멤버 대상 조율을 도입하더라도 생성자가 빠져 있으면 서버가 자동 포함하는 정책을 따른다.
+
 ### Endpoints
 
 ---
@@ -582,7 +589,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/groups/:groupId/coordinations
 
-조율 생성
+그룹 전체 멤버를 대상으로 조율 생성
 
 **Request Body**
 ```json
@@ -594,6 +601,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "end_hour": 18
 }
 ```
+
+요청 바디에는 대상 멤버 목록을 포함하지 않는다. 조율 대상은 `groupId`에 속한 전체 멤버이며, 생성자도 자동 포함된다.
 
 **Response** `201 Created`
 
