@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { scheduleApi, ScheduleCreateRequest, ScheduleUpdateRequest, ScheduleResponse } from '@/services/api';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { scheduleApi, ScheduleCreateRequest, ScheduleListRequest, ScheduleUpdateRequest, ScheduleResponse } from '@/services/api';
 import { Schedule } from '@/types/types';
 import { useAuth } from '@/context/AuthContext';
 
@@ -19,16 +19,30 @@ function mapResponse(r: ScheduleResponse): Schedule {
   };
 }
 
-export function useSchedules(params?: { startDate?: string; endDate?: string }) {
+interface UseSchedulesOptions {
+  enabled?: boolean;
+}
+
+export function useSchedules(params?: ScheduleListRequest, options?: UseSchedulesOptions) {
   const { isAuthenticated } = useAuth();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['schedules', params],
-    queryFn: async () => {
-      const data = await scheduleApi.getAll(params);
-      return data.map(mapResponse);
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const page = await scheduleApi.getPage({
+        ...params,
+        cursor: pageParam,
+        limit: params?.limit ?? 50,
+      });
+      return {
+        ...page,
+        data: page.data.map(mapResponse),
+      };
     },
-    enabled: isAuthenticated,
+    getNextPageParam: (lastPage) => lastPage.meta?.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap(page => page.data),
+    enabled: isAuthenticated && (options?.enabled ?? true),
   });
 }
 

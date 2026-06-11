@@ -22,6 +22,7 @@ import java.util.List;
 public class CoordinationController {
 
     private static final int DEFAULT_LIMIT = 20;
+    private static final int MAX_LIMIT = 100;
     private final CoordinationService service;
 
     @GetMapping
@@ -31,11 +32,18 @@ public class CoordinationController {
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) String cursor) {
         String userId = AuthUtil.getCurrentUserId();
-        int size = (limit != null && limit > 0) ? limit : DEFAULT_LIMIT;
+        int size = resolveLimit(limit);
 
         CursorPageResult<CoordinationResDTO> page = service.getByGroupIdPaged(userId, groupId, status, size, cursor);
         CustomResponse.PageMeta meta = service.toPageMeta(page, size);
         return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
+    }
+
+    private int resolveLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_LIMIT;
+        }
+        return Math.min(limit, MAX_LIMIT);
     }
 
     @GetMapping("/{id}")

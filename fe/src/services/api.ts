@@ -13,6 +13,11 @@ export interface ApiEnvelope<T> {
   meta?: ApiPageMeta;
 }
 
+export interface PaginationParams {
+  cursor?: string | null;
+  limit?: number;
+}
+
 function getAuthHeaders(contentType = 'application/json'): Record<string, string> {
   const token = getAccessToken();
   return {
@@ -75,39 +80,26 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   return json.data as T;
 }
 
-function withCursor(path: string, cursor?: string | null) {
+function withPagination(path: string, pagination?: PaginationParams) {
   const [pathname, search = ''] = path.split('?');
   const params = new URLSearchParams(search);
 
-  if (cursor) {
-    params.set('cursor', cursor);
+  if (pagination?.cursor) {
+    params.set('cursor', pagination.cursor);
   } else {
     params.delete('cursor');
+  }
+
+  if (pagination?.limit) {
+    params.set('limit', String(pagination.limit));
   }
 
   const qs = params.toString();
   return `${pathname}${qs ? `?${qs}` : ''}`;
 }
 
-async function requestAllPages<T>(path: string, requiresAuth = true): Promise<T[]> {
-  const items: T[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null | undefined;
-
-  while (true) {
-    const response = await requestEnvelope<T[]>('GET', withCursor(path, cursor), undefined, requiresAuth);
-    items.push(...response.data);
-
-    const nextCursor = response.meta?.nextCursor;
-    if (!nextCursor || seenCursors.has(nextCursor)) {
-      break;
-    }
-
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
-
-  return items;
+async function requestPage<T>(path: string, pagination?: PaginationParams, requiresAuth = true): Promise<ApiEnvelope<T[]>> {
+  return requestEnvelope<T[]>('GET', withPagination(path, pagination), undefined, requiresAuth);
 }
 
 // ── Auth ──
@@ -182,13 +174,18 @@ export interface ScheduleUpdateRequest {
   hasAlarm?: boolean;
 }
 
+export interface ScheduleListRequest extends PaginationParams {
+  startDate?: string;
+  endDate?: string;
+}
+
 export const scheduleApi = {
-  getAll: (params?: { startDate?: string; endDate?: string }) => {
+  getPage: (params?: ScheduleListRequest) => {
     const query = new URLSearchParams();
     if (params?.startDate) query.set('startDate', params.startDate);
     if (params?.endDate) query.set('endDate', params.endDate);
     const qs = query.toString();
-    return requestAllPages<ScheduleResponse>(`/schedules${qs ? `?${qs}` : ''}`);
+    return requestPage<ScheduleResponse>(`/schedules${qs ? `?${qs}` : ''}`, params);
   },
   getById: (id: string) => request<ScheduleResponse>('GET', `/schedules/${id}`),
   create: (data: ScheduleCreateRequest) => request<ScheduleResponse>('POST', '/schedules', data),
@@ -304,9 +301,11 @@ export interface CoordinationDetailResponse {
 }
 
 export const coordinationApi = {
-  getAll: (groupId: string, status?: string) => {
-    const qs = status ? `?status=${status}` : '';
-    return requestAllPages<CoordinationResponse>(`/groups/${groupId}/coordinations${qs}`);
+  getPage: (groupId: string, params?: { status?: string } & PaginationParams) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return requestPage<CoordinationResponse>(`/groups/${groupId}/coordinations${qs ? `?${qs}` : ''}`, params);
   },
   getById: (groupId: string, coordId: string) =>
     request<CoordinationDetailResponse>('GET', `/groups/${groupId}/coordinations/${coordId}`),
@@ -338,12 +337,12 @@ export interface NotificationResponse {
 }
 
 export const notificationApi = {
-  getAll: (params?: { type?: string; isRead?: boolean }) => {
+  getPage: (params?: { type?: string; isRead?: boolean } & PaginationParams) => {
     const query = new URLSearchParams();
     if (params?.type) query.set('type', params.type);
     if (params?.isRead !== undefined) query.set('isRead', String(params.isRead));
     const qs = query.toString();
-    return requestAllPages<NotificationResponse>(`/notifications${qs ? `?${qs}` : ''}`);
+    return requestPage<NotificationResponse>(`/notifications${qs ? `?${qs}` : ''}`, params);
   },
   markRead: (id: string) => request<void>('PATCH', `/notifications/${id}/read`),
   markAllRead: () => request<{ updatedCount: number }>('PATCH', '/notifications/read-all'),

@@ -10,11 +10,11 @@ import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useS
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
+import { endOfLocalMonth, startOfLocalMonth, toLocalDateTimeParam } from '@/lib/dateRange';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const CalendarPage: React.FC = () => {
-  const { data: schedules = [] } = useSchedules();
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
   const today = new Date();
@@ -25,6 +25,18 @@ const CalendarPage: React.FC = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+  const scheduleRange = useMemo(() => ({
+    startDate: toLocalDateTimeParam(startOfLocalMonth(currentDate)),
+    endDate: toLocalDateTimeParam(endOfLocalMonth(currentDate), true),
+    limit: 80,
+  }), [currentDate]);
+  const {
+    data: schedules = [],
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSchedules(scheduleRange);
+
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -140,6 +152,16 @@ const CalendarPage: React.FC = () => {
                   ))}
                 </div>
               )}
+              {hasNextPage ? (
+                <button
+                  type="button"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="mt-3 w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                >
+                  {isFetchingNextPage ? '불러오는 중...' : '이 달 일정 더 불러오기'}
+                </button>
+              ) : null}
             </div>
           )}
         </div>

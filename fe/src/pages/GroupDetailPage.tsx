@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, UserPlus, X } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
@@ -14,6 +14,7 @@ import { coordinationApi, CoordinationResponse as CoordResp, groupApi, GroupMemb
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
+import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 
 const MEMBER_PREVIEW_LIMIT = 3;
 const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
@@ -44,13 +45,29 @@ const GroupDetailPage: React.FC = () => {
   const { userId } = useAuth();
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [] } = useGroups();
-  const { data: schedules = [] } = useSchedules();
+  const groupScheduleRange = useMemo(() => {
+    const today = new Date();
+    return {
+      startDate: toLocalDateTimeParam(addLocalDays(today, -30)),
+      endDate: toLocalDateTimeParam(addLocalDays(today, 90), true),
+      limit: 80,
+    };
+  }, []);
+  const {
+    data: schedules = [],
+    fetchNextPage: fetchNextSchedulePage,
+    hasNextPage: hasNextSchedulePage,
+    isFetchingNextPage: isFetchingNextSchedulePage,
+  } = useSchedules(groupScheduleRange);
   const [showMenu, setShowMenu] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
+  const [coordinationNextCursor, setCoordinationNextCursor] = useState<string | null>(null);
+  const [isCoordinationLoading, setIsCoordinationLoading] = useState(false);
+  const [isFetchingMoreCoordinations, setIsFetchingMoreCoordinations] = useState(false);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [groupSchedulesExpanded, setGroupSchedulesExpanded] = useState(false);
   const [coordinationsExpanded, setCoordinationsExpanded] = useState(false);
@@ -58,10 +75,35 @@ const GroupDetailPage: React.FC = () => {
   const group = groups.find((item) => item.id === id);
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === id);
 
-  useEffect(() => {
+  const loadCoordinations = useCallback(async (cursor?: string | null) => {
     if (!id) return;
-    coordinationApi.getAll(id, 'active').then(setCoordinations).catch(() => setCoordinations([]));
+    if (cursor) {
+      setIsFetchingMoreCoordinations(true);
+    } else {
+      setIsCoordinationLoading(true);
+    }
+
+    try {
+      const page = await coordinationApi.getPage(id, { status: 'active', limit: 10, cursor });
+      setCoordinations(prev => cursor ? [...prev, ...page.data] : page.data);
+      setCoordinationNextCursor(page.meta?.nextCursor ?? null);
+    } catch (error) {
+      if (!cursor) {
+        setCoordinations([]);
+      }
+      appToast.error('조율 목록을 불러오지 못했습니다', error);
+    } finally {
+      setIsCoordinationLoading(false);
+      setIsFetchingMoreCoordinations(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    setCoordinations([]);
+    setCoordinationNextCursor(null);
+    setCoordinationsExpanded(false);
+    loadCoordinations(null);
+  }, [loadCoordinations]);
 
   useEffect(() => {
     if (!id) return;
@@ -86,6 +128,34 @@ const GroupDetailPage: React.FC = () => {
   const visibleGroupSchedules = groupSchedulesExpanded ? sortedGroupSchedules : sortedGroupSchedules.slice(0, GROUP_SCHEDULE_PREVIEW_LIMIT);
   const visibleCoordinations = coordinationsExpanded ? coordinations : coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
+
+  const handleGroupSchedulesToggle = () => {
+    if (!groupSchedulesExpanded) {
+      setGroupSchedulesExpanded(true);
+      return;
+    }
+
+    if (hasNextSchedulePage) {
+      fetchNextSchedulePage();
+      return;
+    }
+
+    setGroupSchedulesExpanded(false);
+  };
+
+  const handleCoordinationsToggle = () => {
+    if (!coordinationsExpanded) {
+      setCoordinationsExpanded(true);
+      return;
+    }
+
+    if (coordinationNextCursor) {
+      loadCoordinations(coordinationNextCursor);
+      return;
+    }
+
+    setCoordinationsExpanded(false);
+  };
 
   const formatJoinedAt = (joinedAt: string) => {
     const date = new Date(joinedAt);
@@ -356,16 +426,17 @@ const GroupDetailPage: React.FC = () => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-foreground">그룹 일정 ({sortedGroupSchedules.length}개)</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">기본으로 최근 일정 3개만 보여줍니다.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">가까운 일정부터 필요한 만큼 불러옵니다.</p>
             </div>
-            {sortedGroupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT ? (
+            {sortedGroupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT || hasNextSchedulePage || groupSchedulesExpanded ? (
               <button
                 type="button"
-                onClick={() => setGroupSchedulesExpanded((prev) => !prev)}
+                onClick={handleGroupSchedulesToggle}
+                disabled={isFetchingNextSchedulePage}
                 className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
               >
                 {groupSchedulesExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {groupSchedulesExpanded ? '접기' : '더보기'}
+                {isFetchingNextSchedulePage ? '로딩' : groupSchedulesExpanded && hasNextSchedulePage ? '더 불러오기' : groupSchedulesExpanded ? '접기' : '더보기'}
               </button>
             ) : null}
           </div>
@@ -409,21 +480,26 @@ const GroupDetailPage: React.FC = () => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinations.length}개)</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">기본으로 진행 중인 조율 2개만 보여줍니다.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">진행 중인 조율을 필요한 만큼 불러옵니다.</p>
             </div>
-            {coordinations.length > COORDINATION_PREVIEW_LIMIT ? (
+            {coordinations.length > COORDINATION_PREVIEW_LIMIT || coordinationNextCursor || coordinationsExpanded ? (
               <button
                 type="button"
-                onClick={() => setCoordinationsExpanded((prev) => !prev)}
+                onClick={handleCoordinationsToggle}
+                disabled={isFetchingMoreCoordinations}
                 className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
               >
                 {coordinationsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {coordinationsExpanded ? '접기' : '더보기'}
+                {isFetchingMoreCoordinations ? '로딩' : coordinationsExpanded && coordinationNextCursor ? '더 불러오기' : coordinationsExpanded ? '접기' : '더보기'}
               </button>
             ) : null}
           </div>
 
-          {visibleCoordinations.length > 0 ? (
+          {isCoordinationLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : visibleCoordinations.length > 0 ? (
             <div className="space-y-2">
               {visibleCoordinations.map((coord) => (
                 <button
