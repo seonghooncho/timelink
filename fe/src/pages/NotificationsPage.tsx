@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import TabBar from '@/components/common/TabBar';
@@ -11,21 +11,46 @@ const TABS = [
   { key: 'schedule', label: '일정 알림' },
   { key: 'system', label: '시스템 알림' },
 ];
+const NOTIFICATION_PAGE_LIMIT = 20;
 
 const NotificationsPage: React.FC = () => {
   const [tab, setTab] = useState('schedule');
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  const loadNotifications = useCallback(async (cursor?: string | null) => {
+    if (cursor) {
+      setIsFetchingMore(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const page = await notificationApi.getPage({
+        type: tab,
+        limit: NOTIFICATION_PAGE_LIMIT,
+        cursor,
+      });
+      setNotifications(prev => cursor ? [...prev, ...page.data] : page.data);
+      setNextCursor(page.meta?.nextCursor ?? null);
+    } catch (error) {
+      if (!cursor) {
+        setNotifications([]);
+      }
+      appToast.error('알림을 불러오지 못했습니다', error);
+    } finally {
+      setIsLoading(false);
+      setIsFetchingMore(false);
+    }
+  }, [tab]);
 
   useEffect(() => {
-    setIsLoading(true);
-    notificationApi.getAll({ type: tab }).then(data => {
-      setNotifications(data);
-    }).catch((error) => {
-      setNotifications([]);
-      appToast.error('알림을 불러오지 못했습니다', error);
-    }).finally(() => setIsLoading(false));
-  }, [tab]);
+    setNotifications([]);
+    setNextCursor(null);
+    loadNotifications(null);
+  }, [loadNotifications]);
 
   const handleMarkRead = (id: string) => {
     notificationApi.markRead(id).then(() => {
@@ -84,6 +109,16 @@ const NotificationsPage: React.FC = () => {
             </div>
           ))
         )}
+        {!isLoading && nextCursor ? (
+          <button
+            type="button"
+            onClick={() => loadNotifications(nextCursor)}
+            disabled={isFetchingMore}
+            className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            {isFetchingMore ? '불러오는 중...' : '알림 더보기'}
+          </button>
+        ) : null}
       </div>
     </MobileLayout>
   );

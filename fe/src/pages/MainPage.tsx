@@ -15,15 +15,36 @@ import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
 import { getDefaultScheduleAnchor, getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { appToast } from '@/lib/appToast';
+import { addLocalDays, maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
   const { selectedSchedule, setSelectedSchedule, showScheduleDetail, setShowScheduleDetail } = useApp();
-  const { data: schedules = [] } = useSchedules();
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
   const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
+
+  const scheduleRange = useMemo(() => {
+    const today = getDefaultTimetableStart();
+    const visibleStart = getDefaultTimetableStart(timetableStart);
+    const visibleEnd = addLocalDays(visibleStart, 3);
+    const rangeStart = minLocalDate(addLocalDays(today, -7), visibleStart);
+    const rangeEnd = maxLocalDate(addLocalDays(today, 45), visibleEnd);
+
+    return {
+      startDate: toLocalDateTimeParam(rangeStart),
+      endDate: toLocalDateTimeParam(rangeEnd, true),
+      limit: 100,
+    };
+  }, [timetableStart]);
+
+  const {
+    data: schedules = [],
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSchedules(scheduleRange);
 
   const groupedSchedules = useGroupedSchedules(schedules);
   const scheduleAnchor = useMemo(() => getDefaultScheduleAnchor(schedules), [schedules]);
@@ -135,6 +156,18 @@ const MainPage: React.FC = () => {
             onComplete={handleComplete}
           />
         )}
+        {hasNextPage ? (
+          <div className="px-4 pt-3">
+            <button
+              type="button"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              {isFetchingNextPage ? '불러오는 중...' : '일정 더 불러오기'}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-2">

@@ -18,6 +18,7 @@ import java.util.Map;
 public class NotificationController {
 
     private static final int DEFAULT_LIMIT = 20;
+    private static final int MAX_LIMIT = 100;
     private final NotificationService service;
 
     @GetMapping
@@ -27,11 +28,18 @@ public class NotificationController {
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) String cursor) {
         String userId = AuthUtil.getCurrentUserId();
-        int size = (limit != null && limit > 0) ? limit : DEFAULT_LIMIT;
+        int size = resolveLimit(limit);
 
         CursorPageResult<NotificationResDTO> page = service.getAllPaged(userId, type, isRead, size, cursor);
         CustomResponse.PageMeta meta = service.toPageMeta(page, size);
         return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
+    }
+
+    private int resolveLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_LIMIT;
+        }
+        return Math.min(limit, MAX_LIMIT);
     }
 
     @PatchMapping("/{id}/read")

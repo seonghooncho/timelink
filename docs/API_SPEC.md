@@ -88,7 +88,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
 | `cursor` | string | 없음 | 다음 페이지 커서 |
-| `perPage` | integer | 20 | 페이지 당 항목 수 (max: 100) |
+| `limit` | integer | 20 | 페이지 당 항목 수 (max: 100, 초과 시 100으로 제한) |
 
 ### 정렬 쿼리 파라미터
 | 파라미터 | 타입 | 예시 | 설명 |
@@ -204,13 +204,10 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `start_date` | string (ISO) | ❌ | 범위 시작일 |
-| `end_date` | string (ISO) | ❌ | 범위 종료일 |
-| `category` | string | ❌ | 카테고리 필터 |
-| `is_completed` | boolean | ❌ | 완료 여부 필터 |
-| `group_id` | uuid | ❌ | 그룹 일정 필터 |
-| `sort` | string | ❌ | 기본: `start_time` |
-| `order` | string | ❌ | 기본: `asc` |
+| `startDate` | string (ISO) | ❌ | 범위 시작 시각 |
+| `endDate` | string (ISO) | ❌ | 범위 종료 시각 |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
+| `limit` | integer | ❌ | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json
@@ -535,6 +532,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
 | `status` | string | ❌ | `active` / `closed` (기본: `active`) |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
+| `limit` | integer | ❌ | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json
@@ -733,7 +732,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
 | `type` | string | ❌ | `schedule` / `system` |
-| `is_read` | boolean | ❌ | 읽음 필터 |
+| `isRead` | boolean | ❌ | 읽음 필터 |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
+| `limit` | integer | ❌ | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json

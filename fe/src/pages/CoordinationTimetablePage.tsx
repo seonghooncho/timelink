@@ -8,6 +8,7 @@ import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
+import { maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
 import {
   buildCoordinationSlotKey,
   formatCoordinationHourTime,
@@ -18,7 +19,6 @@ import {
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
   const { id: groupId, coordId } = useParams();
-  const { data: schedules = [] } = useSchedules();
 
   const [coordination, setCoordination] = useState<CoordinationDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +49,20 @@ const CoordinationTimetablePage: React.FC = () => {
   const hours = useMemo(() => { const h: number[] = []; for (let i = startHour; i < endHour; i++) h.push(i); return h; }, [startHour, endHour]);
 
   const parsedDates = useMemo(() => dates.map(d => { const parts = d.split('-').map(Number); return new Date(parts[0], parts[1] - 1, parts[2]); }), [dates]);
+  const scheduleRange = useMemo(() => {
+    if (parsedDates.length === 0) return undefined;
+    return {
+      startDate: toLocalDateTimeParam(minLocalDate(...parsedDates)),
+      endDate: toLocalDateTimeParam(maxLocalDate(...parsedDates), true),
+      limit: 100,
+    };
+  }, [parsedDates]);
+  const {
+    data: schedules = [],
+    fetchNextPage: fetchNextSchedulePage,
+    hasNextPage: hasNextSchedulePage,
+    isFetchingNextPage: isFetchingNextSchedulePage,
+  } = useSchedules(scheduleRange, { enabled: Boolean(scheduleRange) });
 
   const heatmapMap = useMemo(() => {
     const map: Record<string, HeatmapEntry> = {};
@@ -201,6 +215,18 @@ const CoordinationTimetablePage: React.FC = () => {
               </div>
             </div>
           </div>
+          {hasNextSchedulePage ? (
+            <div className="px-4 pt-3">
+              <button
+                type="button"
+                onClick={() => fetchNextSchedulePage()}
+                disabled={isFetchingNextSchedulePage}
+                className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {isFetchingNextSchedulePage ? '불러오는 중...' : '기존 일정 더 불러오기'}
+              </button>
+            </div>
+          ) : null}
           <div className="px-4 mt-4"><button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50">{isSubmitting ? '제출 중...' : '제출하기'}</button></div>
         </>
       ) : (

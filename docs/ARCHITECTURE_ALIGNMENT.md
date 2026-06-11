@@ -23,6 +23,7 @@
 - 시간 조율 대상은 그룹 전체 멤버로 정의했고, 프론트의 멤버 선택 UI와 더미 `members` 상태를 제거했다.
 - 조율 목록의 응답 수는 백엔드 `responseCount` 값을 프론트 목록 화면에서 그대로 사용하도록 연결했다.
 - 프론트 공통 request 레이어가 목록 API의 `meta.nextCursor`를 유지하도록 맞췄다.
+- 프론트의 일정/알림/조율 목록은 기본 화면 진입 시 모든 페이지를 합치지 않고, 범위 조회와 `limit/cursor` 기반 더보기로 가져오도록 정리했다.
 - AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
 
 ## 즉시 수정이 필요한 항목
@@ -32,6 +33,7 @@
 ## 추후 구조 개선 후보
 
 - 조율 히트맵의 `users` 값은 현재 사용자 ID 배열이므로, 장기적으로는 프로필 배치 조회를 붙여 닉네임/프로필 이미지로 표시해야 한다.
+- 그룹 목록과 그룹 멤버 목록은 현재 API가 전체 배열을 반환하므로, 그룹 규모가 커지면 별도 cursor pagination 계약을 추가해야 한다.
 - 커스텀 도메인 `/health`는 CloudFront SPA fallback으로 처리될 수 있으므로, 운영 헬스체크는 API Gateway `/health`를 기준으로 두거나 `/api/planner/v1/health` 같은 API 경로를 별도 계약으로 추가하는 편이 낫다.
 - 프론트의 오래된 공용 타입은 실제 서비스 API 타입과 분리되어 남아 있을 수 있으므로, 기능 단위로 더 이상 쓰지 않는 타입을 계속 제거한다.
 - 백엔드 컨트롤러의 `AuthUtil.getCurrentUserId()` 반복은 `@CurrentUserId` 같은 argument resolver로 줄일 수 있다.
