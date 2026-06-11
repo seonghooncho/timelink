@@ -91,7 +91,8 @@ terraform apply
 ## 환경 변수
 
 - 프론트엔드: 빌드 타임 환경변수 없이 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
-- 백엔드/AI 런타임 설정: AWS SSM Parameter Store에서 읽습니다. Terraform은 일반 설정만 적재하고, secret 값은 SSM에 별도로 넣은 뒤 Lambda에는 `APP_CONFIG_PREFIX`만 전달합니다.
+- 백엔드/AI 런타임 설정: AWS SSM Parameter Store에서 읽습니다. Terraform은 일반 설정만 적재하고, OAuth client secret, Push VAPID private key, Gemini API key 같은 secret 값은 SSM에 별도로 넣은 뒤 Lambda에는 `APP_CONFIG_PREFIX`만 전달합니다.
+- 운영 인증/알림 설정: Google/Kakao OAuth, Web Push VAPID, EventBridge Scheduler 설정을 SSM으로 읽습니다. 개발 로그인은 기본적으로 꺼져 있습니다.
 - Cloudflare 무료 프론트 스택: `cloudflare_api_token`, `cloudflare_account_id`, `api_origin`이 필요합니다. 이 값들은 Git에 커밋하지 않습니다.
 - 로컬 개발용 민감값은 `ai/.env`, Terraform `terraform.tfvars` 또는 `TF_VAR_*`로만 주입하고 Git에는 올리지 않습니다.
 

@@ -26,12 +26,12 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 ├── backend/                # Spring Boot + Java 21 + DynamoDB
 │   └── src/main/java/com/planner/
 │       ├── domain/
-│       │   ├── auth/            # 백엔드 JWT 세션 발급
+│       │   ├── auth/            # Google/Kakao OAuth 및 백엔드 JWT 세션 발급
 │       │   ├── storage/         # 프로필/그룹 이미지 업로드
 │       │   ├── profile/         # controller/service/repository/model/dto/converter/error
 │       │   ├── schedule/        # 작은 도메인은 dto/ 단일 계층 유지
 │       │   ├── group/           # 작은 도메인은 dto/ 단일 계층 유지
-│       │   ├── notification/    # NotificationController, NotificationSettingsController
+│       │   ├── notification/    # 알림센터, 알림 설정, Web Push, 리마인드 예약
 │       │   └── coordination/    # 복합 응답이 많아 dto/req, dto/res 유지
 │       └── global/
 │           ├── config/          # Aws/Security/Cors/Jwt 설정
@@ -179,6 +179,8 @@ Terraform은 /planner/{environment}/backend, /planner/{environment}/ai prefix �
 secret 값은 SSM에 별도로 넣습니다.
 Lambda에는 APP_CONFIG_PREFIX만 주입합니다.
 ```
+
+운영 백엔드 SSM 주요 키는 `cors.allowed-origins`, `oauth.public-api-base-url`, `oauth.google.client-id`, `oauth.google.client-secret`, `oauth.kakao.client-id`, `oauth.kakao.client-secret`, `oauth.kakao.scope`, `push.vapid.public-key`, `push.vapid.private-key`, `push.subject`, `aws.scheduler.*`이다. 개발 로그인은 `auth.dev-login-enabled=false`가 기본값이며 운영에서는 켜지 않는다.
 
 ### Cloudflare Free Frontend
 ```

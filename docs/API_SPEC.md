@@ -1,7 +1,8 @@
 # Timelink — RESTful API 명세서
 
-> **Base URL**: `api/planner/v1`  
-> **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)  
+> **Base URL**: `/api/planner/v1`
+> **AI Base URL**: `/api/ai/v1`
+> **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)
 > **Content-Type**: `application/json`
 
 ## 근본 목적
@@ -39,8 +40,14 @@
 
 ### URL 구조
 ```
-api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
+/api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```
+
+백엔드 헬스체크 `GET /health`는 API Gateway 원본 엔드포인트에서 사용하는 운영 점검 경로다. 프론트 커스텀 도메인의 `/health`는 SPA 라우팅 대상이므로 API 헬스체크 확인에는 API Gateway 원본 URL을 사용한다.
+
+### JSON 필드명
+
+API 요청/응답 JSON 필드명은 `camelCase`를 사용한다. DynamoDB 키나 내부 모델 필드는 문서의 저장소 설명에만 `snake_case` 또는 내부 키 이름으로 표기한다.
 
 ### HTTP 메서드 규칙
 | 메서드 | 용도 | 멱등성 |
@@ -55,7 +62,6 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": { ... },        // 성공 시 데이터
-  "error": null,          // 에러 메시지 (성공 시 null)
   "meta": {               // 페이지네이션 (목록 조회 시)
     "perPage": 20,
     "nextCursor": "opaque-cursor"
@@ -66,7 +72,6 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ### 공통 에러 응답
 ```json
 {
-  "data": null,
   "error": {
     "code": "UNAUTHORIZED",
     "message": "인증이 필요합니다"
@@ -81,40 +86,101 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 403 | `FORBIDDEN` | 권한 없음 |
 | 404 | `NOT_FOUND` | 리소스 없음 |
 | 409 | `CONFLICT` | 중복 리소스 |
-| 422 | `VALIDATION_ERROR` | 유효성 검사 실패 |
+| 400 | `VALIDATION_ERROR` | 유효성 검사 실패 |
 | 500 | `INTERNAL_ERROR` | 서버 내부 오류 |
 
 ### 페이지네이션 쿼리 파라미터
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
 | `cursor` | string | 없음 | 다음 페이지 커서 |
-| `perPage` | integer | 20 | 페이지 당 항목 수 (max: 100) |
+| `limit` | integer | 20 | 페이지 당 항목 수 |
 
-### 정렬 쿼리 파라미터
-| 파라미터 | 타입 | 예시 | 설명 |
-|----------|------|------|------|
-| `sort` | string | `start_time` | 정렬 기준 필드 |
-| `order` | string | `asc` / `desc` | 정렬 방향 (기본: asc) |
+정렬/필터 쿼리는 각 엔드포인트에 명시된 항목만 지원한다.
 
 ---
 
 ## 2. 인증 (Auth)
 
-> 인증은 백엔드 `POST /api/planner/v1/auth/login`으로 세션 토큰을 발급받는 방식입니다.
-> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 토큰을 검증하여 `userId`를 추출합니다.
+> 운영 인증은 소셜 OAuth 로그인으로 백엔드 JWT를 발급받는 방식이다.
+> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 JWT를 검증하여 `userId`를 추출한다.
+> `POST /auth/login`은 로컬/개발용 임시 로그인이며, 운영에서는 `auth.dev-login-enabled=false`가 기본값이라 `403 FORBIDDEN`을 반환한다.
+> 소셜 로그인에서 받은 닉네임/프로필 이미지는 신규 프로필이거나 기존 값이 비어 있거나 시스템 생성 기본값인 경우에만 반영한다. 사용자가 직접 바꾼 닉네임/프로필 이미지는 이후 소셜 로그인으로 덮어쓰지 않는다.
 
 | 기능 | 클라이언트 호출 | 설명 |
 |------|----------------|------|
-| 로그인 | `POST /auth/login` | `userId`, `nickname`으로 JWT 발급 |
+| 소셜 로그인 가능 여부 | `GET /auth/providers` | `google`, `kakao` 사용 가능 여부 |
+| OAuth 시작 | `GET /auth/oauth/{provider}/start` | OAuth 제공자 동의 화면으로 `302` 리다이렉트 |
+| OAuth 콜백 | `GET /auth/oauth/{provider}/callback` | 백엔드 JWT 발급 후 프론트 `/auth/callback`으로 `302` 리다이렉트 |
 | 세션 복원 | `GET /auth/me` | 저장된 JWT 재검증 및 세션 복원 |
+| 개발 로그인 | `POST /auth/login` | 로컬/개발 설정에서만 `userId`, `nickname`으로 JWT 발급 |
 | 로그아웃 | 클라이언트 세션 삭제 | 서버 세션 저장소 없음 |
-| API 호출 시 | `Authorization: Bearer <access_token>` | 모든 백엔드 요청에 포함 |
+| API 호출 시 | `Authorization: Bearer <accessToken>` | 인증 필요 요청에 포함 |
+
+#### `GET` /api/planner/v1/auth/providers
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "google": true,
+    "kakao": true
+  }
+}
+```
+
+#### `GET` /api/planner/v1/auth/oauth/:provider/start
+
+**Query Parameters**
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `frontendOrigin` | string | ❌ | 콜백 후 돌아갈 프론트 Origin |
+| `redirect` | string | ❌ | 로그인 완료 후 프론트 내부 이동 경로, 기본 `/` |
+
+**Response** `302 Found` — OAuth 제공자 인증 URL로 이동
+
+#### `GET` /api/planner/v1/auth/oauth/:provider/callback
+
+OAuth 제공자가 호출하는 콜백. 성공 시 프론트 `/auth/callback#accessToken=...&userId=...&redirect=...&provider=...`로 이동한다.
+
+#### `GET` /api/planner/v1/auth/me
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "accessToken": "jwt",
+    "userId": "user-uuid"
+  }
+}
+```
+
+#### `POST` /api/planner/v1/auth/login
+
+로컬/개발용 임시 로그인. 운영 기본 설정에서는 사용할 수 없다.
+
+**Request Body**
+```json
+{
+  "userId": "local_user",
+  "nickname": "로컬 사용자"
+}
+```
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "accessToken": "jwt",
+    "userId": "local_user"
+  }
+}
+```
 
 ---
 
 ## 3. 프로필 (Profiles)
 
-> 사용자 프로필. 백엔드 로그인 시 없으면 자동 생성됩니다.
+> 사용자 프로필. 소셜 로그인 또는 개발 로그인 시 없으면 자동 생성됩니다.
 
 ### 테이블: `profiles`
 
@@ -122,9 +188,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|------|
 | `id` | `string` PK | 백엔드가 발급하는 `userId` |
 | `nickname` | `text` | 닉네임 (기본값: 이메일 앞부분) |
-| `avatar_url` | `text` | 프로필 이미지 URL |
-| `created_at` | `timestamptz` | 생성일 |
-| `updated_at` | `timestamptz` | 수정일 |
+| `avatarUrl` | `text` | 프로필 이미지 URL |
+| `termsVersion` | `text` | 동의한 서비스 이용약관 버전 |
+| `termsAgreedAt` | `timestamptz` | 서비스 이용약관 동의 시각 |
+| `privacyVersion` | `text` | 동의한 개인정보 처리방침 버전 |
+| `privacyAgreedAt` | `timestamptz` | 개인정보 처리방침 동의 시각 |
+| `requiredConsentCompleted` | `boolean` | 현재 필수 약관 동의 완료 여부 |
+| `createdAt` | `timestamptz` | 생성일 |
+| `updatedAt` | `timestamptz` | 수정일 |
 
 ### Endpoints
 
@@ -140,9 +211,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": {
     "id": "uuid",
     "nickname": "홍길동",
-    "avatar_url": "https://...",
-    "created_at": "2026-03-08T00:00:00Z",
-    "updated_at": "2026-03-08T00:00:00Z"
+    "avatarUrl": "https://...",
+    "termsVersion": "2026-06-10",
+    "termsAgreedAt": "2026-06-10T00:00:00Z",
+    "privacyVersion": "2026-06-10",
+    "privacyAgreedAt": "2026-06-10T00:00:00Z",
+    "requiredConsentCompleted": true,
+    "createdAt": "2026-03-08T00:00:00Z",
+    "updatedAt": "2026-03-08T00:00:00Z"
   }
 }
 ```
@@ -157,14 +233,41 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "nickname": "새 닉네임",
-  "avatar_url": "https://..."
+  "avatarUrl": "https://..."
 }
 ```
 
 **Response** `200 OK`
 ```json
 {
-  "data": { "id": "uuid", "nickname": "새 닉네임", "avatar_url": "https://...", ... }
+  "data": {
+    "id": "uuid",
+    "nickname": "새 닉네임",
+    "avatarUrl": "https://...",
+    "requiredConsentCompleted": true
+  }
+}
+```
+
+---
+
+#### `POST` /api/planner/v1/profiles/me/consents/required
+
+현재 필수 서비스 이용약관과 개인정보 처리방침 동의를 기록한다. 요청 바디는 없다.
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "id": "uuid",
+    "nickname": "홍길동",
+    "avatarUrl": "https://...",
+    "termsVersion": "2026-06-10",
+    "termsAgreedAt": "2026-06-10T00:00:00Z",
+    "privacyVersion": "2026-06-10",
+    "privacyAgreedAt": "2026-06-10T00:00:00Z",
+    "requiredConsentCompleted": true
+  }
 }
 ```
 
@@ -188,7 +291,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `end_time` | `timestamptz` | `start_time + duration`으로 계산된 파생 종료 시간 |
 | `duration` | `real` | 소요 시간 (시간 단위, 30분 단위, 기본 1시간) |
 | `is_completed` | `boolean` | 완료 여부 (기본: false) |
-| `has_alarm` | `boolean` | 알림 여부 (기본: true) |
+| `has_alarm` | `boolean` | 알림 여부 (기본: false) |
 | `group_id` | `uuid` FK nullable | 그룹 일정 시 그룹 ID |
 | `created_at` | `timestamptz` | 생성일 |
 | `updated_at` | `timestamptz` | 수정일 |
@@ -204,13 +307,12 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `start_date` | string (ISO) | ❌ | 범위 시작일 |
-| `end_date` | string (ISO) | ❌ | 범위 종료일 |
-| `category` | string | ❌ | 카테고리 필터 |
-| `is_completed` | boolean | ❌ | 완료 여부 필터 |
-| `group_id` | uuid | ❌ | 그룹 일정 필터 |
-| `sort` | string | ❌ | 기본: `start_time` |
-| `order` | string | ❌ | 기본: `asc` |
+| `startDate` | string (ISO) | ❌ | 범위 시작 일시 |
+| `endDate` | string (ISO) | ❌ | 범위 종료 일시 |
+| `limit` | integer | ❌ | 페이지 크기, 기본 20 |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
+
+`startDate`와 `endDate`는 둘 다 제공된 경우에만 시간 범위 조회로 처리한다.
 
 **Response** `200 OK`
 ```json
@@ -221,14 +323,15 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "title": "수강 신청",
       "content": "시간표 확인",
       "category": "task",
-      "is_important": true,
-      "start_time": "2026-03-08T12:00:00Z",
-      "end_time": "2026-03-08T15:00:00Z",
+      "isImportant": true,
+      "startTime": "2026-03-08T12:00:00Z",
+      "endTime": "2026-03-08T15:00:00Z",
       "duration": 3,
-      "is_completed": false,
-      "has_alarm": true,
-      "group_id": null,
-      "created_at": "2026-03-08T00:00:00Z"
+      "isCompleted": false,
+      "hasAlarm": true,
+      "groupId": null,
+      "createdAt": "2026-03-08T00:00:00Z",
+      "updatedAt": "2026-03-08T00:00:00Z"
     }
   ],
   "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
@@ -254,7 +357,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 일정 생성
 
-종료 시간은 요청으로 받지 않고 `start_time + duration`으로 계산한다. `duration`이 없으면 1시간으로 저장하며, 계산된 종료 시간이 시작 날짜를 넘으면 `400 SCHEDULE_CROSSES_DAY`를 반환한다.
+종료 시간은 요청으로 받지 않고 `startTime + duration`으로 계산한다. `duration`이 없으면 1시간으로 저장하며, 계산된 종료 시간이 시작 날짜를 넘으면 `400 SCHEDULE_CROSSES_DAY`를 반환한다. `duration`은 시간 단위 숫자이며 0.5, 1, 1.5처럼 30분 단위의 양수만 허용한다.
 
 **Request Body**
 ```json
@@ -262,11 +365,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "title": "수강 신청",
   "content": "시간표 확인",
   "category": "task",
-  "is_important": true,
-  "start_time": "2026-03-08T12:00:00Z",
+  "isImportant": true,
+  "startTime": "2026-03-08T12:00:00Z",
   "duration": 3,
-  "has_alarm": true,
-  "group_id": null
+  "hasAlarm": true,
+  "groupId": null
 }
 ```
 
@@ -277,23 +380,30 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
+**Errors**
+- `400 INVALID_START_TIME` — `startTime` 형식이 ISO 일시가 아닌 경우
+- `400 INVALID_DURATION` — `duration`이 30분 단위의 양수가 아닌 경우
+- `400 SCHEDULE_CROSSES_DAY` — `startTime + duration`이 시작 날짜를 넘는 경우
+
 ---
 
 #### `PATCH` /api/planner/v1/schedules/:id
 
 일정 부분 수정
 
-`start_time` 또는 `duration`이 변경되면 서버가 `end_time`을 다시 계산한다.
+`startTime` 또는 `duration`이 변경되면 서버가 `endTime`을 다시 계산한다.
 
 **Request Body** (변경할 필드만)
 ```json
 {
   "title": "수강 신청 (수정)",
-  "is_completed": true
+  "isCompleted": true
 }
 ```
 
 **Response** `200 OK`
+
+`startTime` 또는 `duration`을 수정할 때도 생성과 동일하게 `INVALID_START_TIME`, `INVALID_DURATION`, `SCHEDULE_CROSSES_DAY` 검증이 적용된다.
 
 ---
 
@@ -442,7 +552,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/groups/join
 
-초대 코드로 그룹 가입. `member` 역할로 자동 등록.
+초대 코드로 그룹 가입. 신규 가입자는 `member` 역할로 자동 등록된다. 이미 멤버인 사용자가 같은 초대 코드로 호출하면 오류가 아니라 기존 그룹 상세를 반환한다.
 
 **Request Body**
 ```json
@@ -464,8 +574,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-**Error** `400 INVALID_INVITE_CODE` — 유효하지 않은 초대 코드  
-**Error** `409 ALREADY_MEMBER` — 이미 그룹 멤버인 경우
+**Error** `400 INVALID_INVITE_CODE` — 유효하지 않은 초대 코드
 
 ---
 
@@ -512,7 +621,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `mode` | `coordination_mode` | enum: once, repeat |
 | `dates` | `text[]` | 후보 날짜 배열 |
 | `start_hour` | `integer` | 시작 시간 (0-23) |
-| `end_hour` | `integer` | 종료 시간 (0-23) |
+| `end_hour` | `integer` | 종료 시간 (1-24, `start_hour`보다 커야 함) |
 | `status` | `coordination_status` | enum: active, closed |
 | `created_at` | `timestamptz` | 생성일 |
 
@@ -528,6 +637,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
 | `status` | string | ❌ | `active` / `closed` (기본: `active`) |
+| `limit` | integer | ❌ | 페이지 크기, 기본 20 |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
 
 **Response** `200 OK`
 ```json
@@ -538,14 +649,15 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "title": "요구사항 명세서 회의",
       "mode": "once",
       "dates": ["2026-03-10", "2026-03-11"],
-      "start_hour": 9,
-      "end_hour": 18,
+      "startHour": 9,
+      "endHour": 18,
       "status": "active",
-      "response_count": 3,
-      "created_by": "uuid",
-      "created_at": "2026-03-08T00:00:00Z"
+      "responseCount": 3,
+      "createdBy": "uuid",
+      "createdAt": "2026-03-08T00:00:00Z"
     }
-  ]
+  ],
+  "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
 }
 ```
 
@@ -563,14 +675,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "title": "요구사항 명세서 회의",
     "mode": "once",
     "dates": ["2026-03-10", "2026-03-11"],
-    "start_hour": 9,
-    "end_hour": 18,
+    "startHour": 9,
+    "endHour": 18,
     "status": "active",
     "heatmap": [
       { "date": "2026-03-10", "hour": 10, "count": 3, "users": ["홍길동", "김민수", "이서연"] },
       { "date": "2026-03-10", "hour": 11, "count": 2, "users": ["홍길동", "김민수"] }
     ],
-    "my_responses": [
+    "myResponses": [
       { "date": "2026-03-10", "hour": 10 },
       { "date": "2026-03-10", "hour": 11 }
     ]
@@ -590,18 +702,20 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "title": "요구사항 명세서 회의",
   "mode": "once",
   "dates": ["2026-03-10", "2026-03-11", "2026-03-12"],
-  "start_hour": 9,
-  "end_hour": 18
+  "startHour": 9,
+  "endHour": 18
 }
 ```
 
 **Response** `201 Created`
 
+**Error** `400 INVALID_COORDINATION_REQUEST` — `mode`가 `once`/`repeat`가 아니거나, 날짜가 비어 있거나, 날짜 형식이 잘못되었거나, `startHour`/`endHour` 범위가 유효하지 않은 경우
+
 ---
 
 #### `PATCH` /api/planner/v1/groups/:groupId/coordinations/:id
 
-조율 수정/종료 (**생성자만**)
+조율 수정/종료 (**그룹 멤버이면서 생성자만**)
 
 **Request Body**
 ```json
@@ -612,11 +726,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 **Response** `200 OK`
 
+**Error** `400 INVALID_COORDINATION_REQUEST` — `status`가 `active`/`closed`가 아닌 경우
+
 ---
 
 #### `DELETE` /api/planner/v1/groups/:groupId/coordinations/:id
 
-조율 삭제 (**생성자만**)
+조율 삭제 (**그룹 멤버이면서 생성자만**)
 
 **Response** `204 No Content`
 
@@ -661,12 +777,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": {
-    "submitted_count": 4
+    "submittedCount": 4
   }
 }
 ```
 
-> **설계 결정**: `PUT`을 사용하여 멱등하게 전체 교체. 기존 응답 DELETE → 새 응답 INSERT 를 한 트랜잭션으로 처리.
+> **설계 결정**: `PUT`을 사용하여 멱등하게 전체 교체한다. 서버는 제출 슬롯을 검증하고 중복 슬롯을 제거한 뒤 기존 응답을 삭제하고 새 응답을 저장한다.
+> 슬롯 날짜는 조율의 `dates`에 포함되어야 하고, 시간은 `startHour <= hour < endHour` 범위여야 한다.
 
 ---
 
@@ -724,7 +841,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
 | `type` | string | ❌ | `schedule` / `system` |
-| `is_read` | boolean | ❌ | 읽음 필터 |
+| `isRead` | boolean | ❌ | 읽음 필터 |
+| `limit` | integer | ❌ | 페이지 크기, 기본 20 |
+| `cursor` | string | ❌ | 다음 페이지 커서 |
 
 **Response** `200 OK`
 ```json
@@ -736,9 +855,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "title": "데이터베이스 LAB 2",
       "content": "마감까지 3시간 전 입니다",
       "category": "task",
-      "is_important": false,
-      "is_read": false,
-      "created_at": "2026-03-08T09:00:00Z"
+      "isImportant": false,
+      "isRead": false,
+      "createdAt": "2026-03-08T09:00:00Z"
     }
   ],
   "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
@@ -762,7 +881,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Response** `200 OK`
 ```json
 {
-  "data": { "updated_count": 3 }
+  "data": { "updatedCount": 3 }
 }
 ```
 
@@ -805,14 +924,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": {
-    "schedule_alarm": false,
-    "group_alarm": false,
-    "remind_one_day_before": false,
-    "remind_one_day_before_time": "22:00",
-    "remind_same_day": false,
-    "remind_same_day_time": "08:00",
-    "important_alarm": false,
-    "important_alarm_time": "08:00"
+    "scheduleAlarm": false,
+    "groupAlarm": false,
+    "remindOneDayBefore": false,
+    "remindOneDayBeforeTime": "22:00",
+    "remindSameDay": false,
+    "remindSameDayTime": "08:00",
+    "importantAlarm": false,
+    "importantAlarmTime": "08:00"
   }
 }
 ```
@@ -823,13 +942,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 알림 설정 수정 (변경할 필드만)
 
-`schedule_alarm`이 `false`이면 리마인드 설정(`remind_one_day_before`, `remind_same_day`, `important_alarm`)은 서버에서 `false`로 저장된다.
+`scheduleAlarm`이 `false`인 상태에서 리마인드 설정(`remindOneDayBefore`, `remindSameDay`, `importantAlarm`)을 `true`로 켜려고 하면 서버는 `400 INVALID_NOTIFICATION_SETTINGS`를 반환한다. `scheduleAlarm`을 끄면 서버는 예약된 EventBridge Scheduler job을 정리하고, 다시 켰을 때 저장된 리마인드 설정을 기준으로 예약을 동기화한다.
 
 **Request Body**
 ```json
 {
-  "schedule_alarm": false,
-  "remind_same_day_time": "09:00"
+  "scheduleAlarm": true,
+  "remindSameDay": true,
+  "remindSameDayTime": "09:00"
 }
 ```
 
@@ -930,8 +1050,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": {
-    "objectKey": "group/{userId}/{uuid}.jpg",
-    "url": "https://.../group/{userId}/{uuid}.jpg"
+    "objectKey": "uploads/group/{userId}/{uuid}.jpg",
+    "url": "https://.../uploads/group/{userId}/{uuid}.jpg"
   }
 }
 ```
@@ -951,8 +1071,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "data": {
-    "objectKey": "profile/{userId}/{uuid}.jpg",
-    "url": "https://.../profile/{userId}/{uuid}.jpg"
+    "objectKey": "uploads/profile/{userId}/{uuid}.jpg",
+    "url": "https://.../uploads/profile/{userId}/{uuid}.jpg"
   }
 }
 ```
@@ -965,33 +1085,31 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-#### `POST` /api/planner/v1/schedules/extract
+#### `POST` /api/ai/v1/extract-schedule
 
 사진에서 일정 정보 AI 추출
 
-`end_date`와 `end_time`은 추출 결과 보조값이다. 일정 생성 요청에는 종료 시간을 보내지 않고, 클라이언트가 `duration`을 사용하거나 추출된 시작/종료 차이로 소요시간을 계산한다.
+`endDate`와 `endTime`은 추출 결과 보조값이다. 일정 생성 요청에는 종료 시간을 보내지 않고, 클라이언트가 `duration`을 사용하거나 추출된 시작/종료 차이로 소요시간을 계산한다. AI 서비스 응답은 백엔드 `CustomResponse` 래퍼 없이 객체를 직접 반환한다. 요청 형식이 맞지 않으면 FastAPI 기본 유효성 오류(`422`)가 반환된다.
 
 **Request Body**
 ```json
 {
-  "image_base64": "data:image/jpeg;base64,..."
+  "imageBase64": "data:image/jpeg;base64,..."
 }
 ```
 
 **Response** `200 OK`
 ```json
 {
-  "data": {
-    "title": "데이터베이스 과제",
-    "content": "LAB 2 제출",
-    "category": "task",
-    "start_date": "2026-03-10",
-    "start_time": "23:59",
-    "end_date": "2026-03-10",
-    "end_time": "23:59",
-    "duration": 3,
-    "is_important": false
-  }
+  "title": "데이터베이스 과제",
+  "content": "LAB 2 제출",
+  "category": "task",
+  "startDate": "2026-03-10",
+  "startTime": "23:59",
+  "endDate": "2026-03-10",
+  "endTime": "23:59",
+  "duration": 3,
+  "isImportant": false
 }
 ```
 
@@ -1035,8 +1153,15 @@ auth-session (JWT subject = userId)
 
 | 메서드 | 엔드포인트 | 설명 | 권한 | 구현 상태 |
 |--------|-----------|------|------|----------|
+| `GET` | `/health` | 백엔드 헬스체크 | 공개 | ✅ |
+| `GET` | `/auth/providers` | 소셜 로그인 제공자 사용 가능 여부 | 공개 | ✅ |
+| `GET` | `/auth/oauth/:provider/start` | OAuth 인증 시작 | 공개 | ✅ |
+| `GET` | `/auth/oauth/:provider/callback` | OAuth 콜백 처리 | 공개 | ✅ |
+| `GET` | `/auth/me` | 세션 복원 | 인증 | ✅ |
+| `POST` | `/auth/login` | 개발 로그인 | 개발 설정 | ✅ |
 | `GET` | `/profiles/me` | 내 프로필 조회 | 인증 | ✅ |
 | `PATCH` | `/profiles/me` | 프로필 수정 | 인증 | ✅ |
+| `POST` | `/profiles/me/consents/required` | 필수 약관 동의 기록 | 인증 | ✅ |
 | `GET` | `/schedules` | 일정 목록 | 인증 | ✅ |
 | `GET` | `/schedules/:id` | 일정 상세 | 인증(본인) | ✅ |
 | `POST` | `/schedules` | 일정 생성 | 인증 | ✅ |
@@ -1067,10 +1192,14 @@ auth-session (JWT subject = userId)
 | `GET` | `/push/vapid-public-key` | VAPID 공개키 조회 | 인증 | ✅ |
 | `POST` | `/push/subscriptions` | Push Subscription 등록 | 인증 | ✅ |
 | `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
+| `POST` | `/storage/images/profile` | 프로필 이미지 업로드 | 인증 | ✅ |
+| `POST` | `/storage/images/group` | 그룹 이미지 업로드 | 인증 | ✅ |
+| `POST` | `/api/ai/v1/extract-schedule` | 사진 일정 추출 | 공개 | ✅ |
 
-> **Base URL prefix**: `api/planner/v1`  
+> **Base URL prefix**: `/api/planner/v1`
+> **AI Base URL prefix**: `/api/ai/v1`
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`), 멤버 내보내기(`DELETE /groups/:gid/members/:mid`)
 
 ---
 
-*마지막 업데이트: 2026-03-09 (백엔드 auth/storage, DynamoDB/PartiQL 운영 기준 반영)*
+*마지막 업데이트: 2026-06-11 (운영 인증, 약관 동의, 일정 시간/알림/AI 계약 정합성 반영)*
