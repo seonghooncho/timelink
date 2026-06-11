@@ -25,15 +25,20 @@
 - 프론트 공통 request 레이어가 목록 API의 `meta.nextCursor`를 유지하도록 맞췄다.
 - 프론트의 일정/알림/조율 목록은 기본 화면 진입 시 모든 페이지를 합치지 않고, 범위 조회와 `limit/cursor` 기반 더보기로 가져오도록 정리했다.
 - AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
+- 운영 부하테스트와 Playwright 서버리스 흐름 검증은 `test/k6`, `test/playwright` 하위에 재현 가능한 테스트 코드로 추가했다.
 
 ## 즉시 수정이 필요한 항목
 
-- 현재 확인된 라우팅/API 계약 불일치 중 즉시 수정이 필요한 항목은 없다.
+- 라우팅/API 계약 불일치 중 즉시 수정이 필요한 항목은 없다.
+- 다만 그룹 초대코드는 유일성 보장 없이 6자리 랜덤 문자열을 생성하고, join은 DynamoDB scan으로 `inviteCode`를 찾는다. 부하테스트 중 서로 다른 테스트 그룹이 같은 초대코드를 받아 잘못된 그룹에 가입되는 문제가 확인됐으므로, invite mapping item 또는 GSI 기반의 조건부 유일성 보장 구조로 바꿔야 한다.
 
 ## 추후 구조 개선 후보
 
-- 조율 히트맵의 `users` 값은 현재 사용자 ID 배열이므로, 장기적으로는 프로필 배치 조회를 붙여 닉네임/프로필 이미지로 표시해야 한다.
-- 그룹 목록과 그룹 멤버 목록은 현재 API가 전체 배열을 반환하므로, 그룹 규모가 커지면 별도 cursor pagination 계약을 추가해야 한다.
+- 그룹 목록은 현재 각 그룹별 멤버 수 조회가 반복되므로, 그룹 규모가 커지면 `memberCount`를 metadata에 denormalize해야 한다.
+- 조율 목록은 각 조율별 응답 수 조회가 반복되므로, `responseCount` 또는 응답자 수를 metadata에 denormalize해야 한다.
+- 조율 상세 heatmap은 응답 전체를 매번 읽어 계산하므로, 응답 slot이 많아지면 slot별 집계 item을 별도로 유지해야 한다.
+- 그룹 멤버 목록은 현재 전체 배열을 반환하므로, 그룹 규모가 커지면 cursor pagination 계약을 추가해야 한다.
 - 커스텀 도메인 `/health`는 CloudFront SPA fallback으로 처리될 수 있으므로, 운영 헬스체크는 API Gateway `/health`를 기준으로 두거나 `/api/planner/v1/health` 같은 API 경로를 별도 계약으로 추가하는 편이 낫다.
 - 프론트의 오래된 공용 타입은 실제 서비스 API 타입과 분리되어 남아 있을 수 있으므로, 기능 단위로 더 이상 쓰지 않는 타입을 계속 제거한다.
 - 백엔드 컨트롤러의 `AuthUtil.getCurrentUserId()` 반복은 `@CurrentUserId` 같은 argument resolver로 줄일 수 있다.
+- PWA 설치 안내 같은 상단 overlay는 일부 화면의 핵심 탭을 가릴 수 있으므로, 레이어 규칙과 safe area 여백을 계속 점검한다.

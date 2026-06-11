@@ -64,13 +64,15 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   └── README.md
 │       └── README.md
 ├── docs/                   # 설계/운영 문서
+│   └── infrastructure/     # 배포/아키텍처/부하테스트/확장 문서
 └── README.md
 ```
 
 ## 운영 문서
 
 - [기능 요구사항 명세서](FEATURE_REQUIREMENTS.md): 운영 중인 사용자 기능, 제약 조건, 예외 처리 기준을 화면과 유즈케이스 중심으로 정리한 문서입니다.
-- [운영 배포 유의사항](DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
+- [인프라 문서 인덱스](infrastructure/README.md): 배포, 아키텍처 정합성, 부하테스트, 확장 로드맵을 모아 둔 문서입니다.
+- [운영 배포 유의사항](infrastructure/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
 
 ## 백엔드 아키텍처 원칙
 

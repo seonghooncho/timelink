@@ -90,7 +90,7 @@ terraform apply
 
 ## 운영 배포
 
-운영 배포 전에는 [docs/DEPLOYMENT_NOTES.md](docs/DEPLOYMENT_NOTES.md)를 먼저 확인합니다.
+운영 배포 전에는 [docs/infrastructure/DEPLOYMENT_NOTES.md](docs/infrastructure/DEPLOYMENT_NOTES.md)를 먼저 확인합니다.
 이 문서에는 현행 S3/CloudFront/Lambda 배포 순서, CloudFront 캐시 무효화, Google/Kakao 소셜 로그인 콜백 URL 확인 항목이 정리돼 있습니다.
 
 ## 환경 변수

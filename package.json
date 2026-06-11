@@ -19,6 +19,10 @@
     "fe:preview": "npm --workspace fe run preview",
     "fe:test": "npm --workspace fe run test",
     "fe:test:watch": "npm --workspace fe run test:watch",
+    "test:playwright": "playwright test --config test/playwright/playwright.config.ts",
+    "test:k6": "k6 run test/k6/timelink-load-test.js",
+    "test:cleanup-load": "node test/scripts/cleanup-load-test.mjs",
+    "test:aws-metrics": "node test/scripts/collect-aws-metrics.mjs",
     "backend:run": "cd backend && ./gradlew bootRun",
     "backend:test": "cd backend && ./gradlew test",
     "ai:run": "cd ai && uvicorn app.main:app --reload --port 8000",
@@ -28,5 +32,8 @@
     "infra:validate": "cd infra/terraform/minimum && terraform validate",
     "infra:cloudflare:fmt": "cd infra/terraform/cloudflare_free && terraform fmt -recursive",
     "infra:cloudflare:validate": "cd infra/terraform/cloudflare_free && terraform validate"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }
