@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Link as LinkIcon, LogOut, Menu, Pencil, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Link as LinkIcon, LogOut, Menu, Pencil, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import GroupAvatar from '@/components/common/GroupAvatar';
+import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,9 +19,6 @@ import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
-
-const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
-const COORDINATION_PREVIEW_LIMIT = 2;
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -48,6 +46,7 @@ const GroupDetailPage: React.FC = () => {
   const { userId } = useAuth();
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [] } = useGroups();
+  const menuRef = useRef<HTMLDivElement>(null);
   const groupScheduleRange = useMemo(() => {
     const today = new Date();
     return {
@@ -79,8 +78,6 @@ const GroupDetailPage: React.FC = () => {
   const [isCoordinationLoading, setIsCoordinationLoading] = useState(false);
   const [isFetchingMoreCoordinations, setIsFetchingMoreCoordinations] = useState(false);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
-  const [groupSchedulesExpanded, setGroupSchedulesExpanded] = useState(false);
-  const [coordinationsExpanded, setCoordinationsExpanded] = useState(false);
 
   const group = groups.find((item) => item.id === id);
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === id);
@@ -111,7 +108,6 @@ const GroupDetailPage: React.FC = () => {
   useEffect(() => {
     setCoordinations([]);
     setCoordinationNextCursor(null);
-    setCoordinationsExpanded(false);
     loadCoordinations(null);
   }, [loadCoordinations]);
 
@@ -119,6 +115,21 @@ const GroupDetailPage: React.FC = () => {
     if (!id) return;
     groupApi.getMembers(id).then(setMembers).catch(() => setMembers([]));
   }, [id]);
+
+  useEffect(() => {
+    if (!showMenu) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!menuRef.current?.contains(target)) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showMenu]);
 
   const sortedMembers = useMemo(() => {
     return [...members].sort((a, b) => {
@@ -136,37 +147,9 @@ const GroupDetailPage: React.FC = () => {
   const memberCount = members.length || group?.memberCount || 0;
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
-  const visibleGroupSchedules = groupSchedulesExpanded ? sortedGroupSchedules : sortedGroupSchedules.slice(0, GROUP_SCHEDULE_PREVIEW_LIMIT);
-  const visibleCoordinations = coordinationsExpanded ? coordinations : coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
+  const groupScheduleCountLabel = `${sortedGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
+  const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
-
-  const handleGroupSchedulesToggle = () => {
-    if (!groupSchedulesExpanded) {
-      setGroupSchedulesExpanded(true);
-      return;
-    }
-
-    if (hasNextSchedulePage) {
-      fetchNextSchedulePage();
-      return;
-    }
-
-    setGroupSchedulesExpanded(false);
-  };
-
-  const handleCoordinationsToggle = () => {
-    if (!coordinationsExpanded) {
-      setCoordinationsExpanded(true);
-      return;
-    }
-
-    if (coordinationNextCursor) {
-      loadCoordinations(coordinationNextCursor);
-      return;
-    }
-
-    setCoordinationsExpanded(false);
-  };
 
   const formatJoinedAt = (joinedAt: string) => {
     const date = new Date(joinedAt);
@@ -263,6 +246,16 @@ const GroupDetailPage: React.FC = () => {
     }
   };
 
+  const handleLoadMoreGroupSchedules = useCallback(() => {
+    if (!hasNextSchedulePage || isFetchingNextSchedulePage) return;
+    fetchNextSchedulePage();
+  }, [fetchNextSchedulePage, hasNextSchedulePage, isFetchingNextSchedulePage]);
+
+  const handleLoadMoreCoordinations = useCallback(() => {
+    if (!coordinationNextCursor || isFetchingMoreCoordinations) return;
+    loadCoordinations(coordinationNextCursor);
+  }, [coordinationNextCursor, isFetchingMoreCoordinations, loadCoordinations]);
+
   const handleLeave = async () => {
     if (!id) return;
     try {
@@ -294,7 +287,7 @@ const GroupDetailPage: React.FC = () => {
         showBack
         backTo="/groups"
         rightElement={
-          <div className="relative">
+          <div ref={menuRef} className="relative">
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
@@ -440,9 +433,13 @@ const GroupDetailPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 px-5 py-4">
               {sortedMembers.length > 0 ? (
-                <div className="space-y-2">
+                <ScrollableFadeList
+                  ariaLabel="참여 멤버 목록"
+                  fadeFromClassName="from-card"
+                  maxHeightClassName="max-h-[22rem]"
+                >
                   {sortedMembers.map((member) => (
                     <div
                       key={member.id}
@@ -473,7 +470,7 @@ const GroupDetailPage: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                </div>
+                </ScrollableFadeList>
               ) : (
                 <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
                   아직 참여 멤버가 없습니다. 초대 링크를 공유해 멤버를 불러오세요.
@@ -650,25 +647,20 @@ const GroupDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold text-foreground">그룹 일정 ({sortedGroupSchedules.length}개)</h3>
+              <h3 className="truncate text-sm font-bold text-foreground">그룹 일정 ({groupScheduleCountLabel})</h3>
               <p className="mt-1 text-[11px] text-muted-foreground">확정된 그룹 일정입니다. 가까운 일정부터 확인해 보세요.</p>
             </div>
-            {sortedGroupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT || hasNextSchedulePage || groupSchedulesExpanded ? (
-              <button
-                type="button"
-                onClick={handleGroupSchedulesToggle}
-                disabled={isFetchingNextSchedulePage}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {groupSchedulesExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {isFetchingNextSchedulePage ? '로딩' : groupSchedulesExpanded && hasNextSchedulePage ? '더 불러오기' : groupSchedulesExpanded ? '접기' : '더보기'}
-              </button>
-            ) : null}
           </div>
 
-          {visibleGroupSchedules.length > 0 ? (
-            <div className="space-y-2">
-              {visibleGroupSchedules.map((schedule) => (
+          {sortedGroupSchedules.length > 0 ? (
+            <ScrollableFadeList
+              ariaLabel="그룹 일정 목록"
+              fadeFromClassName="from-card"
+              onReachEnd={handleLoadMoreGroupSchedules}
+              isLoadingMore={isFetchingNextSchedulePage}
+              loadingLabel="일정을 더 불러오는 중..."
+            >
+              {sortedGroupSchedules.map((schedule) => (
                 <button
                   key={schedule.id}
                   type="button"
@@ -681,7 +673,7 @@ const GroupDetailPage: React.FC = () => {
                         {formatScheduleSummary(schedule)}
                       </p>
                       <p className="mt-1 truncate text-sm font-semibold text-foreground">{schedule.title}</p>
-                      {groupSchedulesExpanded && schedule.content ? (
+                      {schedule.content ? (
                         <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{schedule.content}</p>
                       ) : null}
                     </div>
@@ -691,7 +683,7 @@ const GroupDetailPage: React.FC = () => {
                   </div>
                 </button>
               ))}
-            </div>
+            </ScrollableFadeList>
           ) : (
             <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
               아직 확정된 그룹 일정이 없습니다. 시간을 조율하거나 직접 일정을 만들어보세요.
@@ -704,29 +696,24 @@ const GroupDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinations.length}개)</h3>
+              <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinationCountLabel})</h3>
               <p className="mt-1 text-[11px] text-muted-foreground">아직 확정 전인 조율입니다. 가능한 시간을 모아보세요.</p>
             </div>
-            {coordinations.length > COORDINATION_PREVIEW_LIMIT || coordinationNextCursor || coordinationsExpanded ? (
-              <button
-                type="button"
-                onClick={handleCoordinationsToggle}
-                disabled={isFetchingMoreCoordinations}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {coordinationsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {isFetchingMoreCoordinations ? '로딩' : coordinationsExpanded && coordinationNextCursor ? '더 불러오기' : coordinationsExpanded ? '접기' : '더보기'}
-              </button>
-            ) : null}
           </div>
 
           {isCoordinationLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
-          ) : visibleCoordinations.length > 0 ? (
-            <div className="space-y-2">
-              {visibleCoordinations.map((coord) => (
+          ) : coordinations.length > 0 ? (
+            <ScrollableFadeList
+              ariaLabel="조율 중인 일정 목록"
+              fadeFromClassName="from-card"
+              onReachEnd={handleLoadMoreCoordinations}
+              isLoadingMore={isFetchingMoreCoordinations}
+              loadingLabel="조율을 더 불러오는 중..."
+            >
+              {coordinations.map((coord) => (
                 <button
                   key={coord.id}
                   type="button"
@@ -747,7 +734,7 @@ const GroupDetailPage: React.FC = () => {
                   </div>
                 </button>
               ))}
-            </div>
+            </ScrollableFadeList>
           ) : (
             <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
               조율 중인 일정이 없습니다. 멤버들과 맞는 시간을 찾아보세요.

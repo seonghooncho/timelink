@@ -151,7 +151,6 @@ const MainPage: React.FC = () => {
           <ScheduleStrip
             groups={groupedSchedules}
             initialScheduleId={scheduleAnchor.anchorScheduleId}
-            hasPreviousSchedules={scheduleAnchor.hasPreviousSchedules}
             onScheduleClick={handleScheduleClick}
             onComplete={handleComplete}
           />
