@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefCallback } from 'react';
 import {
   EMPTY_SCROLL_AFFORDANCE,
   getScrollAffordanceState,
@@ -7,6 +7,7 @@ import {
 } from '@/lib/scrollAffordance';
 
 type ScrollAxis = 'vertical' | 'horizontal';
+type ScrollAffordanceRef<T extends HTMLElement> = RefCallback<T> & { current: T | null };
 
 interface UseScrollAffordanceOptions {
   axis?: ScrollAxis;
@@ -29,7 +30,16 @@ export function useScrollAffordance<T extends HTMLElement>({
   reachEndThreshold = 48,
   onReachEnd,
 }: UseScrollAffordanceOptions = {}) {
-  const scrollRef = useRef<T | null>(null);
+  const [scrollElement, setScrollElement] = useState<T | null>(null);
+  const scrollRef = useMemo<ScrollAffordanceRef<T>>(() => {
+    const ref = ((node: T | null) => {
+      if (ref.current === node) return;
+      ref.current = node;
+      setScrollElement(node);
+    }) as ScrollAffordanceRef<T>;
+    ref.current = null;
+    return ref;
+  }, []);
   const onReachEndRef = useRef(onReachEnd);
   const lastReachEndAtRef = useRef(0);
   const [state, setState] = useState<ScrollAffordanceState>(EMPTY_SCROLL_AFFORDANCE);
@@ -66,7 +76,7 @@ export function useScrollAffordance<T extends HTMLElement>({
     setState(prev => sameState(prev, next) ? prev : next);
 
     return { metrics, state: next };
-  }, [readMetrics, threshold]);
+  }, [readMetrics, scrollRef, threshold]);
 
   const refresh = useCallback(() => {
     measure();
@@ -90,8 +100,11 @@ export function useScrollAffordance<T extends HTMLElement>({
   }, [measure, reachEndThreshold]);
 
   useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
+    const element = scrollElement;
+    if (!element) {
+      refresh();
+      return;
+    }
 
     refresh();
     const frameId = window.requestAnimationFrame(refresh);
@@ -120,7 +133,7 @@ export function useScrollAffordance<T extends HTMLElement>({
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
     };
-  }, [handleScroll, refresh]);
+  }, [scrollElement, handleScroll, refresh]);
 
   return {
     scrollRef,

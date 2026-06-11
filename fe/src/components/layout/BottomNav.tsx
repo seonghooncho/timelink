@@ -14,7 +14,7 @@ const BottomNav: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass bg-card/80 border-t border-border/60 app-bottom-nav">
+    <nav className="fixed bottom-0 left-0 right-0 app-layer-navigation glass bg-card/80 border-t border-border/60 app-bottom-nav">
       <div className="max-w-lg mx-auto flex items-center justify-around h-16">
         {navItems.map(item => {
           const isActive = item.path === '/'

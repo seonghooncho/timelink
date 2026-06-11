@@ -122,7 +122,7 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, minHour
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
-          className="absolute top-full mt-1 left-0 z-50 w-40 max-h-64 overflow-y-auto overscroll-contain bg-card border border-border rounded-xl shadow-elevated animate-fade-in scrollbar-hide cursor-grab active:cursor-grabbing select-none"
+          className="absolute top-full mt-1 left-0 app-layer-popover w-40 max-h-64 overflow-y-auto overscroll-contain bg-card border border-border rounded-xl shadow-elevated animate-fade-in scrollbar-hide cursor-grab active:cursor-grabbing select-none"
           style={{ touchAction: 'none' }}
         >
           {hours.map(h => (

@@ -69,6 +69,16 @@
     --app-content-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
     --app-floating-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
     --app-bottom-sheet-max-height: min(calc(100vh - var(--app-bottom-nav-height) - 1rem), 30rem);
+    --app-layer-content: 0;
+    --app-layer-content-raised: 10;
+    --app-layer-header: 40;
+    --app-layer-floating: 45;
+    --app-layer-navigation: 50;
+    --app-layer-popover: 60;
+    --app-layer-notice: 70;
+    --app-layer-overlay: 80;
+    --app-layer-modal: 90;
+    --app-layer-critical: 100;
 
     --sidebar-background: 40 20% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -154,6 +164,46 @@
 
   .app-floating-action {
     bottom: var(--app-floating-bottom-space);
+  }
+
+  .app-layer-content {
+    z-index: var(--app-layer-content);
+  }
+
+  .app-layer-content-raised {
+    z-index: var(--app-layer-content-raised);
+  }
+
+  .app-layer-header {
+    z-index: var(--app-layer-header);
+  }
+
+  .app-layer-floating {
+    z-index: var(--app-layer-floating);
+  }
+
+  .app-layer-navigation {
+    z-index: var(--app-layer-navigation);
+  }
+
+  .app-layer-popover {
+    z-index: var(--app-layer-popover);
+  }
+
+  .app-layer-notice {
+    z-index: var(--app-layer-notice);
+  }
+
+  .app-layer-overlay {
+    z-index: var(--app-layer-overlay);
+  }
+
+  .app-layer-modal {
+    z-index: var(--app-layer-modal);
+  }
+
+  .app-layer-critical {
+    z-index: var(--app-layer-critical);
   }
 
   .app-bottom-sheet-root {

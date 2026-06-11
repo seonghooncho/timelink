@@ -297,7 +297,7 @@ const GroupDetailPage: React.FC = () => {
               <Menu className="w-5 h-5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] app-layer-popover w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
                 <button
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                   onClick={() => {
@@ -413,7 +413,7 @@ const GroupDetailPage: React.FC = () => {
       </div>
 
       {showMembersModal && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowMembersModal(false)}>
+        <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowMembersModal(false)}>
           <div
             className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
             onClick={(event) => event.stopPropagation()}
@@ -481,7 +481,7 @@ const GroupDetailPage: React.FC = () => {
       )}
 
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowInviteModal(false)}>
+        <div className="fixed inset-0 app-layer-overlay flex items-center justify-center bg-black/50" onClick={() => setShowInviteModal(false)}>
           <div className="mx-4 w-full max-w-sm rounded-2xl bg-card p-5 animate-fade-in" onClick={(event) => event.stopPropagation()}>
             <h3 className="text-base font-bold text-foreground mb-1">멤버 초대</h3>
             <p className="text-xs text-muted-foreground mb-4">아래 링크를 공유하여 멤버를 초대하세요</p>
@@ -504,7 +504,7 @@ const GroupDetailPage: React.FC = () => {
       )}
 
       {showEditGroupModal && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowEditGroupModal(false)}>
+        <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowEditGroupModal(false)}>
           <div
             className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
             onClick={(event) => event.stopPropagation()}
@@ -571,7 +571,7 @@ const GroupDetailPage: React.FC = () => {
       )}
 
       {showManageMembersModal && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowManageMembersModal(false)}>
+        <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowManageMembersModal(false)}>
           <div
             className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
             onClick={(event) => event.stopPropagation()}
@@ -742,7 +742,7 @@ const GroupDetailPage: React.FC = () => {
 
       <div className="h-24" aria-hidden="true" />
 
-      <div className="fixed inset-x-0 z-40 app-bottom-sheet-root pointer-events-none">
+      <div className="fixed inset-x-0 app-layer-floating app-bottom-sheet-root pointer-events-none">
         <div className="pointer-events-auto mx-auto max-w-lg border-t border-border/70 bg-background/95 px-4 py-3 shadow-elevated glass">
           <div className="grid grid-cols-2 gap-2">
             <button

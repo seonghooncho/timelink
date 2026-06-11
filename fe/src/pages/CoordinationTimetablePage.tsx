@@ -404,7 +404,7 @@ interface RecommendationModalProps {
 
 function RecommendationModal({ window, formatDateText, onClose }: RecommendationModalProps) {
   return (
-    <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
+    <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
       <div
         className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
         onClick={(event) => event.stopPropagation()}
@@ -475,7 +475,7 @@ function SlotParticipantsModal({
   const users = entry.users ?? [];
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
+    <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
       <div
         className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
         onClick={(event) => event.stopPropagation()}
