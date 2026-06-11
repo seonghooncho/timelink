@@ -22,7 +22,7 @@ Terraform `infra/terraform/minimum/monitoring.tf`에서 아래 리소스를 관�
 | 영역 | 리소스 |
 | --- | --- |
 | 알림 채널 | SNS topic `planner-prod-monitoring-alerts` |
-| 알림 수신 | email subscription `sunghunch127@gmail.com` |
+| 알림 수신 | email subscription `sunghuncho127@gmail.com` |
 | 지표/알람 | CloudWatch metric alarm |
 | 비용 구조 | CloudWatch 기본 지표 + SNS 이메일 중심의 저비용 구조 |
 
