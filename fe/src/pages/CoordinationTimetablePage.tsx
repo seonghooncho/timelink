@@ -158,36 +158,47 @@ const CoordinationTimetablePage: React.FC = () => {
       {viewMode === 'select' ? (
         <>
           <p className="px-4 text-xs text-muted-foreground mb-3">가능한 시간을 터치하여 선택하세요.</p>
-          <div className="mx-4 bg-card rounded-xl border border-border overflow-hidden">
-            <div className="flex border-b border-border"><div className="w-10 shrink-0" />{parsedDates.map((d, i) => (<div key={i} className="flex-1 text-center py-2 text-[10px] font-medium text-muted-foreground">{formatDateLabel(d)}</div>))}</div>
-            <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-              {hours.map(hour => (
-                <div key={hour} className="flex border-b border-border/50">
-                  <div className="w-10 shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-1.5">{hour}</div>
-                  {parsedDates.map((_, dIdx) => {
-                    const key = buildCoordinationSlotKey(dIdx, hour);
-                    const isSelected = selectedSlots.has(key);
-                    const existingSchedules = userSchedulesBySlot[key];
-                    return (
-                      <button
-                        key={dIdx}
-                        type="button"
-                        aria-pressed={isSelected}
-                        onClick={() => toggleSlot(dIdx, hour)}
-                        className={`relative h-10 flex-1 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
-                      >
-                        {renderExistingScheduleLayer(existingSchedules)}
-                        {isSelected && (
-                          <div className="pointer-events-none absolute inset-0 z-10 bg-primary/35" />
-                        )}
-                        {isSelected && (
-                          <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 rounded-full bg-primary shadow-sm" />
-                        )}
-                      </button>
-                    );
-                  })}
+          <div className="mx-4 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="min-w-max">
+                <div className="flex border-b border-border">
+                  <div className="w-10 shrink-0" />
+                  {parsedDates.map((d, i) => (
+                    <div key={i} className="w-16 shrink-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
+                      {formatDateLabel(d)}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
+                  {hours.map(hour => (
+                    <div key={hour} className="flex border-b border-border/50">
+                      <div className="flex w-10 shrink-0 items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
+                      {parsedDates.map((_, dIdx) => {
+                        const key = buildCoordinationSlotKey(dIdx, hour);
+                        const isSelected = selectedSlots.has(key);
+                        const existingSchedules = userSchedulesBySlot[key];
+                        return (
+                          <button
+                            key={dIdx}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => toggleSlot(dIdx, hour)}
+                            className={`relative h-10 w-16 shrink-0 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
+                          >
+                            {renderExistingScheduleLayer(existingSchedules)}
+                            {isSelected && (
+                              <div className="pointer-events-none absolute inset-0 z-10 bg-primary/35" />
+                            )}
+                            {isSelected && (
+                              <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 rounded-full bg-primary shadow-sm" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <div className="px-4 mt-4"><button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50">{isSubmitting ? '제출 중...' : '제출하기'}</button></div>
@@ -200,28 +211,39 @@ const CoordinationTimetablePage: React.FC = () => {
             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-coord-green" /><span className="text-[10px] text-muted-foreground">50~75%</span></div>
             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-coord-blue" /><span className="text-[10px] text-muted-foreground">75~100%</span></div>
           </div>
-          <div className="mx-4 bg-card rounded-xl border border-border overflow-hidden">
-            <div className="flex border-b border-border"><div className="w-10 shrink-0" />{parsedDates.map((d, i) => (<div key={i} className="flex-1 text-center py-2 text-[10px] font-medium text-muted-foreground">{formatDateLabel(d)}</div>))}</div>
-            <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-              {hours.map(hour => (
-                <div key={hour} className="flex border-b border-border/50">
-                  <div className="w-10 shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-1.5">{hour}</div>
-                  {parsedDates.map((_, dIdx) => {
-                    const key = `${dIdx}-${hour}`;
-                    const entry = heatmapMap[key];
-                    const count = entry?.count || 0;
-                    const ratio = count / totalParticipants;
-                    const opacity = count > 0 ? getResultOpacity(count, totalParticipants) : 0;
-                    return (
-                      <button key={dIdx} onClick={() => setSelectedSlotDetail(selectedSlotDetail === key ? null : key)}
-                        className={`flex-1 h-10 border-l border-border/50 transition-colors relative ${count > 0 ? getResultColor(ratio) : ''} ${selectedSlotDetail === key ? 'ring-2 ring-foreground ring-inset' : ''}`}
-                        style={count > 0 ? { opacity: opacity / 100 } : {}}>
-                        {count > 0 && <span className="text-[9px] font-bold text-foreground">{count}</span>}
-                      </button>
-                    );
-                  })}
+          <div className="mx-4 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="min-w-max">
+                <div className="flex border-b border-border">
+                  <div className="w-10 shrink-0" />
+                  {parsedDates.map((d, i) => (
+                    <div key={i} className="w-16 shrink-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
+                      {formatDateLabel(d)}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
+                  {hours.map(hour => (
+                    <div key={hour} className="flex border-b border-border/50">
+                      <div className="flex w-10 shrink-0 items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
+                      {parsedDates.map((_, dIdx) => {
+                        const key = `${dIdx}-${hour}`;
+                        const entry = heatmapMap[key];
+                        const count = entry?.count || 0;
+                        const ratio = count / totalParticipants;
+                        const opacity = count > 0 ? getResultOpacity(count, totalParticipants) : 0;
+                        return (
+                          <button key={dIdx} onClick={() => setSelectedSlotDetail(selectedSlotDetail === key ? null : key)}
+                            className={`relative h-10 w-16 shrink-0 border-l border-border/50 transition-colors ${count > 0 ? getResultColor(ratio) : ''} ${selectedSlotDetail === key ? 'ring-2 ring-foreground ring-inset' : ''}`}
+                            style={count > 0 ? { opacity: opacity / 100 } : {}}>
+                            {count > 0 && <span className="text-[9px] font-bold text-foreground">{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           {selectedSlotDetail && (() => {
@@ -234,7 +256,9 @@ const CoordinationTimetablePage: React.FC = () => {
                   <p className="text-xs font-bold text-foreground">{formatDateLabel(parsedDates[parseInt(dIdxStr)])} {parseInt(hourStr)}:00</p>
                   <button onClick={() => setSelectedSlotDetail(null)}><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 </div>
-                <div className="flex flex-wrap gap-1.5">{entry.users?.map((u, i) => (<span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">{u}</span>))}</div>
+                <div className="max-h-28 overflow-y-auto">
+                  <div className="flex flex-wrap gap-1.5">{entry.users?.map((u, i) => (<span key={i} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{u}</span>))}</div>
+                </div>
               </div>
             );
           })()}

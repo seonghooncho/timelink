@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGroups } from '@/hooks/useGroups';
 import { coordinationApi } from '@/services/api';
-import MemberSelector from '@/components/common/MemberSelector';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
 
@@ -14,13 +12,9 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
   const navigate = useNavigate();
-  const { data: groups = [] } = useGroups();
-  const group = groups.find(g => g.id === groupId);
-  const members = group?.members ?? [];
 
   const [title, setTitle] = useState('');
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set());
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(members.map(m => m.id)));
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(18);
   const [isCreating, setIsCreating] = useState(false);
@@ -32,17 +26,6 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
         next.delete(idx);
       } else {
         next.add(idx);
-      }
-      return next;
-    });
-  };
-  const toggleMember = (id: string) => {
-    setSelectedMembers(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
       }
       return next;
     });
@@ -100,11 +83,10 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
       <input type="text" placeholder="제목" value={title} onChange={e => setTitle(e.target.value)}
         className="w-full px-4 py-3 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
 
-      {members.length > 0 && (
-        <div className="mt-5">
-          <MemberSelector members={members} selectedIds={selectedMembers} onToggle={toggleMember} />
-        </div>
-      )}
+      <div className="mt-5 rounded-xl border border-border bg-card px-4 py-3">
+        <p className="text-[11px] font-semibold text-muted-foreground">대상</p>
+        <p className="mt-1 text-sm font-bold text-foreground">그룹 전체 · 생성자 포함</p>
+      </div>
 
       <div className="mt-5">
         <h3 className="text-sm font-bold text-foreground mb-3">무슨 요일에 만날까요?</h3>
