@@ -249,7 +249,19 @@ export interface GroupDetailResponse {
 }
 
 export const groupApi = {
-  getAll: () => request<GroupListResponse[]>('GET', '/groups'),
+  getPage: (params?: PaginationParams) => requestPage<GroupListResponse>('/groups', params),
+  getAll: async () => {
+    const groups: GroupListResponse[] = [];
+    let cursor: string | null = null;
+
+    do {
+      const page = await groupApi.getPage({ limit: 20, cursor });
+      groups.push(...page.data);
+      cursor = page.meta?.nextCursor ?? null;
+    } while (cursor);
+
+    return groups;
+  },
   getById: (id: string) => request<GroupDetailResponse>('GET', `/groups/${id}`),
   create: (data: { name: string; description?: string; imageUrl?: string }) =>
     request<GroupDetailResponse>('POST', '/groups', data),

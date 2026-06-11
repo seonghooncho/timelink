@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { coordinationApi, notificationApi, scheduleApi } from '@/services/api';
+import { coordinationApi, groupApi, notificationApi, scheduleApi } from '@/services/api';
 
 const { clearStoredSession } = vi.hoisted(() => ({
   clearStoredSession: vi.fn(),
@@ -134,6 +134,37 @@ describe('API cursor pagination', () => {
     expect(result.meta?.nextCursor).toBe('cursor-3');
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/planner/v1/groups/group-1/coordinations?status=active&cursor=cursor-2&limit=20',
+      expect.any(Object),
+    );
+  });
+
+  it('groupApi.getPage requests my groups with cursor pagination', async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        data: [
+          {
+            id: 'group-1',
+            name: '스터디',
+            description: '',
+            inviteCode: 'ABC123',
+            memberCount: 3,
+            myRole: 'manager',
+            createdAt: '2026-03-09T00:00:00',
+          },
+        ],
+        meta: {
+          perPage: 20,
+          nextCursor: 'cursor-4',
+        },
+      }),
+    );
+
+    const result = await groupApi.getPage({ cursor: 'cursor-3', limit: 20 });
+
+    expect(result.data.map(item => item.id)).toEqual(['group-1']);
+    expect(result.meta?.nextCursor).toBe('cursor-4');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/planner/v1/groups?cursor=cursor-3&limit=20',
       expect.any(Object),
     );
   });

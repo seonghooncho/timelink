@@ -14,6 +14,10 @@ import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.global.cursor.Cursor;
+import com.planner.global.cursor.CursorCodec;
+import com.planner.global.cursor.CursorPageResult;
+import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -33,6 +37,7 @@ public class GroupService {
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
     private final NotificationService notificationService;
+    private final CursorCodec cursorCodec;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -62,7 +67,29 @@ public class GroupService {
     }
 
     public List<GroupResDTO> getMyGroups(String userId) {
-        return repository.findGroupsByUserId(userId).stream()
+        return toGroupListResponses(repository.findGroupsByUserId(userId));
+    }
+
+    public CursorPageResult<GroupResDTO> getMyGroupsPaged(String userId, Integer limit, String cursorToken) {
+        int size = (limit != null && limit > 0) ? limit : 20;
+        Cursor cursor = (cursorToken != null) ? cursorCodec.decode(cursorToken) : null;
+        CursorPageResult<GroupMember> page = repository.findGroupsByUserIdPaged(userId, size, cursor);
+
+        return CursorPageResult.<GroupResDTO>builder()
+                .items(toGroupListResponses(page.getItems()))
+                .nextCursor(page.getNextCursor())
+                .build();
+    }
+
+    public CustomResponse.PageMeta toPageMeta(CursorPageResult<?> page, int perPage) {
+        return CustomResponse.PageMeta.builder()
+                .perPage(perPage)
+                .nextCursor(page.getNextCursor() != null ? cursorCodec.encode(page.getNextCursor()) : null)
+                .build();
+    }
+
+    private List<GroupResDTO> toGroupListResponses(List<GroupMember> memberships) {
+        return memberships.stream()
                 .map(m -> {
                     String groupId = m.getGsi2sk().replace("GROUP#", "");
                     return repository.findGroupById(groupId)

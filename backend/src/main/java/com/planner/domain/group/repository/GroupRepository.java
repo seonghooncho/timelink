@@ -3,14 +3,19 @@ package com.planner.domain.group.repository;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.global.config.AwsProperties;
+import com.planner.global.cursor.Cursor;
+import com.planner.global.cursor.CursorPageResult;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.enhanced.dynamodb.*;
+import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -100,13 +105,43 @@ public class GroupRepository {
     }
 
     public List<GroupMember> findGroupsByUserId(String userId) {
+        return findGroupsByUserIdPaged(userId, 0, null).getItems();
+    }
+
+    public CursorPageResult<GroupMember> findGroupsByUserIdPaged(String userId, int limit, Cursor cursor) {
         var request = QueryEnhancedRequest.builder()
                 .queryConditional(QueryConditional.keyEqualTo(
                         k -> k.partitionValue("USER#" + userId)
-                ))
+                ));
+
+        if (limit > 0) request.limit(limit);
+        if (cursor != null) request.exclusiveStartKey(toAttributeMap(cursor));
+
+        Iterator<Page<GroupMember>> pages = userGroupsIndex.query(request.build()).iterator();
+        if (!pages.hasNext()) {
+            return CursorPageResult.<GroupMember>builder().items(List.of()).build();
+        }
+
+        Page<GroupMember> page = pages.next();
+        Cursor nextCursor = page.lastEvaluatedKey() != null && !page.lastEvaluatedKey().isEmpty()
+                ? fromAttributeMap(page.lastEvaluatedKey()) : null;
+
+        return CursorPageResult.<GroupMember>builder()
+                .items(page.items())
+                .nextCursor(nextCursor)
                 .build();
-        return userGroupsIndex.query(request).stream()
-                .flatMap(page -> page.items().stream())
-                .collect(Collectors.toList());
+    }
+
+    private Map<String, AttributeValue> toAttributeMap(Cursor cursor) {
+        Map<String, AttributeValue> map = new HashMap<>();
+        cursor.getKeys().forEach((k, v) ->
+                map.put(k, AttributeValue.builder().s(v).build()));
+        return map;
+    }
+
+    private Cursor fromAttributeMap(Map<String, AttributeValue> lastKey) {
+        Map<String, String> keys = new HashMap<>();
+        lastKey.forEach((k, v) -> keys.put(k, v.s()));
+        return Cursor.builder().keys(keys).build();
     }
 }
