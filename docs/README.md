@@ -67,6 +67,10 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 └── README.md
 ```
 
+## 운영 문서
+
+- [운영 배포 유의사항](DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
+
 ## 백엔드 아키텍처 원칙
 
 ### Domain-Driven Package Structure

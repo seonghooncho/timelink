@@ -88,6 +88,11 @@ terraform apply
 
 루트에서 보조 명령으로 `npm run infra:init:fmt`, `npm run infra:init:validate`, `npm run infra:fmt`, `npm run infra:validate`, `npm run infra:cloudflare:fmt`, `npm run infra:cloudflare:validate`를 사용할 수 있습니다.
 
+## 운영 배포
+
+운영 배포 전에는 [docs/DEPLOYMENT_NOTES.md](docs/DEPLOYMENT_NOTES.md)를 먼저 확인합니다.
+이 문서에는 현행 S3/CloudFront/Lambda 배포 순서, CloudFront 캐시 무효화, Google/Kakao 소셜 로그인 콜백 URL 확인 항목이 정리돼 있습니다.
+
 ## 환경 변수
 
 - 프론트엔드: 빌드 타임 환경변수 없이 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
