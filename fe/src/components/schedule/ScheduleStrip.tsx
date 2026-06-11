@@ -70,14 +70,14 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
       {hasOverflow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/18 via-black/8 to-transparent transition-opacity duration-150"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/20 via-black/10 to-transparent transition-opacity duration-150"
           style={{ opacity: startFadeOpacity }}
         />
       )}
       {hasOverflow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/18 via-black/8 to-transparent transition-opacity duration-150"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/20 via-black/10 to-transparent transition-opacity duration-150"
           style={{ opacity: endFadeOpacity }}
         />
       )}
