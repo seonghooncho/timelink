@@ -19,6 +19,8 @@ const sameState = (a: ScrollAffordanceState, b: ScrollAffordanceState) => (
   a.hasOverflow === b.hasOverflow
   && a.canScrollStart === b.canScrollStart
   && a.canScrollEnd === b.canScrollEnd
+  && a.startFadeOpacity === b.startFadeOpacity
+  && a.endFadeOpacity === b.endFadeOpacity
 );
 
 export function useScrollAffordance<T extends HTMLElement>({
