@@ -27,11 +27,18 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   const {
     scrollRef,
     refresh,
-    canScrollStart,
-    canScrollEnd,
+    hasOverflow,
+    startFadeOpacity,
+    endFadeOpacity,
   } = useScrollAffordance<HTMLDivElement>({ axis: 'horizontal' });
   const scheduleRefs = React.useRef(new Map<string, HTMLDivElement>());
   const lastInitialScheduleIdRef = React.useRef<string | undefined>();
+
+  React.useLayoutEffect(() => {
+    refresh();
+    const frameId = window.requestAnimationFrame(refresh);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [groups, refresh]);
 
   React.useEffect(() => {
     if (!initialScheduleId || lastInitialScheduleIdRef.current === initialScheduleId) {
@@ -60,16 +67,18 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
 
   return (
     <div className="relative">
-      {canScrollStart && (
+      {hasOverflow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/18 via-black/8 to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/18 via-black/8 to-transparent transition-opacity duration-150"
+          style={{ opacity: startFadeOpacity }}
         />
       )}
-      {canScrollEnd && (
+      {hasOverflow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/18 via-black/8 to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/18 via-black/8 to-transparent transition-opacity duration-150"
+          style={{ opacity: endFadeOpacity }}
         />
       )}
       <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">

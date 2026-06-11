@@ -27,8 +27,9 @@ const ScrollableFadeList: React.FC<ScrollableFadeListProps> = ({
 }) => {
   const {
     scrollRef,
-    canScrollStart,
-    canScrollEnd,
+    hasOverflow,
+    startFadeOpacity,
+    endFadeOpacity,
   } = useScrollAffordance<HTMLDivElement>({ axis: 'vertical', onReachEnd });
 
   return (
@@ -52,16 +53,18 @@ const ScrollableFadeList: React.FC<ScrollableFadeListProps> = ({
         </div>
       </div>
 
-      {canScrollStart ? (
+      {hasOverflow ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-black/20 via-black/10 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-black/20 via-black/10 to-transparent transition-opacity duration-150"
+          style={{ opacity: startFadeOpacity }}
         />
       ) : null}
-      {canScrollEnd ? (
+      {hasOverflow ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-black/20 via-black/10 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-black/20 via-black/10 to-transparent transition-opacity duration-150"
+          style={{ opacity: endFadeOpacity }}
         />
       ) : null}
     </div>

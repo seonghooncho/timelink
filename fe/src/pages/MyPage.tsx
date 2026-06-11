@@ -7,27 +7,25 @@ import type { NotificationSettingsResponse } from '@/services/api';
 import { settingsApi, storageApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
-import { LogOut, Camera, Pencil, Check, X, Lightbulb } from 'lucide-react';
+import { LogOut, Camera, Pencil, Check, X, Sparkles } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
 
 const PROFILE_TIPS = [
-  '일정은 시작 시간과 소요시간만 정하면 홈 타임테이블에 바로 반영됩니다.',
-  '시간은 30분 단위로 맞추면 일정 등록과 조율 결과를 더 깔끔하게 볼 수 있어요.',
-  '홈 일정 카드는 오늘 이후 일정부터 보여주고, 옆으로 밀면 지난 일정도 확인할 수 있어요.',
-  '일정을 완료 처리하면 카드의 동그라미가 채워져 남은 일을 빠르게 구분할 수 있어요.',
-  '중요 일정으로 표시하면 리마인드 알림을 따로 받을 수 있어요.',
-  '일정 알림을 켜야 1일 전, 당일, 중요 일정 리마인드를 선택할 수 있어요.',
-  '브라우저 푸시 권한이 꺼져 있어도 알림센터에서 주요 알림을 확인할 수 있어요.',
-  '그룹을 만들면 초대 링크로 멤버를 바로 초대할 수 있어요.',
-  '그룹 상세에서 그룹 일정 생성과 시간 조율을 바로 시작할 수 있어요.',
-  '시간 조율의 모두 가능한 시간은 가장 많이 겹치는 시간을 먼저 확인하기 좋습니다.',
-  '타임슬롯을 누르면 해당 시간에 투표한 멤버를 프로필과 함께 볼 수 있어요.',
-  '가능한 시간이 여러 날짜에 걸쳐 있으면 날짜 묶음을 넘겨가며 비교할 수 있어요.',
-  '그룹 일정은 확정된 약속, 조율 중인 일정은 아직 의견을 모으는 약속입니다.',
-  '프로필 사진과 닉네임을 바꾸면 그룹 멤버 목록에도 최신 정보가 표시됩니다.',
-  '앱을 홈 화면에 추가하면 모바일에서 더 빠르게 Timelink를 열 수 있어요.',
-  '일정 설명에는 장소나 준비물을 짧게 남겨두면 알림을 받을 때 더 유용합니다.',
+  '그룹에 가입하면 친구들과 가능한 약속 시간을 한눈에 비교할 수 있어요.',
+  '조율 중인 일정에서 타임슬롯을 선택하면 누가 투표했는지 바로 확인할 수 있어요.',
+  '모두 가능한 시간에서 추천 슬롯을 확인한 뒤 바로 그룹 일정으로 확정할 수 있어요.',
+  '그룹 상세 하단의 두 버튼으로 약속 확정과 시간 조율을 빠르게 시작할 수 있어요.',
+  '일정 알림을 켜두면 1일 전, 당일, 중요 일정 리마인드를 상황에 맞게 고를 수 있어요.',
+  '중요한 약속은 중요 일정으로 표시해두면 알림과 카드에서 더 놓치기 어렵습니다.',
+  '홈 일정 카드는 오늘 이후 일정부터 보이고, 옆으로 넘기면 지난 일정도 확인할 수 있어요.',
+  '완료 버튼은 삭제와 별개라서 끝낸 일정만 체크하고 기록은 그대로 남길 수 있어요.',
+  '그룹 초대 링크를 공유하면 친구가 링크만 열어도 바로 참여 흐름으로 이동합니다.',
+  '프로필 사진과 닉네임을 바꾸면 그룹 멤버 목록에도 최신 정보가 표시돼요.',
+  '캘린더에서 날짜를 누르면 그날 일정만 따로 모아 확인할 수 있어요.',
+  '포스터나 안내문 사진으로 일정을 등록하면 AI가 제목과 시간을 먼저 채워줄 수 있어요.',
+  '시간 조율 날짜가 많을 때는 5일 단위로 넘겨 보며 가능한 시간을 비교할 수 있어요.',
+  '푸시 권한을 나중에 켜도 알림센터에는 일정과 그룹 알림이 계속 쌓입니다.',
 ];
 
 const MyPage: React.FC = () => {
@@ -49,7 +47,15 @@ const MyPage: React.FC = () => {
   const [remindOneDayBefore, setRemindOneDayBefore] = useState(false);
   const [remindSameDay, setRemindSameDay] = useState(false);
   const [importantAlarm, setImportantAlarm] = useState(false);
-  const [profileTip] = useState(() => PROFILE_TIPS[Math.floor(Math.random() * PROFILE_TIPS.length)]);
+  const [tipIndex, setTipIndex] = useState(() => Math.floor(Math.random() * PROFILE_TIPS.length));
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setTipIndex(prev => (prev + 1) % PROFILE_TIPS.length);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -223,6 +229,9 @@ const MyPage: React.FC = () => {
   };
 
   const cancelEditNickname = () => setIsEditingNickname(false);
+  const profileTip = PROFILE_TIPS[tipIndex];
+  const showPreviousTip = () => setTipIndex(prev => (prev - 1 + PROFILE_TIPS.length) % PROFILE_TIPS.length);
+  const showNextTip = () => setTipIndex(prev => (prev + 1) % PROFILE_TIPS.length);
 
   return (
     <MobileLayout>
@@ -262,15 +271,38 @@ const MyPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-primary/10 bg-card p-4 shadow-soft">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Lightbulb className="h-4 w-4" />
+        <section className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
+          <div className="flex items-stretch">
+            <button
+              type="button"
+              aria-label="이전 팁"
+              onClick={showPreviousTip}
+              className="flex w-9 shrink-0 items-center justify-center text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+            >
+              &lt;
+            </button>
+
+            <div className="min-w-0 flex-1 px-1 py-3.5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Timelink 팁</p>
+                <span className="ml-auto font-num text-[10px] font-semibold text-muted-foreground">
+                  {tipIndex + 1}/{PROFILE_TIPS.length}
+                </span>
+              </div>
+              <p className="mt-1.5 line-clamp-2 min-h-[40px] text-sm font-medium leading-5 text-foreground">
+                {profileTip}
+              </p>
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Timelink 팁</p>
-              <p className="mt-1 text-sm leading-6 text-foreground">{profileTip}</p>
-            </div>
+
+            <button
+              type="button"
+              aria-label="다음 팁"
+              onClick={showNextTip}
+              className="flex w-9 shrink-0 items-center justify-center text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+            >
+              &gt;
+            </button>
           </div>
         </section>
 

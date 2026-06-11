@@ -11,6 +11,8 @@ describe('getScrollAffordanceState', () => {
       hasOverflow: false,
       canScrollStart: false,
       canScrollEnd: false,
+      startFadeOpacity: 0,
+      endFadeOpacity: 0,
     });
   });
 
@@ -23,6 +25,8 @@ describe('getScrollAffordanceState', () => {
       hasOverflow: true,
       canScrollStart: false,
       canScrollEnd: true,
+      startFadeOpacity: 0,
+      endFadeOpacity: 1,
     });
   });
 
@@ -35,6 +39,8 @@ describe('getScrollAffordanceState', () => {
       hasOverflow: true,
       canScrollStart: true,
       canScrollEnd: true,
+      startFadeOpacity: 1,
+      endFadeOpacity: 1,
     });
   });
 
@@ -47,6 +53,21 @@ describe('getScrollAffordanceState', () => {
       hasOverflow: true,
       canScrollStart: true,
       canScrollEnd: false,
+      startFadeOpacity: 1,
+      endFadeOpacity: 0,
+    });
+  });
+
+  it('ramps fade opacity near the scroll edges', () => {
+    expect(getScrollAffordanceState({
+      scrollOffset: 6,
+      clientSize: 300,
+      scrollSize: 620,
+    })).toMatchObject({
+      canScrollStart: true,
+      canScrollEnd: true,
+      startFadeOpacity: 0.43,
+      endFadeOpacity: 1,
     });
   });
 });
