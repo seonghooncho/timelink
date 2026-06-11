@@ -11,6 +11,8 @@ import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.global.cursor.CursorCodec;
+import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,7 @@ class GroupServiceTest {
     @Mock private GroupRepository repository;
     @Mock private ProfileRepository profileRepository;
     @Mock private NotificationService notificationService;
+    @Mock private CursorCodec cursorCodec;
     @InjectMocks private GroupService service;
 
     @BeforeEach
@@ -86,6 +89,21 @@ class GroupServiceTest {
         List<GroupResDTO> result = service.getMyGroups("user1");
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Study");
+    }
+
+    @Test
+    @DisplayName("getMyGroupsPaged — 기본 20개 단위로 사용자 그룹을 조회한다")
+    void getMyGroupsPaged_returnsPage() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        when(repository.findGroupsByUserIdPaged("user1", 20, null))
+                .thenReturn(CursorPageResult.<GroupMember>builder().items(List.of(member)).build());
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
+
+        CursorPageResult<GroupResDTO> result = service.getMyGroupsPaged("user1", 20, null);
+
+        assertThat(result.getItems()).hasSize(1);
+        assertThat(result.getItems().get(0).getName()).isEqualTo("Study");
+        verify(repository).findGroupsByUserIdPaged("user1", 20, null);
     }
 
     @Test

@@ -7,9 +7,28 @@ import type { NotificationSettingsResponse } from '@/services/api';
 import { settingsApi, storageApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
-import { LogOut, Camera, Pencil, Check, X } from 'lucide-react';
+import { LogOut, Camera, Pencil, Check, X, Lightbulb } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
+
+const PROFILE_TIPS = [
+  '일정은 시작 시간과 소요시간만 정하면 홈 타임테이블에 바로 반영됩니다.',
+  '시간은 30분 단위로 맞추면 일정 등록과 조율 결과를 더 깔끔하게 볼 수 있어요.',
+  '홈 일정 카드는 오늘 이후 일정부터 보여주고, 옆으로 밀면 지난 일정도 확인할 수 있어요.',
+  '일정을 완료 처리하면 카드의 동그라미가 채워져 남은 일을 빠르게 구분할 수 있어요.',
+  '중요 일정으로 표시하면 리마인드 알림을 따로 받을 수 있어요.',
+  '일정 알림을 켜야 1일 전, 당일, 중요 일정 리마인드를 선택할 수 있어요.',
+  '브라우저 푸시 권한이 꺼져 있어도 알림센터에서 주요 알림을 확인할 수 있어요.',
+  '그룹을 만들면 초대 링크로 멤버를 바로 초대할 수 있어요.',
+  '그룹 상세에서 그룹 일정 생성과 시간 조율을 바로 시작할 수 있어요.',
+  '시간 조율의 모두 가능한 시간은 가장 많이 겹치는 시간을 먼저 확인하기 좋습니다.',
+  '타임슬롯을 누르면 해당 시간에 투표한 멤버를 프로필과 함께 볼 수 있어요.',
+  '가능한 시간이 여러 날짜에 걸쳐 있으면 날짜 묶음을 넘겨가며 비교할 수 있어요.',
+  '그룹 일정은 확정된 약속, 조율 중인 일정은 아직 의견을 모으는 약속입니다.',
+  '프로필 사진과 닉네임을 바꾸면 그룹 멤버 목록에도 최신 정보가 표시됩니다.',
+  '앱을 홈 화면에 추가하면 모바일에서 더 빠르게 Timelink를 열 수 있어요.',
+  '일정 설명에는 장소나 준비물을 짧게 남겨두면 알림을 받을 때 더 유용합니다.',
+];
 
 const MyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +49,7 @@ const MyPage: React.FC = () => {
   const [remindOneDayBefore, setRemindOneDayBefore] = useState(false);
   const [remindSameDay, setRemindSameDay] = useState(false);
   const [importantAlarm, setImportantAlarm] = useState(false);
+  const [profileTip] = useState(() => PROFILE_TIPS[Math.floor(Math.random() * PROFILE_TIPS.length)]);
 
   useEffect(() => {
     if (profile) {
@@ -239,6 +259,18 @@ const MyPage: React.FC = () => {
               </button>
             )}
             <p className="text-[11px] text-muted-foreground mt-1.5">사진이나 닉네임을 탭하여 수정</p>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-primary/10 bg-card p-4 shadow-soft">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Lightbulb className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Timelink 팁</p>
+              <p className="mt-1 text-sm leading-6 text-foreground">{profileTip}</p>
+            </div>
           </div>
         </section>
 

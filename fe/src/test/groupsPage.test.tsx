@@ -18,14 +18,20 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@/hooks/useGroups', () => ({
-  useGroups: mocks.useGroups,
+  useGroupPages: mocks.useGroups,
 }));
 
-describe('GroupsPage empty state', () => {
+describe('GroupsPage', () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
     mocks.useGroups.mockReset();
-    mocks.useGroups.mockReturnValue({ data: [], isLoading: false });
+    mocks.useGroups.mockReturnValue({
+      data: [],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
   });
 
   it('shows a creation-focused placeholder when the user has no groups', () => {
@@ -41,5 +47,34 @@ describe('GroupsPage empty state', () => {
     fireEvent.click(screen.getByRole('button', { name: /그룹 만들기/ }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/groups/new');
+  });
+
+  it('loads the next group page when more groups are available', () => {
+    const fetchNextPage = vi.fn();
+    mocks.useGroups.mockReturnValue({
+      data: [
+        {
+          id: 'group-1',
+          name: '스터디',
+          description: '',
+          memberCount: 3,
+          schedules: [],
+        },
+      ],
+      isLoading: false,
+      fetchNextPage,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <GroupsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '그룹 더보기' }));
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
   });
 });

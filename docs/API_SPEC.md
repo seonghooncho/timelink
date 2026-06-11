@@ -322,7 +322,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `GET` /api/planner/v1/groups
 
-내 그룹 목록 (내가 멤버인 그룹)
+내 그룹 목록 (내가 멤버인 그룹). 커서 페이지네이션을 사용하며 `limit` 기본값은 20, 최대값은 100입니다.
+
+**Query Parameters**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `limit` | number | ❌ | 한 번에 조회할 개수. 기본 20, 최대 100 |
+| `cursor` | string | ❌ | 다음 페이지 조회용 opaque cursor |
 
 **Response** `200 OK`
 ```json
@@ -338,7 +344,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "myRole": "manager",
       "createdAt": "2026-03-01T00:00:00Z"
     }
-  ]
+  ],
+  "meta": {
+    "perPage": 20,
+    "nextCursor": "opaque-cursor"
+  }
 }
 ```
 

@@ -5,11 +5,17 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import FAB from '@/components/common/FAB';
-import { useGroups } from '@/hooks/useGroups';
+import { useGroupPages } from '@/hooks/useGroups';
 
 const GroupsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { data: groups = [], isLoading } = useGroups();
+  const {
+    data: groups = [],
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useGroupPages();
 
   return (
     <MobileLayout>
@@ -49,17 +55,31 @@ const GroupsPage: React.FC = () => {
               </p>
             </div>
           </div>
-        ) : groups.map(group => (
-          <button key={group.id} onClick={() => navigate(`/groups/${group.id}`)}
-            className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-soft hover:shadow-card transition-all text-left pressable">
-            <GroupAvatar image={group.image} name={group.name} size="sm" />
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-bold text-foreground">{group.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">멤버 {group.memberCount ?? 0}명</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
-          </button>
-        ))}
+        ) : (
+          <>
+            {groups.map(group => (
+              <button key={group.id} onClick={() => navigate(`/groups/${group.id}`)}
+                className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-soft hover:shadow-card transition-all text-left pressable">
+                <GroupAvatar image={group.image} name={group.name} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-bold text-foreground">{group.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">멤버 {group.memberCount ?? 0}명</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+              </button>
+            ))}
+            {hasNextPage ? (
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {isFetchingNextPage ? '불러오는 중...' : '그룹 더보기'}
+              </button>
+            ) : null}
+          </>
+        )}
       </div>
       {groups.length > 0 ? <FAB to="/groups/new" /> : null}
     </MobileLayout>

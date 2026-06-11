@@ -9,7 +9,9 @@ import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.service.GroupService;
 import com.planner.global.config.JwtProperties;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
+import com.planner.global.response.CustomResponse;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
@@ -72,11 +74,33 @@ class GroupControllerTest {
     @DisplayName("GET /groups — 내 그룹 목록 200")
     void getMyGroups_returns200() throws Exception {
         GroupResDTO dto = GroupResDTO.builder().id("g1").name("Study").memberCount(3).build();
-        when(service.getMyGroups("user1")).thenReturn(List.of(dto));
+        CursorPageResult<GroupResDTO> page = CursorPageResult.<GroupResDTO>builder().items(List.of(dto)).build();
+        when(service.getMyGroupsPaged("user1", 20, null)).thenReturn(page);
+        when(service.toPageMeta(page, 20))
+                .thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
 
         mockMvc.perform(get(BASE))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].name").value("Study"));
+                .andExpect(jsonPath("$.data[0].name").value("Study"))
+                .andExpect(jsonPath("$.meta.perPage").value(20));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups — limit 최대값은 100")
+    void getMyGroups_clampsLimit() throws Exception {
+        CursorPageResult<GroupResDTO> page = CursorPageResult.<GroupResDTO>builder().items(List.of()).build();
+        when(service.getMyGroupsPaged("user1", 100, "cursor-1")).thenReturn(page);
+        when(service.toPageMeta(page, 100))
+                .thenReturn(CustomResponse.PageMeta.builder().perPage(100).build());
+
+        mockMvc.perform(get(BASE)
+                        .param("limit", "200")
+                        .param("cursor", "cursor-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.perPage").value(100));
+
+        verify(service).getMyGroupsPaged("user1", 100, "cursor-1");
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.service.GroupService;
+import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;
 import jakarta.validation.Valid;
@@ -22,12 +23,26 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GroupController {
 
+    private static final int DEFAULT_LIMIT = 20;
+    private static final int MAX_LIMIT = 100;
     private final GroupService service;
 
     @GetMapping
-    public ResponseEntity<CustomResponse<List<GroupResDTO>>> getMyGroups() {
+    public ResponseEntity<CustomResponse<List<GroupResDTO>>> getMyGroups(
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String cursor) {
         String userId = AuthUtil.getCurrentUserId();
-        return ResponseEntity.ok(CustomResponse.ok(service.getMyGroups(userId)));
+        int size = resolveLimit(limit);
+        CursorPageResult<GroupResDTO> page = service.getMyGroupsPaged(userId, size, cursor);
+        CustomResponse.PageMeta meta = service.toPageMeta(page, size);
+        return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
+    }
+
+    private int resolveLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_LIMIT;
+        }
+        return Math.min(limit, MAX_LIMIT);
     }
 
     @GetMapping("/{id}")
