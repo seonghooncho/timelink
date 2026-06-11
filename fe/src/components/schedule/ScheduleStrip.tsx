@@ -1,6 +1,7 @@
 import React from 'react';
 import ScheduleCardCompact from './ScheduleCardCompact';
 import { Schedule } from '@/types/types';
+import { useScrollAffordance } from '@/hooks/useScrollAffordance';
 
 interface ScheduleGroup {
   date: string;
@@ -14,7 +15,6 @@ interface ScheduleStripProps {
   onComplete: (schedule: Schedule) => void;
   emptyMessage?: string;
   initialScheduleId?: string;
-  hasPreviousSchedules?: boolean;
 }
 
 const ScheduleStrip: React.FC<ScheduleStripProps> = ({
@@ -23,9 +23,13 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   onComplete,
   emptyMessage = '일정이 없습니다',
   initialScheduleId,
-  hasPreviousSchedules = false,
 }) => {
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const {
+    scrollRef,
+    refresh,
+    canScrollStart,
+    canScrollEnd,
+  } = useScrollAffordance<HTMLDivElement>({ axis: 'horizontal' });
   const scheduleRefs = React.useRef(new Map<string, HTMLDivElement>());
   const lastInitialScheduleIdRef = React.useRef<string | undefined>();
 
@@ -40,12 +44,15 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
       return;
     }
 
-    container.scrollTo({
-      left: Math.max(target.offsetLeft - 14, 0),
-      behavior: 'auto',
-    });
+    const nextLeft = Math.max(target.offsetLeft - 14, 0);
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ left: nextLeft, behavior: 'auto' });
+    } else {
+      container.scrollLeft = nextLeft;
+    }
+    window.requestAnimationFrame(refresh);
     lastInitialScheduleIdRef.current = initialScheduleId;
-  }, [groups, initialScheduleId]);
+  }, [groups, initialScheduleId, refresh, scrollRef]);
 
   if (groups.length === 0) {
     return <p className="text-xs text-muted-foreground/60 py-4 px-4">{emptyMessage}</p>;
@@ -53,10 +60,16 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
 
   return (
     <div className="relative">
-      {hasPreviousSchedules && (
+      {canScrollStart && (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-foreground/20 to-transparent"
+        />
+      )}
+      {canScrollEnd && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background via-background/85 to-transparent"
         />
       )}
       <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">
