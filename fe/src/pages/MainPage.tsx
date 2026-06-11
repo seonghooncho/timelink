@@ -123,7 +123,7 @@ const MainPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <header className="sticky top-0 z-40 glass bg-card/80 border-b border-border/40">
+      <header className="sticky top-0 app-layer-header glass bg-card/80 border-b border-border/40">
         <div className="flex items-center justify-between h-14 px-5">
           <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">TODAY</p>

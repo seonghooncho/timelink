@@ -66,22 +66,8 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   }
 
   return (
-    <div className="relative">
-      {hasOverflow && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/18 via-black/8 to-transparent transition-opacity duration-150"
-          style={{ opacity: startFadeOpacity }}
-        />
-      )}
-      {hasOverflow && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/18 via-black/8 to-transparent transition-opacity duration-150"
-          style={{ opacity: endFadeOpacity }}
-        />
-      )}
-      <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">
+    <div className="relative isolate overflow-hidden">
+      <div ref={scrollRef} className="relative z-0 overflow-x-auto scrollbar-hide">
         <div className="flex gap-0 px-0 min-w-max">
           {groups.map((group, gIdx) => (
             <React.Fragment key={group.date}>
@@ -116,6 +102,20 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
           ))}
         </div>
       </div>
+      {hasOverflow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 z-20 w-10 bg-gradient-to-r from-black/25 via-black/10 to-transparent transition-opacity duration-150"
+          style={{ opacity: startFadeOpacity }}
+        />
+      )}
+      {hasOverflow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 z-20 w-10 bg-gradient-to-l from-black/25 via-black/10 to-transparent transition-opacity duration-150"
+          style={{ opacity: endFadeOpacity }}
+        />
+      )}
     </div>
   );
 };

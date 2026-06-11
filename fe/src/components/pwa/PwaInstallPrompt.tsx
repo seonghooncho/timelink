@@ -70,7 +70,7 @@ const PwaInstallPrompt = () => {
       : "브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.";
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+    <div className="pointer-events-none fixed inset-x-0 top-0 app-layer-notice px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
       <section
         className="glass pointer-events-auto mx-auto flex w-full max-w-lg items-start gap-3 rounded-2xl border border-border/80 bg-card/95 p-3 shadow-elevated animate-in fade-in slide-in-from-top-2"
         aria-label="Timelink 설치 안내"

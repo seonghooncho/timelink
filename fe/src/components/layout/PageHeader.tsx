@@ -27,7 +27,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, showBack = false, backTo
   };
 
   return (
-    <header className="sticky top-0 z-40 glass bg-card/80 border-b border-border/40">
+    <header className="sticky top-0 app-layer-header glass bg-card/80 border-b border-border/40">
       <div className="flex items-center justify-between h-14 px-5">
         <div className="flex items-center gap-3">
           {showBack && (

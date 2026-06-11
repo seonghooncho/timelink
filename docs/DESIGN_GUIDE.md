@@ -36,14 +36,14 @@
 
 | 카테고리 | Base | Light | Strong |
 |---------|------|-------|--------|
-| `task` (과제) | 파랑 215° | 밝은 파랑 | 진한 파랑 |
-| `appointment` (약속) | 초록 145° | 밝은 초록 | 진한 초록 |
+| `task` (과제) | 파랑 220° | 밝은 파랑 | 진한 파랑 |
+| `appointment` (약속) | 초록 160° | 밝은 초록 | 진한 초록 |
 | `important` (중요) | 빨강 0° | 밝은 빨강 | 진한 빨강 |
-| `group` (그룹) | 보라 270° | 밝은 보라 | 진한 보라 |
-| `repeat` (반복) | 주황 32° | 밝은 주황 | 진한 주황 |
+| `group` (그룹) | 보라 260° | 밝은 보라 | 진한 보라 |
+| `repeat` (반복) | 주황 30° | 밝은 주황 | 진한 주황 |
 
 ### 1.4 간격 & 라운딩
-- `--radius`: `0.75rem` (12px)
+- `--radius`: `1rem` (16px)
 - 카드: `rounded-xl` (12px) ~ `rounded-2xl` (16px)
 - 버튼: `rounded-lg` (8px) ~ `rounded-xl` (12px)
 
@@ -52,6 +52,27 @@
 - `slide-up`: 바텀시트 등장 (0.3s ease-out)
 - `fade-in`: 페이드 인 (0.2s ease-out)
 - framer-motion: 모달, 확인창에 spring 애니메이션 사용
+
+### 1.6 레이어 & 오버레이
+
+[Material elevation](https://m2.material.io/design/environment/elevation.html), [Apple HIG modality](https://developer.apple.com/design/human-interface-guidelines/modality), [WAI-ARIA modal dialog](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/), [Radix Portal](https://www.radix-ui.com/primitives/docs/components/dialog) 패턴을 기준으로 앱 레이어를 제한된 단계로 관리한다.
+
+| Layer | Token | 용도 |
+|-------|-------|------|
+| Content | `app-layer-content` / `app-layer-content-raised` | 일반 콘텐츠, 카드 내부 강조 요소 |
+| Header | `app-layer-header` | sticky 상단 헤더 |
+| Floating | `app-layer-floating` | FAB, 그룹 상세 고정 액션바 |
+| Navigation | `app-layer-navigation` | 하단 고정 내비게이션 |
+| Popover | `app-layer-popover` | 드롭다운, 툴팁, 시간 선택 메뉴 |
+| Notice | `app-layer-notice` | PWA 설치 안내처럼 비차단 상단 안내 |
+| Overlay | `app-layer-overlay` | 배경을 덮는 dim/scrim |
+| Modal | `app-layer-modal` | Dialog, Sheet, Drawer, 바텀시트 콘텐츠 |
+| Critical | `app-layer-critical` | 확인 모달, 토스트처럼 마지막에 보여야 하는 피드백 |
+
+- 하단 내비게이션보다 위에 떠야 하는 요소는 `popover` 이상을 사용한다.
+- 배경을 막는 UI는 overlay와 content 레이어를 분리한다.
+- 바텀시트는 `app-bottom-sheet-root`와 `app-bottom-sheet-panel`을 함께 사용해 하단 내비게이션 영역을 침범하지 않는다.
+- 새 컴포넌트에서 임의의 `z-50`, `z-[100]`을 만들기보다 위 레이어 유틸리티를 먼저 사용한다.
 
 ---
 
@@ -81,7 +102,7 @@
 ### `BottomNav`
 > 하단 고정 네비게이션 (홈/캘린더/그룹/마이)
 - 현재 경로에 따라 활성 상태 자동 표시
-- `safe-bottom` 클래스로 노치 대응
+- `app-bottom-nav`와 `app-layer-navigation`으로 safe-area와 레이어를 함께 관리
 
 ---
 
@@ -151,7 +172,7 @@
 ### `ScheduleStrip` ✨ NEW
 > 날짜별 그룹화된 수평 스크롤 일정 카드 목록
 - Props: `groups`, `onScheduleClick`, `onComplete`, `emptyMessage`
-- MainPage, GroupDetailPage에서 공통 사용
+- MainPage에서 홈 일정 카드 영역으로 사용
 
 ```tsx
 <ScheduleStrip
@@ -244,4 +265,4 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-*마지막 업데이트: 2026-03-08*
+*마지막 업데이트: 2026-06-12*

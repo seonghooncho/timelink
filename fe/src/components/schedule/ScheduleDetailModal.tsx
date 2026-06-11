@@ -80,7 +80,7 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-x-0 top-0 z-[90] flex items-end justify-center app-bottom-sheet-root"
+          className="fixed inset-x-0 top-0 app-layer-modal flex items-end justify-center app-bottom-sheet-root"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
