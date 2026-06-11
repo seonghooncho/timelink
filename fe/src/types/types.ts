@@ -21,5 +21,6 @@ export interface Group {
   image?: string;
   inviteCode?: string;
   memberCount?: number;
+  myRole?: string;
   schedules: Schedule[];
 }

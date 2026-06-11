@@ -77,4 +77,11 @@ public class GroupController {
         service.leave(userId, id);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{id}/members/{memberUserId}")
+    public ResponseEntity<Void> removeMember(@PathVariable String id, @PathVariable String memberUserId) {
+        String userId = AuthUtil.getCurrentUserId();
+        service.removeMember(userId, id, memberUserId);
+        return ResponseEntity.noContent().build();
+    }
 }

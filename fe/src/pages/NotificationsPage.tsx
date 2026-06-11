@@ -71,7 +71,7 @@ const NotificationsPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title="알림" showBack />
+      <PageHeader title="알림" showBack backTo="/mypage" />
       <TabBar tabs={TABS} activeKey={tab} onChange={setTab} />
 
       <div className="px-5 py-3 space-y-2.5">

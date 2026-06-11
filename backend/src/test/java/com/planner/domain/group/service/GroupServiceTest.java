@@ -99,9 +99,30 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("update — 매니저만 수정 가능")
-    void update_notManager_throws() {
+    @DisplayName("update — 그룹 멤버라면 정보 수정 가능")
+    void update_memberCanUpdate() {
+        Group group = sampleGroup("g1", "other");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(sampleMember("g1", "user1", "member")));
+
+        GroupUpdateReqDTO req = new GroupUpdateReqDTO();
+        req.setName("Updated");
+        req.setDescription("New description");
+
+        service.update("user1", "g1", req);
+
+        verify(repository).saveGroup(argThat(saved ->
+                "Updated".equals(saved.getName())
+                        && "New description".equals(saved.getDescription())
+        ));
+    }
+
+    @Test
+    @DisplayName("update — 그룹 멤버가 아니면 예외")
+    void update_notMember_throws() {
         when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
 
         GroupUpdateReqDTO req = new GroupUpdateReqDTO();
         req.setName("Updated");
@@ -215,5 +236,39 @@ class GroupServiceTest {
 
         service.leave("user1", "g1");
         verify(repository).deleteMember("g1", "user1");
+    }
+
+    @Test
+    @DisplayName("removeMember — 관리자가 다른 멤버를 내보낸다")
+    void removeMember_managerRemovesMember() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
+        when(repository.findMember("g1", "user2")).thenReturn(Optional.of(sampleMember("g1", "user2", "member")));
+
+        service.removeMember("user1", "g1", "user2");
+
+        verify(repository).deleteMember("g1", "user2");
+    }
+
+    @Test
+    @DisplayName("removeMember — 일반 멤버는 내보낼 수 없다")
+    void removeMember_memberThrows() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+
+        assertThatThrownBy(() -> service.removeMember("user1", "g1", "user2"))
+                .isInstanceOf(GroupException.class);
+        verify(repository, never()).deleteMember(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("removeMember — 자기 자신은 멤버 관리에서 내보낼 수 없다")
+    void removeMember_selfThrows() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
+
+        assertThatThrownBy(() -> service.removeMember("user1", "g1", "user1"))
+                .isInstanceOf(GroupException.class);
+        verify(repository, never()).deleteMember(anyString(), anyString());
     }
 }

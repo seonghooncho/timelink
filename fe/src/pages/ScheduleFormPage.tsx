@@ -141,7 +141,7 @@ const ScheduleFormPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title="일정 등록" showBack />
+      <PageHeader title="일정 등록" showBack backTo={initialContext.groupId ? `/groups/${initialContext.groupId}` : '/'} />
       <div className="px-4 py-4 space-y-5">
         {initialContext.sourceLabel ? (
           <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">

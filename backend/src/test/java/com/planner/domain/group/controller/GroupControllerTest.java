@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
+import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.service.GroupService;
@@ -134,11 +135,41 @@ class GroupControllerTest {
 
     @Test
     @WithMockUser(username = "user1")
+    @DisplayName("PATCH /groups/{id} — 그룹 정보 수정 200")
+    void update_returns200() throws Exception {
+        GroupUpdateReqDTO req = new GroupUpdateReqDTO();
+        req.setName("Updated");
+
+        GroupDetailResDTO res = GroupDetailResDTO.builder()
+                .id("g1").name("Updated").members(List.of()).build();
+        when(service.update(eq("user1"), eq("g1"), any())).thenReturn(res);
+
+        mockMvc.perform(patch(BASE + "/g1").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Updated"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
     @DisplayName("DELETE /groups/{id} — 삭제 204")
     void delete_returns204() throws Exception {
         doNothing().when(service).delete("user1", "g1");
 
         mockMvc.perform(delete(BASE + "/g1").with(csrf()))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("DELETE /groups/{id}/members/{memberUserId} — 멤버 내보내기 204")
+    void removeMember_returns204() throws Exception {
+        doNothing().when(service).removeMember("user1", "g1", "user2");
+
+        mockMvc.perform(delete(BASE + "/g1/members/user2").with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(service).removeMember("user1", "g1", "user2");
     }
 }

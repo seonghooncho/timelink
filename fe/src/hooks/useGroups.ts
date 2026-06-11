@@ -17,6 +17,7 @@ export function useGroups() {
         image: g.imageUrl,
         inviteCode: g.inviteCode,
         memberCount: g.memberCount,
+        myRole: g.myRole,
         schedules: [],
       } as Group));
     },

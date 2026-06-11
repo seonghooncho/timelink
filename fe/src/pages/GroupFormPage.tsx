@@ -59,7 +59,7 @@ const GroupFormPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title="새 그룹 만들기" showBack />
+      <PageHeader title="새 그룹 만들기" showBack backTo="/groups" />
       <form onSubmit={handleSubmit} className="px-4 py-4 space-y-5">
         <div className="space-y-2">
           <label className="text-sm font-semibold text-foreground">그룹 사진</label>

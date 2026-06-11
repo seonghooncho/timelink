@@ -403,7 +403,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `PATCH` /api/planner/v1/groups/:id
 
-그룹 정보 수정. **manager만** 수행 가능.
+그룹 정보 수정. **그룹 멤버라면** 수행 가능.
 
 **Request Body** (변경할 필드만)
 ```json
@@ -416,7 +416,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 **Response** `200 OK` — GroupDetailResDTO 반환
 
-**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+**Error** `403 NOT_GROUP_MEMBER` — 그룹 멤버가 아닌 경우
 
 ---
 
@@ -493,6 +493,19 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 그룹 나가기 (본인).
 
 **Response** `204 No Content`
+
+---
+
+#### `DELETE` /api/planner/v1/groups/:groupId/members/:memberUserId`
+
+그룹 멤버 내보내기. **manager만** 수행 가능.
+자기 자신은 이 엔드포인트로 내보낼 수 없으며, 본인 탈퇴는 `/members/me`를 사용합니다.
+
+**Response** `204 No Content`
+
+**Error** `400 CANNOT_REMOVE_SELF` — 자기 자신을 내보내려는 경우
+**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+**Error** `403 NOT_GROUP_MEMBER` — 요청자 또는 대상자가 그룹 멤버가 아닌 경우
 
 ---
 
@@ -1055,11 +1068,12 @@ auth-session (JWT subject = userId)
 | `GET` | `/groups` | 내 그룹 목록 | 인증 | ✅ |
 | `GET` | `/groups/:id` | 그룹 상세 | 멤버 | ✅ |
 | `POST` | `/groups` | 그룹 생성 | 인증 | ✅ |
-| `PATCH` | `/groups/:id` | 그룹 수정 | manager | ✅ |
+| `PATCH` | `/groups/:id` | 그룹 수정 | 멤버 | ✅ |
 | `DELETE` | `/groups/:id` | 그룹 삭제 (멤버 cleanup 포함) | manager | ✅ |
 | `POST` | `/groups/join` | 초대코드 가입 | 인증 | ✅ |
 | `GET` | `/groups/:gid/members` | 멤버 목록 | 멤버 | ✅ |
 | `DELETE` | `/groups/:gid/members/me` | 그룹 나가기 | 멤버 | ✅ |
+| `DELETE` | `/groups/:gid/members/:memberUserId` | 멤버 내보내기 | manager | ✅ |
 | `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | ✅ |
 | `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | ✅ |
 | `POST` | `/groups/:gid/coordinations` | 조율 생성 | 멤버 | ✅ |
@@ -1079,8 +1093,8 @@ auth-session (JWT subject = userId)
 | `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
 
 > **Base URL prefix**: `api/planner/v1`  
-> **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`), 멤버 내보내기(`DELETE /groups/:gid/members/:mid`)
+> **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`)
 
 ---
 
-*마지막 업데이트: 2026-03-09 (백엔드 auth/storage, DynamoDB/PartiQL 운영 기준 반영)*
+*마지막 업데이트: 2026-06-11 (그룹 수정 권한 및 멤버 내보내기 API 반영)*

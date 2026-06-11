@@ -2,16 +2,19 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
-import { coordinationApi, CoordinationDetailResponse, HeatmapEntry, SlotEntry } from '@/services/api';
+import { coordinationApi, CoordinationDetailResponse, groupApi, GroupMemberResponse, HeatmapEntry, SlotEntry } from '@/services/api';
 import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
 import { X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
 import {
   buildCoordinationSlotKey,
   formatCoordinationHourTime,
+  getCoordinationDateWindowStarts,
+  getRecommendedCoordinationAvailabilityWindow,
   getRecommendedCoordinationScheduleSlot,
   groupSchedulesByCoordinationSlot,
 } from '@/lib/coordinationTimetable';
@@ -25,11 +28,19 @@ const CoordinationTimetablePage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'select' | 'result'>('select');
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
   const [selectedSlotDetail, setSelectedSlotDetail] = useState<string | null>(null);
+  const [members, setMembers] = useState<GroupMemberResponse[]>([]);
+  const [showRecommendationModal, setShowRecommendationModal] = useState(false);
+  const [hasShownRecommendationModal, setHasShownRecommendationModal] = useState(false);
+  const [dateWindowStart, setDateWindowStart] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!groupId || !coordId) return;
     setIsLoading(true);
+    setSelectedSlotDetail(null);
+    setShowRecommendationModal(false);
+    setHasShownRecommendationModal(false);
+    setDateWindowStart(0);
     coordinationApi.getById(groupId, coordId).then(data => {
       setCoordination(data);
       if (data.myResponses) {
@@ -41,6 +52,11 @@ const CoordinationTimetablePage: React.FC = () => {
     }).catch(() => {}).finally(() => setIsLoading(false));
   }, [groupId, coordId]);
 
+  useEffect(() => {
+    if (!groupId) return;
+    groupApi.getMembers(groupId).then(setMembers).catch(() => setMembers([]));
+  }, [groupId]);
+
   const dates = useMemo(() => coordination?.dates ?? [], [coordination?.dates]);
   const startHour = coordination?.startHour ?? 9;
   const endHour = coordination?.endHour ?? 18;
@@ -49,6 +65,20 @@ const CoordinationTimetablePage: React.FC = () => {
   const hours = useMemo(() => { const h: number[] = []; for (let i = startHour; i < endHour; i++) h.push(i); return h; }, [startHour, endHour]);
 
   const parsedDates = useMemo(() => dates.map(d => { const parts = d.split('-').map(Number); return new Date(parts[0], parts[1] - 1, parts[2]); }), [dates]);
+  const dateWindowStarts = useMemo(() => getCoordinationDateWindowStarts(parsedDates.length), [parsedDates.length]);
+  const normalizedDateWindowStart = dateWindowStarts.includes(dateWindowStart) ? dateWindowStart : dateWindowStarts[0];
+  const currentDateWindowIndex = Math.max(0, dateWindowStarts.indexOf(normalizedDateWindowStart));
+  const visibleDateItems = useMemo(() => {
+    return parsedDates
+      .slice(normalizedDateWindowStart, normalizedDateWindowStart + 5)
+      .map((date, offset) => ({
+        date,
+        dateIndex: normalizedDateWindowStart + offset,
+      }));
+  }, [normalizedDateWindowStart, parsedDates]);
+  const dateGridTemplateColumns = `2.5rem repeat(${Math.max(visibleDateItems.length, 1)}, minmax(0, 1fr))`;
+  const hasDateWindowPaging = parsedDates.length > 5;
+
   const scheduleRange = useMemo(() => {
     if (parsedDates.length === 0) return undefined;
     return {
@@ -70,9 +100,23 @@ const CoordinationTimetablePage: React.FC = () => {
     return map;
   }, [coordination, dates]);
 
+  const recommendedWindow = useMemo(() => {
+    return getRecommendedCoordinationAvailabilityWindow(coordination?.heatmap ?? [], dates);
+  }, [coordination?.heatmap, dates]);
+
+  const membersByUserId = useMemo(() => {
+    return new Map(members.map((member) => [member.userId, member]));
+  }, [members]);
+
   const userSchedulesBySlot = useMemo(() => {
     return groupSchedulesByCoordinationSlot(schedules, parsedDates, hours);
   }, [schedules, parsedDates, hours]);
+
+  useEffect(() => {
+    if (viewMode !== 'result' || !coordination || hasShownRecommendationModal) return;
+    setShowRecommendationModal(true);
+    setHasShownRecommendationModal(true);
+  }, [coordination, hasShownRecommendationModal, viewMode]);
 
   const toggleSlot = (dateIdx: number, hour: number) => {
     const key = `${dateIdx}-${hour}`;
@@ -85,6 +129,15 @@ const CoordinationTimetablePage: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const moveDateWindow = (direction: 'prev' | 'next') => {
+    const nextIndex = direction === 'next' ? currentDateWindowIndex + 1 : currentDateWindowIndex - 1;
+    const nextStart = dateWindowStarts[nextIndex];
+    if (nextStart === undefined) return;
+
+    setDateWindowStart(nextStart);
+    setSelectedSlotDetail(null);
   };
 
   const handleSubmit = async () => {
@@ -153,9 +206,45 @@ const CoordinationTimetablePage: React.FC = () => {
   const getResultColor = (ratio: number) => ratio >= 0.75 ? 'bg-coord-blue' : ratio >= 0.5 ? 'bg-coord-green' : 'bg-coord-gray';
   const getResultOpacity = (count: number, total: number) => { if (total <= 1) return 100; return 35 + ((count - 1) / (total - 1)) * 65; };
   const formatDateLabel = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const formatDateText = (value: string) => {
+    const date = parsedDates[dates.indexOf(value)];
+    return date ? formatDateLabel(date) : value;
+  };
+  const getParticipantName = (userId: string) => membersByUserId.get(userId)?.nickname || '알 수 없는 멤버';
+  const getParticipantFallback = (userId: string) => getParticipantName(userId).slice(0, 1).toUpperCase();
+  const renderDateWindowPager = () => {
+    if (!hasDateWindowPaging) return null;
 
-  if (isLoading) return (<MobileLayout><PageHeader title="시간 조율" showBack /><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div></MobileLayout>);
-  if (!coordination) return (<MobileLayout><PageHeader title="시간 조율" showBack /><div className="p-8 text-center text-muted-foreground">조율 정보를 찾을 수 없습니다</div></MobileLayout>);
+    return (
+      <div className="mb-2 grid grid-cols-2 gap-2 px-4">
+        {currentDateWindowIndex > 0 ? (
+          <button
+            type="button"
+            onClick={() => moveDateWindow('prev')}
+            className="rounded-xl border border-border bg-card px-3 py-2 text-left text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            &lt; ({visibleDateItems.length}/{parsedDates.length}) 이전 일자가 있습니다
+          </button>
+        ) : (
+          <div />
+        )}
+        {currentDateWindowIndex < dateWindowStarts.length - 1 ? (
+          <button
+            type="button"
+            onClick={() => moveDateWindow('next')}
+            className="rounded-xl border border-border bg-card px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            ({visibleDateItems.length}/{parsedDates.length}) 다음 일자들이 있습니다. &gt;
+          </button>
+        ) : (
+          <div />
+        )}
+      </div>
+    );
+  };
+
+  if (isLoading) return (<MobileLayout><PageHeader title="시간 조율" showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} /><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div></MobileLayout>);
+  if (!coordination) return (<MobileLayout><PageHeader title="시간 조율" showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} /><div className="p-8 text-center text-muted-foreground">조율 정보를 찾을 수 없습니다</div></MobileLayout>);
 
   const allUsers = new Set<string>();
   coordination.heatmap?.forEach(h => h.users?.forEach(u => allUsers.add(u)));
@@ -163,7 +252,7 @@ const CoordinationTimetablePage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title={title} showBack />
+      <PageHeader title={title} showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} />
       <div className="flex gap-2 px-4 py-3">
         <button onClick={() => setViewMode('select')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'select' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>내가 가능한 시간</button>
         <button onClick={() => setViewMode('result')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'result' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>모두 가능한 시간</button>
@@ -172,47 +261,44 @@ const CoordinationTimetablePage: React.FC = () => {
       {viewMode === 'select' ? (
         <>
           <p className="px-4 text-xs text-muted-foreground mb-3">가능한 시간을 터치하여 선택하세요.</p>
+          {renderDateWindowPager()}
           <div className="mx-4 overflow-hidden rounded-xl border border-border bg-card">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="min-w-max">
-                <div className="flex border-b border-border">
-                  <div className="w-10 shrink-0" />
-                  {parsedDates.map((d, i) => (
-                    <div key={i} className="w-16 shrink-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
-                      {formatDateLabel(d)}
-                    </div>
-                  ))}
+            <div className="grid border-b border-border" style={{ gridTemplateColumns: dateGridTemplateColumns }}>
+              <div />
+              {visibleDateItems.map(({ date, dateIndex }) => (
+                <div key={dateIndex} className="min-w-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
+                  {formatDateLabel(date)}
                 </div>
-                <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-                  {hours.map(hour => (
-                    <div key={hour} className="flex border-b border-border/50">
-                      <div className="flex w-10 shrink-0 items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
-                      {parsedDates.map((_, dIdx) => {
-                        const key = buildCoordinationSlotKey(dIdx, hour);
-                        const isSelected = selectedSlots.has(key);
-                        const existingSchedules = userSchedulesBySlot[key];
-                        return (
-                          <button
-                            key={dIdx}
-                            type="button"
-                            aria-pressed={isSelected}
-                            onClick={() => toggleSlot(dIdx, hour)}
-                            className={`relative h-10 w-16 shrink-0 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
-                          >
-                            {renderExistingScheduleLayer(existingSchedules)}
-                            {isSelected && (
-                              <div className="pointer-events-none absolute inset-0 z-10 bg-primary/35" />
-                            )}
-                            {isSelected && (
-                              <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 rounded-full bg-primary shadow-sm" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+              ))}
+            </div>
+            <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
+              {hours.map(hour => (
+                <div key={hour} className="grid border-b border-border/50" style={{ gridTemplateColumns: dateGridTemplateColumns }}>
+                  <div className="flex items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
+                  {visibleDateItems.map(({ dateIndex }) => {
+                    const key = buildCoordinationSlotKey(dateIndex, hour);
+                    const isSelected = selectedSlots.has(key);
+                    const existingSchedules = userSchedulesBySlot[key];
+                    return (
+                      <button
+                        key={dateIndex}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => toggleSlot(dateIndex, hour)}
+                        className={`relative h-10 min-w-0 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
+                      >
+                        {renderExistingScheduleLayer(existingSchedules)}
+                        {isSelected && (
+                          <div className="pointer-events-none absolute inset-0 z-10 bg-primary/35" />
+                        )}
+                        {isSelected && (
+                          <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 h-1.5 w-1.5 rounded-full bg-primary shadow-sm" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              ))}
             </div>
           </div>
           {hasNextSchedulePage ? (
@@ -237,57 +323,43 @@ const CoordinationTimetablePage: React.FC = () => {
             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-coord-green" /><span className="text-[10px] text-muted-foreground">50~75%</span></div>
             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-coord-blue" /><span className="text-[10px] text-muted-foreground">75~100%</span></div>
           </div>
+          {renderDateWindowPager()}
           <div className="mx-4 overflow-hidden rounded-xl border border-border bg-card">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="min-w-max">
-                <div className="flex border-b border-border">
-                  <div className="w-10 shrink-0" />
-                  {parsedDates.map((d, i) => (
-                    <div key={i} className="w-16 shrink-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
-                      {formatDateLabel(d)}
-                    </div>
-                  ))}
+            <div className="grid border-b border-border" style={{ gridTemplateColumns: dateGridTemplateColumns }}>
+              <div />
+              {visibleDateItems.map(({ date, dateIndex }) => (
+                <div key={dateIndex} className="min-w-0 py-2 text-center text-[10px] font-medium text-muted-foreground">
+                  {formatDateLabel(date)}
                 </div>
-                <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-                  {hours.map(hour => (
-                    <div key={hour} className="flex border-b border-border/50">
-                      <div className="flex w-10 shrink-0 items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
-                      {parsedDates.map((_, dIdx) => {
-                        const key = `${dIdx}-${hour}`;
-                        const entry = heatmapMap[key];
-                        const count = entry?.count || 0;
-                        const ratio = count / totalParticipants;
-                        const opacity = count > 0 ? getResultOpacity(count, totalParticipants) : 0;
-                        return (
-                          <button key={dIdx} onClick={() => setSelectedSlotDetail(selectedSlotDetail === key ? null : key)}
-                            className={`relative h-10 w-16 shrink-0 border-l border-border/50 transition-colors ${count > 0 ? getResultColor(ratio) : ''} ${selectedSlotDetail === key ? 'ring-2 ring-foreground ring-inset' : ''}`}
-                            style={count > 0 ? { opacity: opacity / 100 } : {}}>
-                            {count > 0 && <span className="text-[9px] font-bold text-foreground">{count}</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+              ))}
+            </div>
+            <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
+              {hours.map(hour => (
+                <div key={hour} className="grid border-b border-border/50" style={{ gridTemplateColumns: dateGridTemplateColumns }}>
+                  <div className="flex items-center justify-end pr-1.5 text-[10px] text-muted-foreground">{hour}</div>
+                  {visibleDateItems.map(({ dateIndex }) => {
+                    const key = `${dateIndex}-${hour}`;
+                    const entry = heatmapMap[key];
+                    const count = entry?.count || 0;
+                    const ratio = count / totalParticipants;
+                    const opacity = count > 0 ? getResultOpacity(count, totalParticipants) : 0;
+                    return (
+                      <button
+                        key={dateIndex}
+                        type="button"
+                        onClick={() => count > 0 && setSelectedSlotDetail(key)}
+                        className={`relative h-10 min-w-0 border-l border-border/50 transition-colors ${count > 0 ? getResultColor(ratio) : ''} ${selectedSlotDetail === key ? 'ring-2 ring-foreground ring-inset' : ''}`}
+                        disabled={count === 0}
+                        style={count > 0 ? { opacity: opacity / 100 } : {}}
+                      >
+                        {count > 0 && <span className="text-[9px] font-bold text-foreground">{count}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              ))}
             </div>
           </div>
-          {selectedSlotDetail && (() => {
-            const entry = heatmapMap[selectedSlotDetail];
-            if (!entry) return null;
-            const [dIdxStr, hourStr] = selectedSlotDetail.split('-');
-            return (
-              <div className="mx-4 mt-3 p-3 bg-card rounded-xl border border-border animate-fade-in">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-foreground">{formatDateLabel(parsedDates[parseInt(dIdxStr)])} {parseInt(hourStr)}:00</p>
-                  <button onClick={() => setSelectedSlotDetail(null)}><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
-                </div>
-                <div className="max-h-28 overflow-y-auto">
-                  <div className="flex flex-wrap gap-1.5">{entry.users?.map((u, i) => (<span key={i} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{u}</span>))}</div>
-                </div>
-              </div>
-            );
-          })()}
           <div className="px-4 mt-4">
             <button
               type="button"
@@ -302,8 +374,160 @@ const CoordinationTimetablePage: React.FC = () => {
           </div>
         </>
       )}
+      {showRecommendationModal ? (
+        <RecommendationModal
+          window={recommendedWindow}
+          formatDateText={formatDateText}
+          onClose={() => setShowRecommendationModal(false)}
+        />
+      ) : null}
+      {selectedSlotDetail && heatmapMap[selectedSlotDetail] ? (
+        <SlotParticipantsModal
+          entry={heatmapMap[selectedSlotDetail]}
+          dateText={formatDateLabel(parsedDates[parseInt(selectedSlotDetail.split('-')[0])])}
+          hour={parseInt(selectedSlotDetail.split('-')[1])}
+          membersByUserId={membersByUserId}
+          getParticipantName={getParticipantName}
+          getParticipantFallback={getParticipantFallback}
+          onClose={() => setSelectedSlotDetail(null)}
+        />
+      ) : null}
     </MobileLayout>
   );
 };
+
+interface RecommendationModalProps {
+  window: ReturnType<typeof getRecommendedCoordinationAvailabilityWindow>;
+  formatDateText: (value: string) => string;
+  onClose: () => void;
+}
+
+function RecommendationModal({ window, formatDateText, onClose }: RecommendationModalProps) {
+  return (
+    <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
+      <div
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-bold text-foreground">추천 시간</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">타임슬롯을 선택하면 투표 인원을 확인할 수 있어요.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          {window ? (
+            <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-4">
+              <p className="text-[11px] font-semibold text-primary">가장 많이 겹친 시간</p>
+              <p className="mt-1 text-lg font-bold text-foreground">
+                {formatDateText(window.date)} {formatCoordinationHourTime(window.startHour)} - {formatCoordinationHourTime(window.endHour)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {window.count}명이 가능하고, {window.slots.length}시간 연속으로 겹칩니다.
+              </p>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+              아직 투표된 시간이 없습니다. 멤버들이 가능한 시간을 제출하면 추천 시간이 표시됩니다.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SlotParticipantsModalProps {
+  entry: HeatmapEntry;
+  dateText: string;
+  hour: number;
+  membersByUserId: Map<string, GroupMemberResponse>;
+  getParticipantName: (userId: string) => string;
+  getParticipantFallback: (userId: string) => string;
+  onClose: () => void;
+}
+
+function SlotParticipantsModal({
+  entry,
+  dateText,
+  hour,
+  membersByUserId,
+  getParticipantName,
+  getParticipantFallback,
+  onClose,
+}: SlotParticipantsModalProps) {
+  const users = entry.users ?? [];
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={onClose}>
+      <div
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-bold text-foreground">투표 인원</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {dateText} {formatCoordinationHourTime(hour)} · {entry.count}명
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {users.length > 0 ? (
+            <div className="space-y-2">
+              {users.map((userId) => {
+                const member = membersByUserId.get(userId);
+                const name = getParticipantName(userId);
+                return (
+                  <div key={userId} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3">
+                    <Avatar className="h-11 w-11 border border-border/70">
+                      <AvatarImage src={member?.avatarUrl} alt={name} />
+                      <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                        {getParticipantFallback(userId)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">가능하다고 투표했습니다</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
+              투표 인원을 불러오지 못했습니다.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default CoordinationTimetablePage;

@@ -86,9 +86,7 @@ public class GroupService {
 
     public GroupDetailResDTO update(String userId, String groupId, GroupUpdateReqDTO req) {
         Group group = findGroupOrThrow(groupId);
-        if (!group.getCreatedBy().equals(userId)) {
-            throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
-        }
+        verifyMembership(groupId, userId);
 
         if (req.getName() != null) group.setName(req.getName());
         if (req.getDescription() != null) group.setDescription(req.getDescription());
@@ -146,6 +144,24 @@ public class GroupService {
         findGroupOrThrow(groupId);
         verifyMembership(groupId, userId);
         repository.deleteMember(groupId, userId);
+    }
+
+    public void removeMember(String managerUserId, String groupId, String targetUserId) {
+        findGroupOrThrow(groupId);
+        GroupMember manager = repository.findMember(groupId, managerUserId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+
+        if (!"manager".equals(manager.getRole())) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
+        }
+
+        if (managerUserId.equals(targetUserId)) {
+            throw new GroupException(GroupErrorCode.CANNOT_REMOVE_SELF);
+        }
+
+        repository.findMember(groupId, targetUserId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+        repository.deleteMember(groupId, targetUserId);
     }
 
     // ── private helpers ──

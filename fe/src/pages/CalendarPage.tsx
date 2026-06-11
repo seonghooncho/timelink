@@ -65,6 +65,7 @@ const CalendarPage: React.FC = () => {
 
   const isToday = (day: number) => day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
   const selectedSchedules = selectedDay ? getSchedulesForDay(selectedDay) : [];
+  const shouldScrollSelectedSchedules = selectedSchedules.length >= 5;
 
   const handleUpdate = (id: string, updates: Partial<Schedule>) => {
     updateMutation.mutate(
@@ -133,7 +134,10 @@ const CalendarPage: React.FC = () => {
               {selectedSchedules.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">일정이 없습니다</p>
               ) : (
-                <div className="space-y-2">
+                <div
+                  className={`space-y-2 ${shouldScrollSelectedSchedules ? 'max-h-[360px] overflow-y-auto pr-1 scrollbar-hide' : ''}`}
+                  aria-label={shouldScrollSelectedSchedules ? '선택한 날짜의 일정 목록' : undefined}
+                >
                   {selectedSchedules.map(s => (
                     <button key={s.id} onClick={() => setDetailSchedule(s)}
                       className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border text-left hover:border-muted-foreground/20 transition-all">
