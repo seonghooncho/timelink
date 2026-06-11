@@ -9,7 +9,6 @@ interface ScrollableFadeListProps {
   viewportClassName?: string;
   contentClassName?: string;
   maxHeightClassName?: string;
-  fadeFromClassName?: string;
   onReachEnd?: () => void;
   isLoadingMore?: boolean;
   loadingLabel?: string;
@@ -22,7 +21,6 @@ const ScrollableFadeList: React.FC<ScrollableFadeListProps> = ({
   viewportClassName,
   contentClassName,
   maxHeightClassName = 'max-h-[360px]',
-  fadeFromClassName = 'from-background',
   onReachEnd,
   isLoadingMore = false,
   loadingLabel = '더 불러오는 중...',
@@ -57,13 +55,13 @@ const ScrollableFadeList: React.FC<ScrollableFadeListProps> = ({
       {canScrollStart ? (
         <div
           aria-hidden="true"
-          className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b to-transparent', fadeFromClassName)}
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-black/20 via-black/10 to-transparent"
         />
       ) : null}
       {canScrollEnd ? (
         <div
           aria-hidden="true"
-          className={cn('pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t to-transparent', fadeFromClassName)}
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-black/20 via-black/10 to-transparent"
         />
       ) : null}
     </div>

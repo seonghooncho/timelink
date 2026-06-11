@@ -69,6 +69,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 
 ## 운영 문서
 
+- [기능 요구사항 명세서](FEATURE_REQUIREMENTS.md): 운영 중인 사용자 기능, 제약 조건, 예외 처리 기준을 화면과 유즈케이스 중심으로 정리한 문서입니다.
 - [운영 배포 유의사항](DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
 
 ## 백엔드 아키텍처 원칙

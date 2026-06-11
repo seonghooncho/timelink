@@ -118,11 +118,18 @@ curl -sS https://sotr621lgc.execute-api.ap-northeast-2.amazonaws.com/health
 
 ## 프론트 배포 방법
 
-`main`의 배포 대상 커밋에서 빌드합니다.
+`main`의 배포 대상 커밋에서 빌드합니다. Vite는 JS/CSS asset 파일명에 hash를 붙여 버저닝하므로, `index.html`은 항상 최신을 받게 하고 `/assets/*`는 장기 캐시해도 됩니다.
 
 ```sh
 npm run fe:build
-aws s3 sync fe/dist s3://planner-frontend-prod-160885253413 --delete
+aws s3 sync fe/dist s3://planner-frontend-prod-160885253413 \
+  --delete \
+  --exclude 'assets/*' \
+  --cache-control 'no-cache'
+
+aws s3 sync fe/dist/assets s3://planner-frontend-prod-160885253413/assets \
+  --delete \
+  --cache-control 'public,max-age=31536000,immutable'
 ```
 
 CloudFront 캐시를 무효화하고 완료까지 기다립니다.
@@ -138,6 +145,8 @@ aws cloudfront wait invalidation-completed \
   --distribution-id E6SMS7ZNIN4ZI \
   --id "$INVALIDATION_ID"
 ```
+
+프론트 롤백은 이전 git commit으로 다시 빌드한 뒤 같은 S3 업로드와 CloudFront invalidation 절차를 반복합니다.
 
 확인:
 
