@@ -82,3 +82,8 @@ output "ai_gemini_api_key_parameter_name" {
   description = "AI Gemini API key parameter name"
   value       = "${local.ai_ssm_prefix}/GEMINI_API_KEY"
 }
+
+output "monitoring_alert_topic_arn" {
+  description = "SNS topic ARN for CloudWatch monitoring alerts"
+  value       = aws_sns_topic.monitoring_alerts.arn
+}

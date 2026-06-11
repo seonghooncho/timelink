@@ -74,6 +74,7 @@ https://timelink.cloud/groups
 - 인증, CORS, 도메인, OAuth, PWA, service worker 변경이 있으면 소셜 로그인과 새 asset 반영을 배포 후 직접 확인합니다.
 - routine 코드 배포에는 Terraform apply를 사용하지 않습니다. 인프라 변경이 필요한 경우에만 별도 plan을 검토합니다.
 - CloudFront invalidation을 S3 업로드 뒤 반드시 수행합니다.
+- 기존 DynamoDB 아이템을 새 메타데이터 구조로 보강해야 하는 변경이면 `npm run ops:backfill-metadata -- --dry-run`으로 영향 범위를 먼저 봅니다.
 
 ## 백엔드 배포 방법
 
@@ -114,6 +115,12 @@ done
 aws lambda get-alias --function-name planner-prod-api --name live
 aws lambda get-alias --function-name planner-prod-notification-worker --name live
 curl -sS https://sotr621lgc.execute-api.ap-northeast-2.amazonaws.com/health
+```
+
+초대코드 매핑, `memberCount`, `responseCount` 같은 기존 데이터 보강이 필요한 배포에서는 백엔드 반영 직후 idempotent 백필을 한 번 실행합니다.
+
+```sh
+npm run ops:backfill-metadata -- --fix-duplicate-invites
 ```
 
 ## 프론트 배포 방법

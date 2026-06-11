@@ -9,6 +9,7 @@ import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
+import com.planner.domain.group.model.GroupInvite;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
@@ -34,6 +35,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GroupService {
 
+    private static final int INVITE_CODE_RETRY_LIMIT = 10;
+
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
     private final NotificationService notificationService;
@@ -42,12 +45,14 @@ public class GroupService {
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
         String now = Instant.now().toString();
+        String inviteCode = createUniqueInviteCode(groupId, now);
 
         Group group = Group.builder()
                 .pk("GROUP#" + groupId).sk("METADATA")
                 .id(groupId).name(req.getName()).description(req.getDescription())
                 .imageUrl(req.getImageUrl()).createdBy(userId)
-                .inviteCode(generateInviteCode())
+                .inviteCode(inviteCode)
+                .memberCount(1)
                 .createdAt(now).updatedAt(now)
                 .build();
         repository.saveGroup(group);
@@ -96,7 +101,7 @@ public class GroupService {
                             .map(group -> GroupConverter.toListResponse(
                                     group,
                                     m,
-                                    repository.findMembersByGroupId(groupId).size()
+                                    resolveMemberCount(group, groupId)
                             ))
                             .orElse(null);
                 })
@@ -134,12 +139,16 @@ public class GroupService {
         for (GroupMember m : members) {
             repository.deleteMember(groupId, m.getUserId());
         }
+        if (StringUtils.hasText(group.getInviteCode())) {
+            repository.deleteInvite(group.getInviteCode());
+        }
         repository.deleteGroup(groupId);
     }
 
     public GroupDetailResDTO join(String userId, String inviteCode) {
-        Group group = repository.findByInviteCode(inviteCode)
+        GroupInvite invite = repository.findInvite(inviteCode)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.INVALID_INVITE_CODE));
+        Group group = findGroupOrThrow(invite.getGroupId());
 
         if (repository.findMember(group.getId(), userId).isPresent()) {
             return getDetail(userId, group.getId());
@@ -155,6 +164,7 @@ public class GroupService {
                 .joinedAt(Instant.now().toString())
                 .build();
         repository.saveMember(member);
+        refreshMemberCountAfterChange(group, 1);
         notifyMemberJoined(group, member);
 
         return getDetail(userId, group.getId());
@@ -168,13 +178,14 @@ public class GroupService {
     }
 
     public void leave(String userId, String groupId) {
-        findGroupOrThrow(groupId);
+        Group group = findGroupOrThrow(groupId);
         verifyMembership(groupId, userId);
         repository.deleteMember(groupId, userId);
+        refreshMemberCountAfterChange(group, -1);
     }
 
     public void removeMember(String managerUserId, String groupId, String targetUserId) {
-        findGroupOrThrow(groupId);
+        Group group = findGroupOrThrow(groupId);
         GroupMember manager = repository.findMember(groupId, managerUserId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
 
@@ -189,6 +200,7 @@ public class GroupService {
         repository.findMember(groupId, targetUserId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
         repository.deleteMember(groupId, targetUserId);
+        refreshMemberCountAfterChange(group, -1);
     }
 
     // ── private helpers ──
@@ -246,10 +258,42 @@ public class GroupService {
                 .orElse(null);
     }
 
+    private String createUniqueInviteCode(String groupId, String now) {
+        for (int attempt = 0; attempt < INVITE_CODE_RETRY_LIMIT; attempt++) {
+            String inviteCode = generateInviteCode();
+            GroupInvite invite = GroupInvite.builder()
+                    .pk("INVITE#" + inviteCode)
+                    .sk("METADATA")
+                    .inviteCode(inviteCode)
+                    .groupId(groupId)
+                    .createdAt(now)
+                    .build();
+            if (repository.saveInviteIfAbsent(invite)) {
+                return inviteCode;
+            }
+        }
+        throw new GroupException(GroupErrorCode.INVALID_INVITE_CODE);
+    }
+
+    private int resolveMemberCount(Group group, String groupId) {
+        if (group.getMemberCount() != null && group.getMemberCount() >= 0) {
+            return group.getMemberCount();
+        }
+        return repository.findMembersByGroupId(groupId).size();
+    }
+
+    private void refreshMemberCountAfterChange(Group group, int delta) {
+        if (group.getMemberCount() == null) {
+            repository.setMemberCount(group.getId(), repository.findMembersByGroupId(group.getId()).size());
+            return;
+        }
+        repository.updateMemberCount(group.getId(), delta);
+    }
+
     private String generateInviteCode() {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder(6);
-        for (int i = 0; i < 6; i++) {
+        StringBuilder sb = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) {
             sb.append(chars.charAt(ThreadLocalRandom.current().nextInt(chars.length())));
         }
         return sb.toString();

@@ -23,6 +23,7 @@
     "test:k6": "k6 run test/k6/timelink-load-test.js",
     "test:cleanup-load": "node test/scripts/cleanup-load-test.mjs",
     "test:aws-metrics": "node test/scripts/collect-aws-metrics.mjs",
+    "ops:backfill-metadata": "node scripts/ops/backfill-dynamodb-metadata.mjs",
     "backend:run": "cd backend && ./gradlew bootRun",
     "backend:test": "cd backend && ./gradlew test",
     "ai:run": "cd ai && uvicorn app.main:app --reload --port 8000",

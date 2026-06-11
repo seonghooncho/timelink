@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Menu, Share2, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import {
   BeforeInstallPromptEvent,
   isIos,
@@ -7,7 +8,28 @@ import {
   isStandalonePwa,
 } from "@/utils/pwa";
 
+const DISMISSED_UNTIL_KEY = "timelink:pwa-install-dismissed-until";
+const DISMISS_DAYS = 7;
+const DISMISS_MS = DISMISS_DAYS * 24 * 60 * 60 * 1000;
+const WORK_FLOW_PATTERNS = [
+  /^\/auth\/callback(?:\/|$)/,
+  /^\/consent(?:\/|$)/,
+  /^\/schedule\/new(?:\/|$)/,
+  /^\/groups\/new(?:\/|$)/,
+  /^\/groups\/[^/]+\/coordination(?:\/|$)/,
+];
+
+function isDismissed() {
+  const dismissedUntil = Number(localStorage.getItem(DISMISSED_UNTIL_KEY) || 0);
+  return Number.isFinite(dismissedUntil) && Date.now() < dismissedUntil;
+}
+
+function isWorkFlowPath(pathname: string) {
+  return WORK_FLOW_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
 const PwaInstallPrompt = () => {
+  const { pathname } = useLocation();
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -15,7 +37,8 @@ const PwaInstallPrompt = () => {
   const mobileDevice = useMemo(() => isMobileDevice(), []);
 
   useEffect(() => {
-    if (isStandalonePwa()) {
+    if (isStandalonePwa() || isWorkFlowPath(pathname) || isDismissed()) {
+      setVisible(false);
       return;
     }
 
@@ -24,7 +47,9 @@ const PwaInstallPrompt = () => {
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
-      setVisible(true);
+      if (!isWorkFlowPath(window.location.pathname) && !isDismissed()) {
+        setVisible(true);
+      }
     };
 
     const handleAppInstalled = () => {
@@ -39,7 +64,12 @@ const PwaInstallPrompt = () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, [iosDevice]);
+  }, [iosDevice, pathname]);
+
+  const dismissPrompt = useCallback(() => {
+    localStorage.setItem(DISMISSED_UNTIL_KEY, String(Date.now() + DISMISS_MS));
+    setVisible(false);
+  }, []);
 
   const installPwa = useCallback(async () => {
     if (!installEvent) {
@@ -113,7 +143,7 @@ const PwaInstallPrompt = () => {
           type="button"
           className="pressable -mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="설치 안내 닫기"
-          onClick={() => setVisible(false)}
+          onClick={dismissPrompt}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>

@@ -50,7 +50,11 @@ describe('design layers', () => {
   });
 
   it('PWA 설치 안내는 notice 레이어를 사용한다', async () => {
-    render(<PwaInstallPrompt />);
+    render(
+      <MemoryRouter>
+        <PwaInstallPrompt />
+      </MemoryRouter>,
+    );
 
     const prompt = await screen.findByLabelText('Timelink 설치 안내');
 

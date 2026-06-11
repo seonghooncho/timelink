@@ -55,6 +55,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   ├── s3_cloudfront.tf # 프론트 CloudFront + S3
 │       │   ├── s3_storage.tf    # 업로드 이미지 버킷
 │       │   ├── ssm.tf           # 런타임 설정 SSM Parameter Store
+│       │   ├── monitoring.tf    # CloudWatch/SNS 운영 알림
 │       │   └── outputs.tf       # 배포 결과 출력
 │       ├── cloudflare_free/     # Workers.dev 기반 무료 프론트 서빙
 │       │   ├── main.tf
@@ -64,7 +65,8 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   └── README.md
 │       └── README.md
 ├── docs/                   # 설계/운영 문서
-│   └── infrastructure/     # 배포/아키텍처/부하테스트/확장 문서
+│   ├── infrastructure/     # 배포/아키텍처/부하테스트/확장 문서
+│   └── monitoring/         # 운영 초기 모니터링 문서
 └── README.md
 ```
 
@@ -73,6 +75,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 - [기능 요구사항 명세서](FEATURE_REQUIREMENTS.md): 운영 중인 사용자 기능, 제약 조건, 예외 처리 기준을 화면과 유즈케이스 중심으로 정리한 문서입니다.
 - [인프라 문서 인덱스](infrastructure/README.md): 배포, 아키텍처 정합성, 부하테스트, 확장 로드맵을 모아 둔 문서입니다.
 - [운영 배포 유의사항](infrastructure/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
+- [모니터링 v1](monitoring/MONITORING_V1.md): CloudWatch/SNS 기반 저비용 운영 알림과 확장 전환 기준을 정리한 문서입니다.
 
 ## 백엔드 아키텍처 원칙
 

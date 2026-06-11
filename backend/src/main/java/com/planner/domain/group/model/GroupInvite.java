@@ -1,32 +1,25 @@
-package com.planner.domain.coordination.model;
+package com.planner.domain.group.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
-
-import java.util.List;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @DynamoDbBean
-public class Coordination {
+public class GroupInvite {
 
     private String pk;
     private String sk;
-    private String id;
+    private String inviteCode;
     private String groupId;
-    private String createdBy;
-    private String title;
-    private String mode;
-    private List<String> dates;
-    private Integer startHour;
-    private Integer endHour;
-    private Integer responseCount;
-    private String status;
     private String createdAt;
 
     @DynamoDbPartitionKey

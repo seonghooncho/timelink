@@ -14,3 +14,4 @@
 - [아키텍처 정합성 점검](ARCHITECTURE_ALIGNMENT.md): 프론트/백엔드/인프라 호출 경로와 데이터 계약 정리입니다.
 - [부하테스트 결과](LOAD_TEST_REPORT.md): k6/Playwright로 확인한 현 구조의 처리량, 지연, 실패 양상입니다.
 - [확장 로드맵](SCALING_ROADMAP.md): 부하테스트 결과를 기준으로 언제 어떤 구조를 바꿀지 정리한 개선 문서입니다.
+- [모니터링 v1](../monitoring/MONITORING_V1.md): CloudWatch/SNS 기반 운영 초기 알림과 확장 전환 기준입니다.
