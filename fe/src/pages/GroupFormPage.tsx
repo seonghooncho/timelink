@@ -102,7 +102,6 @@ const GroupFormPage: React.FC = () => {
           {isUploading ? '생성 중...' : '그룹 만들기'}
         </button>
       </form>
-      <div className="h-24" />
     </MobileLayout>
   );
 };

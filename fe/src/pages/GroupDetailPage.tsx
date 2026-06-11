@@ -16,7 +16,6 @@ import { appToast } from '@/lib/appToast';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 
-const MEMBER_PREVIEW_LIMIT = 3;
 const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
 const COORDINATION_PREVIEW_LIMIT = 2;
 
@@ -124,7 +123,6 @@ const GroupDetailPage: React.FC = () => {
   }, [groupSchedules]);
 
   const memberCount = members.length || group?.memberCount || 0;
-  const previewMembers = sortedMembers.slice(0, MEMBER_PREVIEW_LIMIT);
   const visibleGroupSchedules = groupSchedulesExpanded ? sortedGroupSchedules : sortedGroupSchedules.slice(0, GROUP_SCHEDULE_PREVIEW_LIMIT);
   const visibleCoordinations = coordinationsExpanded ? coordinations : coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
@@ -289,54 +287,55 @@ const GroupDetailPage: React.FC = () => {
       </div>
 
       <div className="mt-6 px-4">
-        <button
-          type="button"
-          onClick={() => setShowMembersModal(true)}
-          className="w-full rounded-2xl border border-border bg-card px-4 py-4 text-left transition-colors hover:bg-muted/30 active:scale-[0.99]"
-        >
-          <div className="flex items-center gap-3">
+        <section className="rounded-2xl border border-border bg-card px-4 py-4">
+          <button
+            type="button"
+            onClick={() => setShowMembersModal(true)}
+            className="flex w-full items-center gap-3 text-left transition-colors hover:text-foreground active:scale-[0.99]"
+          >
             <div className="min-w-0 flex-1">
               <h3 className="text-sm font-bold text-foreground">참여 멤버</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">({memberCount}명)</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{memberCount}명 · 전체 보기</p>
             </div>
-
-            {previewMembers.length > 0 ? (
-              <div className="min-w-0 flex max-w-[62%] justify-end overflow-hidden">
-                <div className="flex max-w-full justify-end gap-2 overflow-hidden">
-                  {previewMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex shrink-0 items-center gap-2 rounded-full border border-border/80 bg-muted/60 py-1.5 pl-1.5 pr-2.5"
-                    >
-                      <Avatar className="h-7 w-7 border border-border/70">
-                        <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
-                        <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
-                          {getMemberFallback(member)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="max-w-[72px] truncate text-[11px] font-semibold text-foreground">
-                          {member.nickname || member.userId}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">{getRoleLabel(member.role)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="shrink-0 text-[11px] text-muted-foreground">비어 있음</p>
-            )}
-
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-          </div>
-        </button>
+          </button>
+
+          {sortedMembers.length > 0 ? (
+            <div className="-mx-1 mt-3 overflow-x-auto px-1 scrollbar-hide" aria-label="참여 멤버 미리보기">
+              <div className="flex w-max min-w-full gap-2 pr-1">
+                {sortedMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex shrink-0 items-center gap-2 rounded-full border border-border/80 bg-muted/60 py-1.5 pl-1.5 pr-2.5"
+                  >
+                    <Avatar className="h-7 w-7 border border-border/70">
+                      <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                      <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                        {getMemberFallback(member)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="max-w-[82px] truncate text-[11px] font-semibold text-foreground">
+                        {member.nickname || member.userId}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{getRoleLabel(member.role)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-[11px] text-muted-foreground">
+              초대 링크를 공유하면 멤버가 여기에 표시됩니다.
+            </p>
+          )}
+        </section>
       </div>
 
       {showMembersModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setShowMembersModal(false)}>
+        <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowMembersModal(false)}>
           <div
-            className="flex max-h-[82vh] w-full max-w-lg flex-col rounded-t-3xl bg-card shadow-elevated animate-fade-in"
+            className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
@@ -390,7 +389,7 @@ const GroupDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
-                  아직 참여 멤버가 없습니다.
+                  아직 참여 멤버가 없습니다. 초대 링크를 공유해 멤버를 불러오세요.
                 </p>
               )}
             </div>
@@ -426,7 +425,7 @@ const GroupDetailPage: React.FC = () => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-foreground">그룹 일정 ({sortedGroupSchedules.length}개)</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">가까운 일정부터 필요한 만큼 불러옵니다.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">확정된 그룹 일정입니다. 가까운 일정부터 확인해 보세요.</p>
             </div>
             {sortedGroupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT || hasNextSchedulePage || groupSchedulesExpanded ? (
               <button
@@ -469,7 +468,7 @@ const GroupDetailPage: React.FC = () => {
             </div>
           ) : (
             <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
-              그룹 일정이 없습니다.
+              아직 확정된 그룹 일정이 없습니다. 시간을 조율하거나 직접 일정을 만들어보세요.
             </p>
           )}
         </div>
@@ -480,7 +479,7 @@ const GroupDetailPage: React.FC = () => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinations.length}개)</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">진행 중인 조율을 필요한 만큼 불러옵니다.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">아직 확정 전인 조율입니다. 가능한 시간을 모아보세요.</p>
             </div>
             {coordinations.length > COORDINATION_PREVIEW_LIMIT || coordinationNextCursor || coordinationsExpanded ? (
               <button
@@ -525,7 +524,7 @@ const GroupDetailPage: React.FC = () => {
             </div>
           ) : (
             <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
-              조율 중인 일정이 없습니다.
+              조율 중인 일정이 없습니다. 멤버들과 맞는 시간을 찾아보세요.
             </p>
           )}
         </div>
@@ -545,8 +544,6 @@ const GroupDetailPage: React.FC = () => {
           그룹 일정 생성
         </button>
       </div>
-
-      <div className="h-24" />
 
       <ConfirmModal
         open={showLeaveConfirm}

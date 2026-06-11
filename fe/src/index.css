@@ -65,6 +65,11 @@
     --coord-best: 45 90% 50%;
     --coord-alt: 275 55% 58%;
 
+    --app-bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+    --app-content-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
+    --app-floating-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
+    --app-bottom-sheet-max-height: min(calc(100vh - var(--app-bottom-nav-height) - 1rem), 30rem);
+
     --sidebar-background: 40 20% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -73,6 +78,12 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@supports (height: 100svh) {
+  :root {
+    --app-bottom-sheet-max-height: min(calc(100svh - var(--app-bottom-nav-height) - 1rem), 30rem);
   }
 }
 
@@ -107,6 +118,32 @@
 
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .app-content-with-nav {
+    padding-bottom: var(--app-content-bottom-space);
+  }
+
+  .app-bottom-nav {
+    height: var(--app-bottom-nav-height);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .app-floating-action {
+    bottom: var(--app-floating-bottom-space);
+  }
+
+  .app-bottom-sheet-root {
+    bottom: var(--app-bottom-nav-height);
+  }
+
+  .app-bottom-sheet-panel {
+    max-height: var(--app-bottom-sheet-max-height);
+  }
+
+  .app-bottom-sheet-fixed {
+    bottom: var(--app-bottom-nav-height);
+    max-height: var(--app-bottom-sheet-max-height);
   }
 
   /* Glass morphism utility */

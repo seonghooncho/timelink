@@ -302,7 +302,6 @@ const CoordinationTimetablePage: React.FC = () => {
           </div>
         </>
       )}
-      <div className="h-24" />
     </MobileLayout>
   );
 };

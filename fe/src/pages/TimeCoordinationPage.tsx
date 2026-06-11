@@ -27,7 +27,6 @@ const TimeCoordinationPage: React.FC = () => {
         <CoordinationRepeat groupId={id} />
       )}
 
-      <div className="h-24" />
     </MobileLayout>
   );
 };

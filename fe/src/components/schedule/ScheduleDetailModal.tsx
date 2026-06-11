@@ -80,14 +80,14 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[90] flex items-end justify-center"
+          className="fixed inset-x-0 top-0 z-[90] flex items-end justify-center app-bottom-sheet-root"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <div className="absolute inset-0 bg-foreground/20 backdrop-blur-sm" onClick={handleClose} />
           <motion.div
-            className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card p-6 pb-10 shadow-elevated"
+            className="relative w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card p-6 pb-10 shadow-elevated app-bottom-sheet-panel"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
