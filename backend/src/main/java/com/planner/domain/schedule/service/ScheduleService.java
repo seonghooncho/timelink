@@ -27,6 +27,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
@@ -78,6 +80,14 @@ public class ScheduleService {
     public ScheduleResDTO update(String userId, String scheduleId, ScheduleUpdateReqDTO req) {
         Schedule schedule = repository.findByUserIdAndScheduleId(userId, scheduleId)
                 .orElseThrow(() -> new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+        String previousTitle = schedule.getTitle();
+        String previousContent = schedule.getContent();
+        String previousCategory = schedule.getCategory();
+        Boolean previousImportant = schedule.getIsImportant();
+        String previousStartTime = schedule.getStartTime();
+        Double previousDuration = schedule.getDuration();
+        String previousImageId = schedule.getImageId();
+        String previousImageUrl = schedule.getImageUrl();
 
         if (req.getTitle() != null) schedule.setTitle(req.getTitle());
         if (req.getContent() != null) schedule.setContent(req.getContent());
@@ -99,17 +109,32 @@ public class ScheduleService {
         if (req.getImageUrl() != null) schedule.setImageUrl(req.getImageUrl());
         applyScheduleImage(userId, schedule, req.getImageId());
         schedule.setUpdatedAt(Instant.now().toString());
+        boolean shouldNotifyGroupUpdate = hasGroupScheduleDisplayChange(
+                schedule,
+                previousTitle,
+                previousContent,
+                previousCategory,
+                previousImportant,
+                previousStartTime,
+                previousDuration,
+                previousImageId,
+                previousImageUrl
+        );
 
         repository.save(schedule);
         reminderSchedulingService.rescheduleSchedule(userId, schedule);
+        if (shouldNotifyGroupUpdate) {
+            notifyGroupScheduleUpdated(userId, schedule);
+        }
         return ScheduleConverter.toResponse(schedule);
     }
 
     public void delete(String userId, String scheduleId) {
-        repository.findByUserIdAndScheduleId(userId, scheduleId)
+        Schedule schedule = repository.findByUserIdAndScheduleId(userId, scheduleId)
                 .orElseThrow(() -> new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
         reminderSchedulingService.deleteScheduleJobs(userId, scheduleId);
         repository.delete(userId, scheduleId);
+        notifyGroupScheduleDeleted(userId, schedule);
     }
 
     /** 인코딩된 nextCursor를 포함하는 DTO 페이지 변환 */
@@ -131,6 +156,30 @@ public class ScheduleService {
     }
 
     private void notifyGroupScheduleCreated(String userId, Schedule schedule) {
+        notifyGroupScheduleMembers(
+                userId,
+                schedule,
+                memberUserId -> notificationService.createGroupScheduleNotification(memberUserId, schedule)
+        );
+    }
+
+    private void notifyGroupScheduleUpdated(String userId, Schedule schedule) {
+        notifyGroupScheduleMembers(
+                userId,
+                schedule,
+                memberUserId -> notificationService.createGroupScheduleUpdatedNotification(memberUserId, schedule)
+        );
+    }
+
+    private void notifyGroupScheduleDeleted(String userId, Schedule schedule) {
+        notifyGroupScheduleMembers(
+                userId,
+                schedule,
+                memberUserId -> notificationService.createGroupScheduleDeletedNotification(memberUserId, schedule)
+        );
+    }
+
+    private void notifyGroupScheduleMembers(String userId, Schedule schedule, Consumer<String> notifyMember) {
         if (!StringUtils.hasText(schedule.getGroupId())) {
             return;
         }
@@ -138,9 +187,31 @@ public class ScheduleService {
         List<GroupMember> members = groupRepository.findMembersByGroupId(schedule.getGroupId());
         for (GroupMember member : members) {
             if (!userId.equals(member.getUserId())) {
-                notificationService.createGroupScheduleNotificationIfEnabled(member.getUserId(), schedule);
+                notifyMember.accept(member.getUserId());
             }
         }
+    }
+
+    private boolean hasGroupScheduleDisplayChange(
+            Schedule schedule,
+            String previousTitle,
+            String previousContent,
+            String previousCategory,
+            Boolean previousImportant,
+            String previousStartTime,
+            Double previousDuration,
+            String previousImageId,
+            String previousImageUrl
+    ) {
+        return StringUtils.hasText(schedule.getGroupId())
+                && (!Objects.equals(previousTitle, schedule.getTitle())
+                || !Objects.equals(previousContent, schedule.getContent())
+                || !Objects.equals(previousCategory, schedule.getCategory())
+                || !Objects.equals(previousImportant, schedule.getIsImportant())
+                || !Objects.equals(previousStartTime, schedule.getStartTime())
+                || !Objects.equals(previousDuration, schedule.getDuration())
+                || !Objects.equals(previousImageId, schedule.getImageId())
+                || !Objects.equals(previousImageUrl, schedule.getImageUrl()));
     }
 
     private void applyScheduleImage(String userId, Schedule schedule, String imageId) {

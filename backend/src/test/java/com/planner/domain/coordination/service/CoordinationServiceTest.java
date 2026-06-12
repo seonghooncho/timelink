@@ -98,9 +98,9 @@ class CoordinationServiceTest {
             assertThat(result.getTitle()).isEqualTo("조율");
             assertThat(result.getStatus()).isEqualTo("active");
             then(notificationService).should()
-                    .createGroupNotificationIfEnabled(eq("user-2"), eq("새 시간 조율이 시작되었습니다"), contains("조율에 참여해 주세요"));
+                    .createGroupNotification(eq("user-2"), eq("새 시간 조율이 시작되었습니다"), contains("조율에 참여해 주세요"));
             then(notificationService).should(never())
-                    .createGroupNotificationIfEnabled(eq(USER_ID), anyString(), anyString());
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
         }
 
         @Test
@@ -220,6 +220,8 @@ class CoordinationServiceTest {
             given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
             given(repository.findCoordination(GROUP_ID, COORD_ID))
                     .willReturn(Optional.of(createCoordination(USER_ID)));
+            given(groupRepository.findMembersByGroupId(GROUP_ID))
+                    .willReturn(List.of(mockMember(USER_ID), mockMember("user-2")));
 
             CoordinationUpdateReqDTO req = new CoordinationUpdateReqDTO();
             req.setStatus("closed");
@@ -227,6 +229,10 @@ class CoordinationServiceTest {
             CoordinationResDTO result = service.update(USER_ID, GROUP_ID, COORD_ID, req);
 
             assertThat(result.getStatus()).isEqualTo("closed");
+            then(notificationService).should()
+                    .createGroupNotification(eq("user-2"), eq("시간 조율이 마감되었습니다"), contains("조율이 마감되었습니다"));
+            then(notificationService).should(never())
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
         }
 
         @Test
@@ -284,7 +290,7 @@ class CoordinationServiceTest {
             then(repository).should(times(2)).saveResponse(any());
             then(repository).should().updateResponseCount(GROUP_ID, COORD_ID, 1);
             then(notificationService).should()
-                    .createGroupNotificationIfEnabled(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
+                    .createGroupNotification(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
         }
 
         @Test
@@ -345,6 +351,24 @@ class CoordinationServiceTest {
     @Nested
     @DisplayName("delete")
     class Delete {
+
+        @Test
+        @DisplayName("생성자가 조율을 삭제하면 작성자를 제외한 그룹 멤버에게 알림을 보낸다")
+        void shouldNotifyMembersWhenCreatorDeletes() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination(USER_ID)));
+            given(groupRepository.findMembersByGroupId(GROUP_ID))
+                    .willReturn(List.of(mockMember(USER_ID), mockMember("user-2")));
+
+            service.delete(USER_ID, GROUP_ID, COORD_ID);
+
+            then(repository).should().deleteCoordination(GROUP_ID, COORD_ID);
+            then(notificationService).should()
+                    .createGroupNotification(eq("user-2"), eq("시간 조율이 삭제되었습니다"), contains("조율이 삭제되었습니다"));
+            then(notificationService).should(never())
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
+        }
 
         @Test
         @DisplayName("생성자가 아니면 삭제 시 예외를 던진다")

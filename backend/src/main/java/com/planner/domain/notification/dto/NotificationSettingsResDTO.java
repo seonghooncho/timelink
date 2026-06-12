@@ -8,6 +8,7 @@ import lombok.Data;
 public class NotificationSettingsResDTO {
     private Boolean scheduleAlarm;
     private Boolean groupAlarm;
+    private Boolean pushAlarm;
     private Boolean remindOneDayBefore;
     private String remindOneDayBeforeTime;
     private Boolean remindSameDay;

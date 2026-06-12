@@ -381,6 +381,7 @@ export const notificationApi = {
 export interface NotificationSettingsResponse {
   scheduleAlarm: boolean;
   groupAlarm: boolean;
+  pushAlarm: boolean;
   remindOneDayBefore: boolean;
   remindOneDayBeforeTime: string;
   remindSameDay: boolean;

@@ -26,6 +26,7 @@ public final class NotificationConverter {
         return NotificationSettingsResDTO.builder()
                 .scheduleAlarm(s.getScheduleAlarm())
                 .groupAlarm(s.getGroupAlarm())
+                .pushAlarm(resolvePushAlarm(s))
                 .remindOneDayBefore(s.getRemindOneDayBefore())
                 .remindOneDayBeforeTime(s.getRemindOneDayBeforeTime())
                 .remindSameDay(s.getRemindSameDay())
@@ -33,5 +34,9 @@ public final class NotificationConverter {
                 .importantAlarm(s.getImportantAlarm())
                 .importantAlarmTime(s.getImportantAlarmTime())
                 .build();
+    }
+
+    private static Boolean resolvePushAlarm(NotificationSettings s) {
+        return s.getPushAlarm() != null ? s.getPushAlarm() : Boolean.TRUE.equals(s.getGroupAlarm());
     }
 }

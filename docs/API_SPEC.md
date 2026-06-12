@@ -844,7 +844,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 {
   "data": {
     "schedule_alarm": false,
-    "group_alarm": false,
+    "group_alarm": true,
+    "push_alarm": false,
     "remind_one_day_before": false,
     "remind_one_day_before_time": "22:00",
     "remind_same_day": false,
@@ -861,12 +862,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 알림 설정 수정 (변경할 필드만)
 
-`schedule_alarm`이 `false`이면 리마인드 설정(`remind_one_day_before`, `remind_same_day`, `important_alarm`)은 서버에서 `false`로 저장된다.
+`schedule_alarm`이 `false`이면 리마인드 알림과 예약 일정 알림은 발송되지 않는다. `push_alarm`은 알림센터 저장 여부와 별개로 Web Push 발송 여부만 제어한다.
 
 **Request Body**
 ```json
 {
   "schedule_alarm": false,
+  "push_alarm": true,
   "remind_same_day_time": "09:00"
 }
 ```
@@ -877,7 +879,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 11. 푸시 알림 (Push Notifications)
 
-운영 알림은 알림센터 저장을 기본으로 하고, VAPID 설정과 브라우저 Push Subscription이 준비된 사용자는 Web Push도 함께 전송한다.
+그룹 활동 알림은 알림센터 저장을 기본으로 한다. 일정 알림은 사용자가 `schedule_alarm`을 켠 경우에만 예약 알림을 생성한다. Web Push는 `push_alarm`과 브라우저 Push Subscription이 준비된 사용자에게만 함께 전송한다.
 
 일정 알림은 운영 초기 기준으로 알림 job마다 EventBridge Scheduler one-time schedule을 생성한다. Scheduler는 notification worker Lambda를 호출하고, Lambda는 DynamoDB 알림 저장과 Web Push 전송을 수행한다.
 

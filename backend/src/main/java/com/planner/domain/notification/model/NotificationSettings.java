@@ -17,6 +17,7 @@ public class NotificationSettings {
     private String sk;
     private Boolean scheduleAlarm;
     private Boolean groupAlarm;
+    private Boolean pushAlarm;
     private Boolean remindOneDayBefore;
     private String remindOneDayBeforeTime;
     private Boolean remindSameDay;

@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private static final int DEFAULT_LIMIT = 20;
+    private static final String TYPE_GROUP = "group";
+    private static final String CATEGORY_GROUP = "group";
 
     private final NotificationRepository repository;
     private final ReminderSchedulingService reminderSchedulingService;
@@ -44,7 +46,7 @@ public class NotificationService {
 
         // type/isRead 필터는 메모리 필터링 (DynamoDB FilterExpression으로 전환 가능)
         List<NotificationResDTO> filtered = page.getItems().stream()
-                .filter(n -> type == null || type.equals(n.getType()))
+                .filter(n -> type == null || matchesType(n, type))
                 .filter(n -> isRead == null || isRead.equals(n.getIsRead()))
                 .map(NotificationConverter::toResponse)
                 .collect(Collectors.toList());
@@ -97,7 +99,13 @@ public class NotificationService {
                 .orElseGet(() -> createDefaultSettings(userId));
 
         if (req.getScheduleAlarm() != null) settings.setScheduleAlarm(req.getScheduleAlarm());
-        if (req.getGroupAlarm() != null) settings.setGroupAlarm(req.getGroupAlarm());
+        if (req.getGroupAlarm() != null) {
+            settings.setGroupAlarm(req.getGroupAlarm());
+            if (req.getPushAlarm() == null) {
+                settings.setPushAlarm(req.getGroupAlarm());
+            }
+        }
+        if (req.getPushAlarm() != null) settings.setPushAlarm(req.getPushAlarm());
         if (req.getRemindOneDayBefore() != null) settings.setRemindOneDayBefore(req.getRemindOneDayBefore());
         if (req.getRemindOneDayBeforeTime() != null) settings.setRemindOneDayBeforeTime(req.getRemindOneDayBeforeTime());
         if (req.getRemindSameDay() != null) settings.setRemindSameDay(req.getRemindSameDay());
@@ -112,43 +120,61 @@ public class NotificationService {
         return NotificationConverter.toSettingsResponse(settings);
     }
 
-    public void createGroupNotificationIfEnabled(String userId, String title, String content) {
-        NotificationSettings settings = repository.findSettings(userId)
-                .orElseGet(() -> createDefaultSettings(userId));
-        if (!Boolean.TRUE.equals(settings.getGroupAlarm())) {
-            return;
-        }
-
-        createNotificationIfAbsent(
-                userId,
-                UUID.randomUUID().toString(),
-                "system",
-                title,
-                content,
-                "group",
-                false
-        );
+    public void createGroupNotification(String userId, String title, String content) {
+        createGroupNotification(userId, title, content, false);
     }
 
-    public void createGroupScheduleNotificationIfEnabled(String userId, Schedule schedule) {
-        NotificationSettings settings = repository.findSettings(userId)
-                .orElseGet(() -> createDefaultSettings(userId));
-        if (!Boolean.TRUE.equals(settings.getGroupAlarm())) {
-            return;
-        }
-
-        createNotificationIfAbsent(
+    public void createGroupScheduleNotification(String userId, Schedule schedule) {
+        createGroupNotification(
                 userId,
-                UUID.randomUUID().toString(),
-                "system",
                 "그룹 일정이 추가되었습니다",
                 "%s 일정이 추가되었습니다.".formatted(schedule.getTitle()),
-                "group",
                 Boolean.TRUE.equals(schedule.getIsImportant())
         );
     }
 
+    public void createGroupScheduleUpdatedNotification(String userId, Schedule schedule) {
+        createGroupNotification(
+                userId,
+                "그룹 일정이 변경되었습니다",
+                "%s 일정이 변경되었습니다.".formatted(schedule.getTitle()),
+                Boolean.TRUE.equals(schedule.getIsImportant())
+        );
+    }
+
+    public void createGroupScheduleDeletedNotification(String userId, Schedule schedule) {
+        createGroupNotification(
+                userId,
+                "그룹 일정이 삭제되었습니다",
+                "%s 일정이 삭제되었습니다.".formatted(schedule.getTitle()),
+                Boolean.TRUE.equals(schedule.getIsImportant())
+        );
+    }
+
+    private void createGroupNotification(String userId, String title, String content, boolean important) {
+        NotificationSettings settings = repository.findSettings(userId)
+                .orElseGet(() -> createDefaultSettings(userId));
+
+        createNotificationIfAbsent(
+                userId,
+                UUID.randomUUID().toString(),
+                TYPE_GROUP,
+                title,
+                content,
+                CATEGORY_GROUP,
+                important,
+                isPushEnabled(settings)
+        );
+    }
+
     public void deliverScheduledNotification(ScheduledNotificationEvent event) {
+        NotificationSettings settings = repository.findSettings(event.getUserId())
+                .orElseGet(() -> createDefaultSettings(event.getUserId()));
+        if ("schedule".equals(event.getType()) && !Boolean.TRUE.equals(settings.getScheduleAlarm())) {
+            reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
+            return;
+        }
+
         createNotificationIfAbsent(
                 event.getUserId(),
                 event.getNotificationId(),
@@ -156,7 +182,8 @@ public class NotificationService {
                 event.getTitle(),
                 event.getContent(),
                 event.getCategory(),
-                Boolean.TRUE.equals(event.getImportant())
+                Boolean.TRUE.equals(event.getImportant()),
+                isPushEnabled(settings)
         );
         reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
     }
@@ -164,7 +191,7 @@ public class NotificationService {
     private NotificationSettings createDefaultSettings(String userId) {
         NotificationSettings s = NotificationSettings.builder()
                 .pk("USER#" + userId).sk("NOTIF_SETTINGS")
-                .scheduleAlarm(false).groupAlarm(false)
+                .scheduleAlarm(false).groupAlarm(true).pushAlarm(false)
                 .remindOneDayBefore(false).remindOneDayBeforeTime("22:00")
                 .remindSameDay(false).remindSameDayTime("08:00")
                 .importantAlarm(false).importantAlarmTime("08:00")
@@ -172,6 +199,19 @@ public class NotificationService {
                 .build();
         repository.saveSettings(s);
         return s;
+    }
+
+    private boolean isPushEnabled(NotificationSettings settings) {
+        return settings.getPushAlarm() != null
+                ? Boolean.TRUE.equals(settings.getPushAlarm())
+                : Boolean.TRUE.equals(settings.getGroupAlarm());
+    }
+
+    private boolean matchesType(Notification notification, String type) {
+        if (TYPE_GROUP.equals(type)) {
+            return TYPE_GROUP.equals(notification.getType()) || CATEGORY_GROUP.equals(notification.getCategory());
+        }
+        return type.equals(notification.getType());
     }
 
     private void createNotificationIfAbsent(
@@ -182,6 +222,19 @@ public class NotificationService {
             String content,
             String category,
             boolean important
+    ) {
+        createNotificationIfAbsent(userId, id, type, title, content, category, important, true);
+    }
+
+    private void createNotificationIfAbsent(
+            String userId,
+            String id,
+            String type,
+            String title,
+            String content,
+            String category,
+            boolean important,
+            boolean pushEnabled
     ) {
         if (repository.findByUserIdAndNotifId(userId, id).isPresent()) {
             return;
@@ -201,7 +254,9 @@ public class NotificationService {
                 .createdAt(Instant.now().toString())
                 .build();
         repository.saveNotification(notification);
-        webPushService.sendNotification(userId, notification);
+        if (pushEnabled) {
+            webPushService.sendNotification(userId, notification);
+        }
     }
 
     private void validateReminderSettings(NotificationSettings settings, NotificationSettingsUpdateReqDTO req) {

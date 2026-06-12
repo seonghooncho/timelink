@@ -2,11 +2,11 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Timetable from '@/components/schedule/Timetable';
-import { getTimetableDraggedScrollTop } from '@/components/schedule/timetableUtils';
+import { getInitialTimetableScrollTop, getTimetableDraggedScrollTop } from '@/components/schedule/timetableUtils';
 import type { Schedule } from '@/types/types';
 
 describe('Timetable scroll behavior', () => {
-  it('초기 표시 영역을 오전 7시로 맞춘다', async () => {
+  it('오늘이 표시 범위에 없으면 초기 표시 영역을 오전 7시로 맞춘다', async () => {
     render(
       <Timetable
         schedules={[]}
@@ -21,6 +21,35 @@ describe('Timetable scroll behavior', () => {
     await waitFor(() => {
       expect(screen.getByTestId('timetable-scroll').scrollTop).toBe(336);
     });
+  });
+
+  it('오늘 타임테이블은 현재 시간보다 약 2시간 전을 초기에 보여준다', () => {
+    const visibleDates = [
+      new Date('2026-03-12T00:00:00'),
+      new Date('2026-03-13T00:00:00'),
+    ];
+
+    expect(getInitialTimetableScrollTop(
+      visibleDates,
+      new Date('2026-03-12T15:00:00'),
+      528,
+    )).toBe(624);
+  });
+
+  it('새벽 시간대에는 0시부터 보이도록 맨 위에서 시작한다', () => {
+    expect(getInitialTimetableScrollTop(
+      [new Date('2026-03-12T00:00:00')],
+      new Date('2026-03-12T01:00:00'),
+      528,
+    )).toBe(0);
+  });
+
+  it('현재 시간 기준 위치가 너무 아래면 가능한 가장 아래 위치로 보정한다', () => {
+    expect(getInitialTimetableScrollTop(
+      [new Date('2026-03-12T00:00:00')],
+      new Date('2026-03-12T23:00:00'),
+      528,
+    )).toBe(624);
   });
 
   it('드래그로 위아래 시간을 더 볼 수 있다', async () => {

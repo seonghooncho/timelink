@@ -1,5 +1,44 @@
 import { pushApi, PushSubscriptionRequest } from '@/services/api';
 
+export const PUSH_PERMISSION_NUDGE_PENDING_KEY = 'timelink:push-permission-nudge-pending';
+
+export const markPushPermissionNudgePending = () => {
+  localStorage.setItem(PUSH_PERMISSION_NUDGE_PENDING_KEY, '1');
+};
+
+export const clearPushPermissionNudgePending = () => {
+  localStorage.removeItem(PUSH_PERMISSION_NUDGE_PENDING_KEY);
+};
+
+export const isPushPermissionNudgePending = () =>
+  localStorage.getItem(PUSH_PERMISSION_NUDGE_PENDING_KEY) === '1';
+
+export const isPushNotificationSupported = () =>
+  'Notification' in window
+  && 'serviceWorker' in navigator
+  && 'PushManager' in window
+  && typeof Notification.requestPermission === 'function';
+
+export const requestPushPermission = async () => {
+  if (!isPushNotificationSupported()) {
+    return 'unsupported' as const;
+  }
+
+  if (Notification.permission === 'granted') {
+    return 'granted' as const;
+  }
+
+  if (Notification.permission === 'denied') {
+    return 'denied' as const;
+  }
+
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return 'unsupported' as const;
+  }
+};
+
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -46,11 +85,11 @@ const getRegistration = async () => {
     return existing;
   }
 
-  return null;
+  return navigator.serviceWorker.ready.catch(() => null);
 };
 
 export const ensurePushSubscription = async () => {
-  if (!('Notification' in window) || Notification.permission !== 'granted') {
+  if (!isPushNotificationSupported() || Notification.permission !== 'granted') {
     return false;
   }
 
