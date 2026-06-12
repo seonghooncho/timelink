@@ -17,6 +17,10 @@ public class Profile {
     private String sk;
     private String nickname;
     private String avatarUrl;
+    private String imageId;
+    private String imageStatus;
+    private String imageUploadKey;
+    private String imageObjectKey;
     private String termsVersion;
     private String termsAgreedAt;
     private String privacyVersion;

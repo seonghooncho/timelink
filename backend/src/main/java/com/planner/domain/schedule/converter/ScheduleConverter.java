@@ -33,6 +33,8 @@ public final class ScheduleConverter {
                 .isCompleted(false)
                 .hasAlarm(req.getHasAlarm())
                 .groupId(req.getGroupId())
+                .imageUrl(req.getImageUrl())
+                .imageId(req.getImageId())
                 .gsi1pk("USER#" + userId)
                 .gsi1sk(req.getStartTime())
                 .createdAt(now)
@@ -53,6 +55,9 @@ public final class ScheduleConverter {
                 .isCompleted(s.getIsCompleted())
                 .hasAlarm(s.getHasAlarm())
                 .groupId(s.getGroupId())
+                .imageUrl(s.getImageUrl())
+                .imageId(s.getImageId())
+                .imageStatus(s.getImageStatus())
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .build();

@@ -8,6 +8,10 @@ import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.profile.util.GeneratedProfileDefaults;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,6 +23,7 @@ import java.time.Instant;
 public class ProfileService {
 
     private final ProfileRepository repository;
+    private final StorageService storageService;
 
     public ProfileResDTO getOrCreate(String userId) {
         return getOrCreate(userId, null);
@@ -56,6 +61,7 @@ public class ProfileService {
 
         if (req.getNickname() != null) profile.setNickname(req.getNickname());
         if (req.getAvatarUrl() != null) profile.setAvatarUrl(req.getAvatarUrl());
+        applyProfileImage(userId, profile, req.getImageId());
         profile.setUpdatedAt(Instant.now().toString());
 
         repository.save(profile);
@@ -105,5 +111,20 @@ public class ProfileService {
         String currentAvatarUrl = profile.getAvatarUrl();
         return !StringUtils.hasText(currentAvatarUrl)
                 || GeneratedProfileDefaults.isGeneratedAvatarUrl(currentAvatarUrl);
+    }
+
+    private void applyProfileImage(String userId, Profile profile, String imageId) {
+        if (!StringUtils.hasText(imageId)) {
+            return;
+        }
+
+        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, ImagePurpose.MEMBER, userId);
+        profile.setImageId(upload.getImageId());
+        profile.setImageStatus(upload.getStatus());
+        profile.setImageUploadKey(upload.getUploadKey());
+        profile.setImageObjectKey(upload.getPublicKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
+            profile.setAvatarUrl(upload.getPublicUrl());
+        }
     }
 }

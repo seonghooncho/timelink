@@ -39,6 +39,8 @@ public final class ProfileConverter {
                 .id(userId)
                 .nickname(p.getNickname())
                 .avatarUrl(p.getAvatarUrl())
+                .imageId(p.getImageId())
+                .imageStatus(p.getImageStatus())
                 .termsVersion(p.getTermsVersion())
                 .termsAgreedAt(p.getTermsAgreedAt())
                 .privacyVersion(p.getPrivacyVersion())

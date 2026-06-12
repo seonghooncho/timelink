@@ -98,8 +98,18 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
@@ -110,10 +120,33 @@
     letter-spacing: -0.01em;
   }
 
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  input,
+  button,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
   /* Smooth number rendering */
   .font-num {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
 

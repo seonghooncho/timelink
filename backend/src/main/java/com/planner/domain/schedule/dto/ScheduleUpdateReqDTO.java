@@ -12,4 +12,6 @@ public class ScheduleUpdateReqDTO {
     private Double duration;
     private Boolean isCompleted;
     private Boolean hasAlarm;
+    private String imageUrl;
+    private String imageId;
 }

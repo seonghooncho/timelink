@@ -115,6 +115,49 @@ public class GroupRepository {
                 .build());
     }
 
+    public void updateGroupImageFields(Group group) {
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":imageId", AttributeValue.builder().s(group.getImageId()).build());
+        values.put(":imageStatus", AttributeValue.builder().s(group.getImageStatus()).build());
+        values.put(":updatedAt", AttributeValue.builder().s(group.getUpdatedAt()).build());
+        values.put(":completed", AttributeValue.builder().s("COMPLETED").build());
+
+        Map<String, String> names = new HashMap<>();
+        names.put("#imageStatus", "imageStatus");
+
+        StringBuilder updateExpression = new StringBuilder(
+                "SET imageId = :imageId, #imageStatus = :imageStatus, updatedAt = :updatedAt"
+        );
+        if (group.getImageUploadKey() != null && !group.getImageUploadKey().isBlank()) {
+            updateExpression.append(", imageUploadKey = :imageUploadKey");
+            values.put(":imageUploadKey", AttributeValue.builder().s(group.getImageUploadKey()).build());
+        }
+        if (group.getImageObjectKey() != null && !group.getImageObjectKey().isBlank()) {
+            updateExpression.append(", imageObjectKey = :imageObjectKey");
+            values.put(":imageObjectKey", AttributeValue.builder().s(group.getImageObjectKey()).build());
+        }
+        if (group.getImageUrl() != null && !group.getImageUrl().isBlank()) {
+            updateExpression.append(", imageUrl = :imageUrl");
+            values.put(":imageUrl", AttributeValue.builder().s(group.getImageUrl()).build());
+        }
+
+        try {
+            dynamoDbClient.updateItem(UpdateItemRequest.builder()
+                    .tableName(tableName)
+                    .key(Map.of(
+                            "PK", AttributeValue.builder().s("GROUP#" + group.getId()).build(),
+                            "SK", AttributeValue.builder().s("METADATA").build()
+                    ))
+                    .updateExpression(updateExpression.toString())
+                    .conditionExpression("attribute_exists(PK) AND (attribute_not_exists(#imageStatus) OR #imageStatus <> :completed OR imageId <> :imageId)")
+                    .expressionAttributeNames(names)
+                    .expressionAttributeValues(values)
+                    .build());
+        } catch (ConditionalCheckFailedException ignored) {
+            // Lambda가 먼저 COMPLETED를 저장한 경우 처리 중 상태로 되돌리지 않는다.
+        }
+    }
+
     public void saveMember(GroupMember member) {
         memberTable.putItem(member);
     }

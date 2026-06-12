@@ -15,6 +15,22 @@ resource "aws_s3_bucket_public_access_block" "public_assets" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_cors_configuration" "public_assets" {
+  bucket = aws_s3_bucket.public_assets.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD", "PUT"]
+    allowed_origins = [
+      local.frontend_origin,
+      "http://localhost:5173",
+      "http://127.0.0.1:5173"
+    ]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
 resource "aws_s3_bucket_policy" "public_assets" {
   bucket = aws_s3_bucket.public_assets.id
 

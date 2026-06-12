@@ -11,6 +11,8 @@ function mapGroup(g: GroupListResponse): Group {
     name: g.name,
     description: g.description || '',
     image: g.imageUrl,
+    imageId: g.imageId,
+    imageStatus: g.imageStatus,
     inviteCode: g.inviteCode,
     memberCount: g.memberCount,
     myRole: g.myRole,
@@ -56,7 +58,7 @@ export function useGroupPages() {
 export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; description?: string; imageUrl?: string }) => groupApi.create(data),
+    mutationFn: (data: { name: string; description?: string; imageUrl?: string; imageId?: string }) => groupApi.create(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['groups'] }); },
   });
 }

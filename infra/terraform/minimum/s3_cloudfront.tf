@@ -159,6 +159,16 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   ordered_cache_behavior {
+    path_pattern           = "/public/*"
+    target_origin_id       = "s3-public-assets"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+  }
+
+  ordered_cache_behavior {
     path_pattern             = "/api/*"
     target_origin_id         = "http-api"
     viewer_protocol_policy   = "https-only"
@@ -181,6 +191,13 @@ resource "aws_cloudfront_distribution" "frontend" {
 
   tags = {
     Name = "${var.project_name}-frontend-cdn"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      aliases,
+      viewer_certificate,
+    ]
   }
 }
 

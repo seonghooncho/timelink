@@ -19,6 +19,10 @@ public class Group {
     private String name;
     private String description;
     private String imageUrl;
+    private String imageId;
+    private String imageStatus;
+    private String imageUploadKey;
+    private String imageObjectKey;
     private String createdBy;
     private String inviteCode;
     private Integer memberCount;

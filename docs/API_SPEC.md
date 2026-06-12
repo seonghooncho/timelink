@@ -339,6 +339,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "name": "졸업 프로젝트",
       "description": "졸프 팀",
       "imageUrl": "https://...",
+      "imageId": "image-uuid",
+      "imageStatus": "COMPLETED",
       "inviteCode": "ABC123",
       "memberCount": 4,
       "myRole": "manager",
@@ -366,6 +368,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "name": "졸업 프로젝트",
     "description": "졸프 팀",
     "imageUrl": "https://...",
+    "imageId": "image-uuid",
+    "imageStatus": "COMPLETED",
     "inviteCode": "ABC123",
     "createdBy": "uuid",
     "members": [
@@ -397,7 +401,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 {
   "name": "졸업 프로젝트",
   "description": "졸프 팀",
-  "imageUrl": "https://..."
+  "imageId": "image-uuid"
 }
 ```
 
@@ -405,7 +409,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|------|------|
 | `name` | string | ✅ | 그룹 이름 |
 | `description` | string | ❌ | 설명 |
-| `imageUrl` | string | ❌ | 그룹 이미지 URL |
+| `imageId` | string | ❌ | `storage/images/presign`으로 생성한 이미지 업로드 ID |
+| `imageUrl` | string | ❌ | 하위 호환용 그룹 이미지 URL |
 
 **Response** `201 Created` — GroupDetailResDTO 반환
 
@@ -420,7 +425,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 {
   "name": "졸업 프로젝트 (수정)",
   "description": "업데이트된 설명",
-  "imageUrl": "https://..."
+  "imageId": "image-uuid"
 }
 ```
 
@@ -946,18 +951,93 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 12. 파일 업로드 (Storage)
 
+이미지는 새 파이프라인 기준으로 `upload/` prefix에 임시 업로드한 뒤 Lambda가 WebP로 변환한다. 변환 결과는 용도별 public prefix에 저장된다.
+
+- 임시 원본: `upload/`
+- 프로필/멤버 결과: `public/member/`
+- 그룹 결과: `public/group/`
+- 일정 결과: `public/schedule/`
+- 허용 타입: `jpg`, `jpeg`, `png`, `webp`
+- 최대 크기: 15MB
+- 처리 상태: `PROCESSING`, `COMPLETED`, `FAILED`
+
 ### Endpoints
+
+---
+
+#### `POST` /api/planner/v1/storage/images/presign
+
+이미지 업로드용 presigned PUT URL을 발급한다. 클라이언트는 응답의 `uploadUrl`로 파일을 PUT 하고, 이후 `imageId`를 프로필/그룹/일정 수정 요청에 전달한다.
+
+**Request Body**
+```json
+{
+  "purpose": "GROUP",
+  "fileName": "group.png",
+  "contentType": "image/png",
+  "contentLength": 123456,
+  "targetId": "optional-target-id"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `purpose` | enum | ✅ | `MEMBER`, `GROUP`, `SCHEDULE` |
+| `fileName` | string | ✅ | 원본 파일명 |
+| `contentType` | string | ✅ | `image/jpeg`, `image/png`, `image/webp` |
+| `contentLength` | number | ✅ | 15MB 이하 |
+| `targetId` | string | ❌ | 이미 대상 ID가 있을 때만 전달 |
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "imageId": "image-uuid",
+    "uploadKey": "upload/group/user-1/image-uuid/original.png",
+    "uploadUrl": "https://s3-presigned-url",
+    "method": "PUT",
+    "headers": {
+      "Content-Type": "image/png",
+      "x-amz-meta-image-id": "image-uuid",
+      "x-amz-meta-purpose": "GROUP",
+      "x-amz-meta-owner-user-id": "user-1"
+    },
+    "maxSizeBytes": 15728640,
+    "status": "PROCESSING"
+  }
+}
+```
+
+---
+
+#### `GET` /api/planner/v1/storage/images/:imageId
+
+이미지 변환 상태를 조회한다.
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "imageId": "image-uuid",
+    "uploadKey": "upload/group/user-1/image-uuid/original.png",
+    "publicKey": "public/group/group-1/image-uuid.webp",
+    "url": "https://timelink.cloud/public/group/group-1/image-uuid.webp",
+    "status": "COMPLETED",
+    "failureReason": null
+  }
+}
+```
 
 ---
 
 #### `POST` /api/planner/v1/storage/images/group
 
-그룹 이미지 업로드
+그룹 이미지 multipart 업로드. 하위 호환용이며 신규 클라이언트는 presigned 업로드를 사용한다.
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `file` | File | 이미지 파일 (max 5MB) |
+| `file` | File | 이미지 파일 (max 15MB) |
 
 **Response** `200 OK`
 ```json
@@ -973,12 +1053,12 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/storage/images/profile
 
-프로필 아바타 업로드
+프로필 아바타 multipart 업로드. 하위 호환용이며 신규 클라이언트는 presigned 업로드를 사용한다.
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `file` | File | 이미지 파일 (max 5MB) |
+| `file` | File | 이미지 파일 (max 15MB) |
 
 **Response** `200 OK`
 ```json
@@ -1060,7 +1140,7 @@ auth-session (JWT subject = userId)
 
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
 - 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
-- 업로드 이미지는 S3 public assets bucket에 저장되고, 프론트는 해당 URL만 저장합니다.
+- 업로드 이미지는 S3 public assets bucket의 `upload/`에 임시 저장되고, Lambda WebP 변환 후 `public/{member|group|schedule}/` URL과 `imageStatus`를 저장합니다.
 
 ---
 
@@ -1101,10 +1181,14 @@ auth-session (JWT subject = userId)
 | `GET` | `/push/vapid-public-key` | VAPID 공개키 조회 | 인증 | ✅ |
 | `POST` | `/push/subscriptions` | Push Subscription 등록 | 인증 | ✅ |
 | `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
+| `POST` | `/storage/images/presign` | 이미지 presigned 업로드 URL 발급 | 인증 | ✅ |
+| `GET` | `/storage/images/:imageId` | 이미지 처리 상태 조회 | 인증(소유자) | ✅ |
+| `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(하위 호환) | 인증 | ✅ |
+| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(하위 호환) | 인증 | ✅ |
 
 > **Base URL prefix**: `api/planner/v1`  
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`)
 
 ---
 
-*마지막 업데이트: 2026-06-11 (그룹 수정 권한 및 멤버 내보내기 API 반영)*
+*마지막 업데이트: 2026-06-12 (이미지 presigned 업로드 및 WebP 처리 상태 API 반영)*

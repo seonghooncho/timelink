@@ -13,6 +13,10 @@ import com.planner.domain.schedule.error.ScheduleException;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
 import com.planner.domain.schedule.util.ScheduleTimeCalculator;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -36,9 +40,11 @@ public class ScheduleService {
     private final NotificationService notificationService;
     private final ReminderSchedulingService reminderSchedulingService;
     private final CursorCodec cursorCodec;
+    private final StorageService storageService;
 
     public ScheduleResDTO create(String userId, ScheduleCreateReqDTO req) {
         Schedule schedule = ScheduleConverter.toEntity(userId, req);
+        applyScheduleImage(userId, schedule, req.getImageId());
         repository.save(schedule);
         reminderSchedulingService.rescheduleSchedule(userId, schedule);
         notifyGroupScheduleCreated(userId, schedule);
@@ -90,6 +96,8 @@ public class ScheduleService {
         }
         if (req.getIsCompleted() != null) schedule.setIsCompleted(req.getIsCompleted());
         if (req.getHasAlarm() != null) schedule.setHasAlarm(req.getHasAlarm());
+        if (req.getImageUrl() != null) schedule.setImageUrl(req.getImageUrl());
+        applyScheduleImage(userId, schedule, req.getImageId());
         schedule.setUpdatedAt(Instant.now().toString());
 
         repository.save(schedule);
@@ -132,6 +140,21 @@ public class ScheduleService {
             if (!userId.equals(member.getUserId())) {
                 notificationService.createGroupScheduleNotificationIfEnabled(member.getUserId(), schedule);
             }
+        }
+    }
+
+    private void applyScheduleImage(String userId, Schedule schedule, String imageId) {
+        if (!StringUtils.hasText(imageId)) {
+            return;
+        }
+
+        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, ImagePurpose.SCHEDULE, schedule.getId());
+        schedule.setImageId(upload.getImageId());
+        schedule.setImageStatus(upload.getStatus());
+        schedule.setImageUploadKey(upload.getUploadKey());
+        schedule.setImageObjectKey(upload.getPublicKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
+            schedule.setImageUrl(upload.getPublicUrl());
         }
     }
 }

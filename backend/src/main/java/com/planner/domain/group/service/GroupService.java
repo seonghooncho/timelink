@@ -15,6 +15,10 @@ import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -41,6 +45,7 @@ public class GroupService {
     private final ProfileRepository profileRepository;
     private final NotificationService notificationService;
     private final CursorCodec cursorCodec;
+    private final StorageService storageService;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -56,6 +61,7 @@ public class GroupService {
                 .createdAt(now).updatedAt(now)
                 .build();
         repository.saveGroup(group);
+        applyGroupImage(userId, group, req.getImageId());
 
         GroupMember member = GroupMember.builder()
                 .pk("GROUP#" + groupId).sk("MEMBER#" + userId)
@@ -126,6 +132,7 @@ public class GroupService {
         group.setUpdatedAt(Instant.now().toString());
 
         repository.saveGroup(group);
+        applyGroupImage(userId, group, req.getImageId());
         return getDetail(userId, groupId);
     }
 
@@ -208,6 +215,22 @@ public class GroupService {
     private Group findGroupOrThrow(String groupId) {
         return repository.findGroupById(groupId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.GROUP_NOT_FOUND));
+    }
+
+    private void applyGroupImage(String userId, Group group, String imageId) {
+        if (!StringUtils.hasText(imageId)) {
+            return;
+        }
+
+        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, ImagePurpose.GROUP, group.getId());
+        group.setImageId(upload.getImageId());
+        group.setImageStatus(upload.getStatus());
+        group.setImageUploadKey(upload.getUploadKey());
+        group.setImageObjectKey(upload.getPublicKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
+            group.setImageUrl(upload.getPublicUrl());
+        }
+        repository.updateGroupImageFields(group);
     }
 
     private void verifyMembership(String groupId, String userId) {

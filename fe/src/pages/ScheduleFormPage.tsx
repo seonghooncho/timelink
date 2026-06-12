@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
+import ImageCropModal from '@/components/common/ImageCropModal';
 import { ScheduleCategory } from '@/types/types';
 import { Camera, Loader2, ImageIcon } from 'lucide-react';
 import { aiApi } from '@/services/api';
@@ -14,6 +15,7 @@ import {
 import { SCHEDULE_DURATION_OPTIONS } from '@/lib/scheduleTime';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
 import DurationSelect from '@/components/common/DurationSelect';
+import { validateImageFile } from '@/lib/images';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
@@ -82,15 +84,27 @@ const ScheduleFormPage: React.FC = () => {
   const [hasAlarm, setHasAlarm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) {
+      appToast.error(validationMessage);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setCropSourceFile(file);
+  };
+
+  const analyzeImageFile = async (file: File, previewUrl: string) => {
+    setPreviewImage(previewUrl);
+    setIsAnalyzing(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
-      setPreviewImage(base64);
-      setIsAnalyzing(true);
       try {
         const data = await aiApi.extractSchedule(base64);
         if (data.title) setTitle(data.title);
@@ -156,9 +170,9 @@ const ScheduleFormPage: React.FC = () => {
 
         {/* AI Photo Upload */}
         <div>
-          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={handleImageUpload} />
           <button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing}
-            className="w-full relative overflow-hidden rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors active:scale-[0.98]">
+            className="w-full relative max-w-full overflow-hidden rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors active:scale-[0.98]">
             {previewImage && !isAnalyzing ? (
               <div className="relative">
                 <img src={previewImage} alt="업로드된 사진" className="w-full h-32 object-cover rounded-xl opacity-80" />
@@ -180,7 +194,7 @@ const ScheduleFormPage: React.FC = () => {
                   <>
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center"><Camera className="w-5 h-5 text-primary" /></div>
                     <span className="text-xs font-semibold text-primary">📸 사진으로 일정 등록</span>
-                    <span className="text-[10px] text-muted-foreground">포스터, 메시지, 캘린더 등을 찍으면 AI가 자동으로 채워줘요</span>
+                    <span className="max-w-full px-3 text-center text-[10px] text-muted-foreground">15MB 이하 사진을 맞춘 뒤 AI가 일정 정보를 채워줘요</span>
                   </>
                 )}
               </div>
@@ -256,6 +270,24 @@ const ScheduleFormPage: React.FC = () => {
           {createMutation.isPending ? '등록 중...' : '등록하기'}
         </button>
       </div>
+      {cropSourceFile ? (
+        <ImageCropModal
+          file={cropSourceFile}
+          title="일정 사진 맞추기"
+          description="분석할 영역을 조정한 뒤 저장하세요."
+          outputNamePrefix="schedule-ai"
+          aspectRatio={4 / 3}
+          outputWidth={1200}
+          onClose={() => {
+            setCropSourceFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+          onConfirm={(file, previewUrl) => {
+            setCropSourceFile(null);
+            void analyzeImageFile(file, previewUrl);
+          }}
+        />
+      ) : null}
     </MobileLayout>
   );
 };

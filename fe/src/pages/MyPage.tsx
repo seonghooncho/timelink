@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ToggleSwitch from '@/components/common/ToggleSwitch';
-import type { NotificationSettingsResponse } from '@/services/api';
-import { settingsApi, storageApi } from '@/services/api';
+import ImageCropModal from '@/components/common/ImageCropModal';
+import type { ImageStatus, NotificationSettingsResponse } from '@/services/api';
+import { settingsApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, Camera, Pencil, Check, X, Sparkles } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
+import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const PROFILE_TIPS = [
   '그룹에 가입하면 친구들과 가능한 약속 시간을 한눈에 비교할 수 있어요.',
@@ -39,6 +41,8 @@ const MyPage: React.FC = () => {
   const [editNickname, setEditNickname] = useState('');
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageStatus, setProfileImageStatus] = useState<ImageStatus | undefined>();
+  const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -61,6 +65,7 @@ const MyPage: React.FC = () => {
     if (profile) {
       setNickname(profile.nickname || '사용자');
       setProfileImage(profile.avatarUrl);
+      setProfileImageStatus(profile.imageStatus);
     }
   }, [profile]);
 
@@ -194,19 +199,43 @@ const MyPage: React.FC = () => {
 
   const handleImageClick = () => fileInputRef.current?.click();
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { appToast.error('이미지 파일만 업로드 가능합니다'); return; }
-    if (file.size > 5 * 1024 * 1024) { appToast.error('5MB 이하의 이미지만 업로드 가능합니다'); return; }
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) {
+      appToast.error(validationMessage);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
+    setCropSourceFile(file);
+  };
+
+  const handleCropConfirm = async (croppedFile: File, previewUrl: string) => {
+    setCropSourceFile(null);
     setIsUploading(true);
+    setProfileImage(previewUrl);
+    setProfileImageStatus('PROCESSING');
     try {
-      const uploadResult = await storageApi.uploadProfileImage(file);
-      await updateProfileMutation.mutateAsync({ avatarUrl: uploadResult.url });
-      setProfileImage(uploadResult.url);
-      appToast.success('프로필 이미지가 변경되었습니다');
+      const uploadResult = await uploadProcessedImage('MEMBER', croppedFile);
+      await updateProfileMutation.mutateAsync({ imageId: uploadResult.imageId });
+      appToast.info('이미지 처리 중입니다', '완료되면 WebP 이미지로 자동 반영됩니다.');
+
+      const processed = await waitForImageProcessing(uploadResult.imageId);
+      if (processed.status === 'COMPLETED' && processed.url) {
+        await updateProfileMutation.mutateAsync({ imageId: uploadResult.imageId });
+        setProfileImage(processed.url);
+        setProfileImageStatus('COMPLETED');
+        appToast.success('프로필 이미지가 변경되었습니다');
+      } else if (processed.status === 'FAILED') {
+        setProfileImageStatus('FAILED');
+        appToast.error('이미지 처리에 실패했습니다', processed.failureReason);
+      } else {
+        setProfileImageStatus('PROCESSING');
+      }
     } catch (err) {
+      setProfileImageStatus('FAILED');
       appToast.error('이미지 업로드에 실패했습니다', err);
     } finally {
       setIsUploading(false);
@@ -232,6 +261,8 @@ const MyPage: React.FC = () => {
   const profileTip = PROFILE_TIPS[tipIndex];
   const showPreviousTip = () => setTipIndex(prev => (prev - 1 + PROFILE_TIPS.length) % PROFILE_TIPS.length);
   const showNextTip = () => setTipIndex(prev => (prev + 1) % PROFILE_TIPS.length);
+  const profileImageLabel = getProcessingImageLabel(isUploading ? 'PROCESSING' : profileImageStatus);
+  const isProfileImageProcessing = isUploading || profileImageStatus === 'PROCESSING';
 
   return (
     <MobileLayout>
@@ -247,12 +278,17 @@ const MyPage: React.FC = () => {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><span className="text-3xl">👤</span></div>
                 )}
-                <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  {isUploading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
+                <div className={`absolute inset-0 bg-black/45 flex items-center justify-center transition-opacity ${isProfileImageProcessing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  {isProfileImageProcessing ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
                 </div>
               </button>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} className="hidden" />
             </div>
+            {profileImageLabel ? (
+              <p className="mb-3 rounded-full bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                {profileImageLabel}
+              </p>
+            ) : null}
             {isEditingNickname ? (
               <div className="flex items-center gap-2 w-full max-w-[240px]">
                 <input value={editNickname} onChange={e => setEditNickname(e.target.value)}
@@ -346,6 +382,19 @@ const MyPage: React.FC = () => {
         </button>
         <div className="h-4" />
       </div>
+      {cropSourceFile ? (
+        <ImageCropModal
+          file={cropSourceFile}
+          title="프로필 사진 맞추기"
+          description="표시될 영역을 조정한 뒤 저장하세요."
+          outputNamePrefix="profile"
+          onClose={() => {
+            setCropSourceFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+          onConfirm={handleCropConfirm}
+        />
+      ) : null}
     </MobileLayout>
   );
 };

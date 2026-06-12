@@ -2,54 +2,90 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
+import ImageCropModal from '@/components/common/ImageCropModal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateGroup } from '@/hooks/useGroups';
-import { storageApi } from '@/services/api';
+import type { ImageStatus } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { Camera, X } from 'lucide-react';
+import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const GroupFormPage: React.FC = () => {
   const navigate = useNavigate();
   const createGroupMutation = useCreateGroup();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUpload, setImageUpload] = useState<{ imageId: string; status: ImageStatus; url?: string } | null>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { appToast.error('이미지 파일만 업로드 가능합니다'); return; }
-    if (file.size > 5 * 1024 * 1024) { appToast.error('이미지 크기는 5MB 이하여야 합니다'); return; }
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target?.result as string);
-    reader.readAsDataURL(file);
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) {
+      appToast.error(validationMessage);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setCropSourceFile(file);
   };
 
-  const removeImage = () => { setImageFile(null); setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const removeImage = () => {
+    setCropSourceFile(null);
+    setImagePreview(null);
+    setImageUpload(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-  const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return null;
-    const result = await storageApi.uploadGroupImage(imageFile);
-    return result.url;
+  const handleCropConfirm = async (croppedFile: File, previewUrl: string) => {
+    setCropSourceFile(null);
+    setImagePreview(previewUrl);
+    setImageUpload(null);
+    setIsImageUploading(true);
+    try {
+      const uploaded = await uploadProcessedImage('GROUP', croppedFile);
+      setImageUpload({ imageId: uploaded.imageId, status: uploaded.status });
+      appToast.info('이미지 처리 중입니다', '그룹을 만들면 처리 완료 후 WebP 이미지가 반영됩니다.');
+
+      void waitForImageProcessing(uploaded.imageId).then((processed) => {
+        setImageUpload(prev => prev?.imageId === uploaded.imageId
+          ? { imageId: uploaded.imageId, status: processed.status || 'PROCESSING', url: processed.url }
+          : prev);
+      }).catch(() => {
+        setImageUpload(prev => prev?.imageId === uploaded.imageId
+          ? { ...prev, status: 'FAILED' }
+          : prev);
+      });
+    } catch (error) {
+      setImageUpload(null);
+      setImagePreview(null);
+      appToast.error('이미지 업로드에 실패했습니다', error);
+    } finally {
+      setIsImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { appToast.error('그룹 이름을 입력해주세요'); return; }
+    if (isImageUploading) {
+      appToast.info('이미지 업로드가 끝난 뒤 그룹을 만들 수 있습니다');
+      return;
+    }
     setIsUploading(true);
     try {
-      let imageUrl: string | null = null;
-      if (imageFile) imageUrl = await uploadImage();
-
       const result = await createGroupMutation.mutateAsync({
         name: name.trim(),
         description: description.trim(),
-        imageUrl: imageUrl || undefined,
+        imageId: imageUpload?.imageId,
+        imageUrl: imageUpload?.url,
       });
 
       appToast.success('그룹이 생성되었습니다');
@@ -69,6 +105,11 @@ const GroupFormPage: React.FC = () => {
                 <div className="relative w-20 h-20">
                   <img src={imagePreview} alt="그룹 이미지 미리보기" className="w-20 h-20 rounded-xl object-cover border border-border" />
                   <button type="button" onClick={removeImage} className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md"><X className="w-3.5 h-3.5" /></button>
+                  {isImageUploading || imageUpload?.status === 'PROCESSING' ? (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-muted-foreground/40 transition-colors">
@@ -76,9 +117,14 @@ const GroupFormPage: React.FC = () => {
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground flex-1">그룹을 대표하는 사진을 추가하세요.<br />5MB 이하의 이미지 파일만 가능합니다.</p>
+            <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">그룹을 대표하는 사진을 추가하세요.<br />15MB 이하의 jpg, png, webp 파일만 가능합니다.</p>
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+          {imageUpload?.status || isImageUploading ? (
+            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">
+              {getProcessingImageLabel(isImageUploading ? 'PROCESSING' : imageUpload?.status)}
+            </p>
+          ) : null}
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} className="hidden" />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-semibold text-foreground">그룹 이름 <span className="text-destructive">*</span></label>
@@ -98,10 +144,23 @@ const GroupFormPage: React.FC = () => {
             <li>• 그룹 일정 조율 기능을 사용할 수 있어요</li>
           </ul>
         </div>
-        <button type="submit" disabled={isUploading} className="w-full py-3.5 bg-category-group text-white rounded-xl text-sm font-bold hover:bg-category-group/90 transition-colors disabled:opacity-50">
-          {isUploading ? '생성 중...' : '그룹 만들기'}
+        <button type="submit" disabled={isUploading || isImageUploading} className="w-full py-3.5 bg-category-group text-white rounded-xl text-sm font-bold hover:bg-category-group/90 transition-colors disabled:opacity-50">
+          {isUploading ? '생성 중...' : isImageUploading ? '이미지 업로드 중...' : '그룹 만들기'}
         </button>
       </form>
+      {cropSourceFile ? (
+        <ImageCropModal
+          file={cropSourceFile}
+          title="그룹 사진 맞추기"
+          description="그룹 목록에 보일 영역을 조정하세요."
+          outputNamePrefix="group"
+          onClose={() => {
+            setCropSourceFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+          onConfirm={handleCropConfirm}
+        />
+      ) : null}
     </MobileLayout>
   );
 };
