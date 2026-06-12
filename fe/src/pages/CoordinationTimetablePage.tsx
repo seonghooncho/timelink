@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
+import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import { coordinationApi, CoordinationDetailResponse, groupApi, GroupMemberResponse, HeatmapEntry, SlotEntry } from '@/services/api';
 import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
@@ -565,28 +566,30 @@ function SlotParticipantsModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 px-5 py-4">
           {users.length > 0 ? (
-            <div className="space-y-2">
+            <ScrollableFadeList
+              ariaLabel="타임슬롯 투표자 목록"
+              maxHeightClassName="max-h-[19.5rem]"
+              viewportClassName="pr-1"
+              contentClassName="grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-x-3 gap-y-4 space-y-0"
+            >
               {users.map((userId) => {
                 const member = membersByUserId.get(userId);
                 const name = getParticipantName(userId);
                 return (
-                  <div key={userId} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3">
-                    <Avatar className="h-11 w-11 border border-border/70">
+                  <div key={userId} className="min-w-0 text-center">
+                    <Avatar className="mx-auto h-12 w-12 border border-border/70 shadow-sm">
                       <AvatarImage src={member?.avatarUrl} alt={name} />
                       <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
                         {getParticipantFallback(userId)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">가능하다고 투표했습니다</p>
-                    </div>
+                    <p className="mt-2 truncate text-xs font-semibold text-foreground" title={name}>{name}</p>
                   </div>
                 );
               })}
-            </div>
+            </ScrollableFadeList>
           ) : (
             <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
               투표 인원을 불러오지 못했습니다.
