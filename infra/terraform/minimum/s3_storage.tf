@@ -21,11 +21,14 @@ resource "aws_s3_bucket_cors_configuration" "public_assets" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
-    allowed_origins = [
-      local.frontend_origin,
-      "http://localhost:5173",
-      "http://127.0.0.1:5173"
-    ]
+    allowed_origins = distinct(concat(
+      [
+        local.frontend_origin,
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+      ],
+      var.additional_frontend_cors_origins
+    ))
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
