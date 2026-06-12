@@ -1,0 +1,71 @@
+# 모바일 앱 스토어 제출 준비
+
+## 근본 목적
+
+Timelink 모바일 앱을 `main/mobile`에서 운영 웹/백엔드와 같은 API 계약으로 관리하고, 앱스토어와 플레이스토어 제출 직전까지 반복 검증할 수 있게 한다.
+
+## 비목적
+
+이 문서는 Apple Developer, Google Play Console 계정에서 실제 심사 제출을 대체하지 않는다. 서명 키, Apple Team ID, Play Console 앱 등록처럼 계정 권한이 필요한 값은 코드에 임의로 고정하지 않는다.
+
+## 현재 구조
+
+- 앱 위치: `mobile/`
+- 프레임워크: Expo managed React Native
+- 네이티브 폴더: `mobile/android`, `mobile/ios`는 커밋하지 않고 `expo prebuild`로 생성한다.
+- 패키지명과 번들 ID: `cloud.timelink.mobile`
+- 운영 API: `https://timelink.cloud/api/planner/v1`
+- OAuth 모바일 콜백 origin: `timelink://app`
+- Universal/App Links 대상: `https://timelink.cloud`, `https://www.timelink.cloud`
+
+루트 명령:
+
+```sh
+npm run mobile:typecheck
+npm run mobile:prebuild:android
+npm run mobile:prebuild:ios
+npm run mobile:export:web
+```
+
+## 반영된 기능 계약
+
+- 일정 생성은 `날짜 + 시작 시간 + 소요시간`으로 보낸다. 종료 시각은 앱에서 `시작 + 소요시간`으로 계산해 표시한다.
+- 시작 시간은 30분 단위 선택 UI로 제한한다.
+- 프로필, 그룹, 일정 이미지는 15MB 이하 파일을 presigned URL로 `upload/`에 올리고, 백엔드 WebP 처리 결과를 `imageId/imageStatus`로 추적한다.
+- 그룹 알림 on/off는 모바일 마이페이지에 노출하지 않는다. 그룹 알림은 서버 기본 정책대로 알림센터에 생성된다.
+- 일정 알림이 꺼져 있으면 리마인드 설정은 보이지만 수정할 수 없다.
+- 조율 결과 타임슬롯을 선택하면 투표한 사람의 프로필과 이름을 모달로 보여준다.
+
+## 스토어 제출 기준
+
+- Google Play 신규/업데이트 앱은 Android 15(API 35) 이상 target이 필요하다. 현재 `expo-build-properties`로 `compileSdkVersion=35`, `targetSdkVersion=35`를 명시했다.
+- App Store 제출에는 개인정보 처리방침 URL, 개인정보 라벨, SDK privacy manifest/signature 확인이 필요하다.
+- iOS 사진/카메라 권한 문구는 `app.json`에 한글로 설정했다.
+- EAS 빌드 프로필은 `mobile/eas.json`에 추가했다.
+
+참고:
+
+- Apple App Privacy Details: https://developer.apple.com/app-store/app-privacy-details/
+- Apple App Review Guidelines: https://developer.apple.com/app-store/review/guidelines/
+- Google Play target API requirement: https://support.google.com/googleplay/android-developer/answer/11926878
+
+## 남은 외부 설정
+
+- Apple Developer Team ID 확보 후 `apple-app-site-association`을 운영 도메인에 배포해야 Universal Links 검증이 완료된다.
+- Play App Signing 등록 후 Android SHA256 fingerprint를 사용해 `assetlinks.json`을 운영 도메인에 배포해야 Android App Links 검증이 완료된다.
+- EAS project id와 스토어 자격증명은 계정 연결 후 확정한다.
+- 로컬 AAB 빌드는 현재 개발 머신에 Android SDK 경로가 없어 끝까지 검증하지 못했다. `ANDROID_HOME` 또는 `mobile/android/local.properties`의 `sdk.dir` 설정 후 `npm run mobile:build:android-release`로 확인한다.
+
+## 네이티브 푸시 판단
+
+현재 운영 백엔드 푸시는 Web Push(VAPID) 구조다. iOS/Android 네이티브 앱은 Web Push subscription이 아니라 APNs/FCM 또는 Expo Push Token을 사용해야 하므로 같은 토글을 그대로 노출하면 실제 동작과 UI가 어긋난다.
+
+이번 모바일 통합에서는 알림센터와 일정 알림 설정만 노출하고, 네이티브 푸시는 별도 설계로 분리한다. 장기적으로는 `NativePushSubscription` 저장소를 추가하고 notification worker가 Web Push와 Native Push를 목적지별로 분기하는 구조가 맞다.
+
+## 검증 결과
+
+- `npm run mobile:typecheck`: 통과
+- `npm run mobile:export:web`: 통과
+- `npm run mobile:prebuild:android`: 통과
+- `npm run mobile:prebuild:ios`: 통과
+- `npm audit --omit=dev --audit-level=high`: high 이상 없음. Expo CLI 하위 `uuid/xcode` moderate 9건은 `npm audit fix --force`가 Expo 46 다운그레이드를 요구해 보류한다.

@@ -15,6 +15,7 @@
 ```text
 .
 ├── fe/         # React + Vite + Tailwind 프론트엔드
+├── mobile/     # Expo React Native 모바일 앱
 ├── backend/    # Spring Boot 백엔드
 ├── ai/         # FastAPI 기반 AI 서비스
 ├── infra/      # Terraform 문서와 init/minimum/cloudflare_free 스택
@@ -62,6 +63,26 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 이미 Python 의존성이 준비돼 있다면 루트에서 `npm run ai:run`으로 실행할 수 있습니다.
+
+### Mobile
+
+모바일 앱은 `mobile/` 아래에서 Expo React Native로 관리합니다. `android/`, `ios/` 네이티브 폴더는 커밋하지 않고 prebuild로 생성합니다.
+
+```sh
+cd mobile
+npm install
+npm run start
+```
+
+루트에서 검증하려면 아래 명령을 사용합니다.
+
+```sh
+npm run mobile:typecheck
+npm run mobile:prebuild:android
+npm run mobile:export:web
+```
+
+스토어 제출 준비 항목은 [docs/mobile/STORE_READINESS.md](docs/mobile/STORE_READINESS.md)를 확인합니다.
 
 ### Infra
 
