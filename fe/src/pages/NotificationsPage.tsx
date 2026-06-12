@@ -9,7 +9,7 @@ import { appToast } from '@/lib/appToast';
 
 const TABS = [
   { key: 'schedule', label: '일정 알림' },
-  { key: 'system', label: '시스템 알림' },
+  { key: 'group', label: '그룹 알림' },
 ];
 const NOTIFICATION_PAGE_LIMIT = 20;
 

@@ -125,6 +125,10 @@ public class GroupService {
     public GroupDetailResDTO update(String userId, String groupId, GroupUpdateReqDTO req) {
         Group group = findGroupOrThrow(groupId);
         verifyMembership(groupId, userId);
+        String previousName = group.getName();
+        String previousDescription = group.getDescription();
+        String previousImageId = group.getImageId();
+        String previousImageUrl = group.getImageUrl();
 
         if (req.getName() != null) group.setName(req.getName());
         if (req.getDescription() != null) group.setDescription(req.getDescription());
@@ -133,6 +137,9 @@ public class GroupService {
 
         repository.saveGroup(group);
         applyGroupImage(userId, group, req.getImageId());
+        if (hasGroupDisplayChange(group, previousName, previousDescription, previousImageId, previousImageUrl)) {
+            notifyGroupInfoUpdated(userId, group);
+        }
         return getDetail(userId, groupId);
     }
 
@@ -141,8 +148,8 @@ public class GroupService {
         if (!group.getCreatedBy().equals(userId)) {
             throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
         }
-        // 멤버 데이터도 함께 정리
         List<GroupMember> members = repository.findMembersByGroupId(groupId);
+        notifyGroupDeleted(userId, group, members);
         for (GroupMember m : members) {
             repository.deleteMember(groupId, m.getUserId());
         }
@@ -204,10 +211,11 @@ public class GroupService {
             throw new GroupException(GroupErrorCode.CANNOT_REMOVE_SELF);
         }
 
-        repository.findMember(groupId, targetUserId)
+        GroupMember target = repository.findMember(groupId, targetUserId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
         repository.deleteMember(groupId, targetUserId);
         refreshMemberCountAfterChange(group, -1);
+        notifyMemberRemoved(group, target);
     }
 
     // ── private helpers ──
@@ -331,8 +339,51 @@ public class GroupService {
 
         for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
             if (!joinedMember.getUserId().equals(member.getUserId())) {
-                notificationService.createGroupNotificationIfEnabled(member.getUserId(), title, content);
+                notificationService.createGroupNotification(member.getUserId(), title, content);
             }
         }
+    }
+
+    private void notifyGroupInfoUpdated(String userId, Group group) {
+        String title = "그룹 정보가 변경되었습니다";
+        String content = "%s 그룹 정보가 변경되었습니다.".formatted(group.getName());
+
+        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
+            if (!userId.equals(member.getUserId())) {
+                notificationService.createGroupNotification(member.getUserId(), title, content);
+            }
+        }
+    }
+
+    private void notifyGroupDeleted(String userId, Group group, List<GroupMember> members) {
+        String title = "그룹이 삭제되었습니다";
+        String content = "%s 그룹이 삭제되었습니다.".formatted(group.getName());
+
+        for (GroupMember member : members) {
+            if (!userId.equals(member.getUserId())) {
+                notificationService.createGroupNotification(member.getUserId(), title, content);
+            }
+        }
+    }
+
+    private void notifyMemberRemoved(Group group, GroupMember target) {
+        notificationService.createGroupNotification(
+                target.getUserId(),
+                "그룹에서 내보내졌습니다",
+                "%s 그룹에서 내보내졌습니다.".formatted(group.getName())
+        );
+    }
+
+    private boolean hasGroupDisplayChange(
+            Group group,
+            String previousName,
+            String previousDescription,
+            String previousImageId,
+            String previousImageUrl
+    ) {
+        return !Objects.equals(previousName, group.getName())
+                || !Objects.equals(previousDescription, group.getDescription())
+                || !Objects.equals(previousImageId, group.getImageId())
+                || !Objects.equals(previousImageUrl, group.getImageUrl());
     }
 }

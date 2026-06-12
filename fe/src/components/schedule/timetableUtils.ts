@@ -6,9 +6,21 @@ export const TIMETABLE_HOUR_END = 24;
 export const TIMETABLE_DEFAULT_VISIBLE_HOUR = 7;
 export const TIMETABLE_HOUR_HEIGHT = 48;
 export const TIMETABLE_MIN_BLOCK_HOURS = 0.5;
+export const TIMETABLE_CURRENT_TIME_LOOKBACK_HOURS = 2;
 
 export const getTimetableDraggedScrollTop = (startScrollTop: number, startY: number, currentY: number) =>
   startScrollTop - (currentY - startY);
+
+export const getInitialTimetableScrollTop = (visibleDates: Date[], now = new Date(), viewportHeight = 0) => {
+  const gridHeight = (TIMETABLE_HOUR_END - TIMETABLE_HOUR_START) * TIMETABLE_HOUR_HEIGHT;
+  const maxScrollTop = Math.max(0, gridHeight - Math.max(0, viewportHeight));
+  const hasToday = visibleDates.some(date => toLocalDateKey(date) === toLocalDateKey(now));
+  const targetHour = hasToday
+    ? Math.max(TIMETABLE_HOUR_START, now.getHours() + now.getMinutes() / 60 - TIMETABLE_CURRENT_TIME_LOOKBACK_HOURS)
+    : TIMETABLE_DEFAULT_VISIBLE_HOUR;
+
+  return Math.min(maxScrollTop, Math.max(0, (targetHour - TIMETABLE_HOUR_START) * TIMETABLE_HOUR_HEIGHT));
+};
 
 export const toLocalDateKey = (value: Date | string) => {
   const date = value instanceof Date ? value : new Date(value);

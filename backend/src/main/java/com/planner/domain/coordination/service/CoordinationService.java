@@ -107,11 +107,17 @@ public class CoordinationService {
         if (!coord.getCreatedBy().equals(userId)) {
             throw new CoordinationException(CoordinationErrorCode.NOT_COORDINATION_CREATOR);
         }
+        String previousStatus = coord.getStatus();
+        boolean statusChanged = false;
         if (req.getStatus() != null) {
             validateStatus(req.getStatus());
+            statusChanged = !req.getStatus().equals(previousStatus);
             coord.setStatus(req.getStatus());
         }
         repository.saveCoordination(coord);
+        if (statusChanged) {
+            notifyCoordinationStatusChanged(userId, coord, previousStatus);
+        }
         return CoordinationConverter.toResponse(coord);
     }
 
@@ -122,6 +128,7 @@ public class CoordinationService {
             throw new CoordinationException(CoordinationErrorCode.NOT_COORDINATION_CREATOR);
         }
         repository.deleteCoordination(groupId, coordId);
+        notifyCoordinationDeleted(userId, coord);
     }
 
     public SubmitResultDTO submitResponses(String userId, String groupId, String coordId, CoordinationSubmitReqDTO req) {
@@ -264,12 +271,48 @@ public class CoordinationService {
     }
 
     private void notifyCoordinationCreated(String userId, Coordination coord) {
-        String title = "새 시간 조율이 시작되었습니다";
-        String content = "%s 조율에 참여해 주세요.".formatted(coord.getTitle());
+        notifyCoordinationMembers(
+                userId,
+                coord,
+                "새 시간 조율이 시작되었습니다",
+                "%s 조율에 참여해 주세요.".formatted(coord.getTitle())
+        );
+    }
 
+    private void notifyCoordinationStatusChanged(String userId, Coordination coord, String previousStatus) {
+        if ("closed".equals(coord.getStatus())) {
+            notifyCoordinationMembers(
+                    userId,
+                    coord,
+                    "시간 조율이 마감되었습니다",
+                    "%s 조율이 마감되었습니다.".formatted(coord.getTitle())
+            );
+            return;
+        }
+
+        if ("closed".equals(previousStatus) && "active".equals(coord.getStatus())) {
+            notifyCoordinationMembers(
+                    userId,
+                    coord,
+                    "시간 조율이 다시 열렸습니다",
+                    "%s 조율에 다시 참여할 수 있습니다.".formatted(coord.getTitle())
+            );
+        }
+    }
+
+    private void notifyCoordinationDeleted(String userId, Coordination coord) {
+        notifyCoordinationMembers(
+                userId,
+                coord,
+                "시간 조율이 삭제되었습니다",
+                "%s 조율이 삭제되었습니다.".formatted(coord.getTitle())
+        );
+    }
+
+    private void notifyCoordinationMembers(String userId, Coordination coord, String title, String content) {
         for (GroupMember member : groupRepository.findMembersByGroupId(coord.getGroupId())) {
             if (!userId.equals(member.getUserId())) {
-                notificationService.createGroupNotificationIfEnabled(member.getUserId(), title, content);
+                notificationService.createGroupNotification(member.getUserId(), title, content);
             }
         }
     }
@@ -279,7 +322,7 @@ public class CoordinationService {
             return;
         }
 
-        notificationService.createGroupNotificationIfEnabled(
+        notificationService.createGroupNotification(
                 coord.getCreatedBy(),
                 "조율 응답이 등록되었습니다",
                 "%s 조율에 새 응답이 등록되었습니다.".formatted(coord.getTitle())

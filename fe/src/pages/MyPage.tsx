@@ -10,7 +10,7 @@ import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, Camera, Pencil, Check, X, Sparkles } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
-import { ensurePushSubscription, removePushSubscription } from '@/pwa/pushNotifications';
+import { ensurePushSubscription, removePushSubscription, requestPushPermission } from '@/pwa/pushNotifications';
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const PROFILE_TIPS = [
@@ -27,7 +27,7 @@ const PROFILE_TIPS = [
   '캘린더에서 날짜를 누르면 그날 일정만 따로 모아 확인할 수 있어요.',
   '포스터나 안내문 사진으로 일정을 등록하면 AI가 제목과 시간을 먼저 채워줄 수 있어요.',
   '시간 조율 날짜가 많을 때는 5일 단위로 넘겨 보며 가능한 시간을 비교할 수 있어요.',
-  '푸시 권한을 나중에 켜도 알림센터에는 일정과 그룹 알림이 계속 쌓입니다.',
+  '푸시 권한을 나중에 켜도 그룹 활동은 알림센터에서 먼저 확인할 수 있어요.',
 ];
 
 const MyPage: React.FC = () => {
@@ -47,7 +47,7 @@ const MyPage: React.FC = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [scheduleAlarm, setScheduleAlarm] = useState(false);
-  const [groupAlarm, setGroupAlarm] = useState(false);
+  const [pushAlarm, setPushAlarm] = useState(false);
   const [remindOneDayBefore, setRemindOneDayBefore] = useState(false);
   const [remindSameDay, setRemindSameDay] = useState(false);
   const [importantAlarm, setImportantAlarm] = useState(false);
@@ -79,43 +79,35 @@ const MyPage: React.FC = () => {
 
   const applyNotificationSettings = (settings: NotificationSettingsResponse) => {
     setScheduleAlarm(settings.scheduleAlarm);
-    setGroupAlarm(settings.groupAlarm);
+    setPushAlarm(settings.pushAlarm);
     setRemindOneDayBefore(settings.remindOneDayBefore);
     setRemindSameDay(settings.remindSameDay);
     setImportantAlarm(settings.importantAlarm);
   };
 
   const requestBrowserNotificationPermission = async () => {
-    if (!('Notification' in window) || typeof Notification.requestPermission !== 'function') {
+    const permission = await requestPushPermission();
+    if (permission === 'unsupported') {
       appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
       return false;
     }
 
-    if (Notification.permission === 'granted') {
+    if (permission === 'granted') {
       return true;
     }
 
-    if (Notification.permission === 'denied') {
+    if (permission === 'denied') {
       appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
       return false;
     }
 
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'denied') {
-        appToast.info('브라우저 알림 권한이 꺼져 있어 알림센터에서만 확인할 수 있습니다');
-        return false;
-      }
-      return permission === 'granted';
-    } catch {
-      appToast.info('브라우저 알림은 지원되지 않아 알림센터에서만 확인할 수 있습니다');
-      return false;
-    }
+    appToast.info('푸시 알림은 꺼진 상태로 둘게요', '알림센터에는 그룹 활동이 자동으로 쌓입니다.');
+    return false;
   };
 
   const syncPushSubscription = async (settings: NotificationSettingsResponse) => {
     try {
-      if (settings.scheduleAlarm || settings.groupAlarm) {
+      if (settings.pushAlarm) {
         if ('Notification' in window && Notification.permission === 'granted') {
           const subscribed = await ensurePushSubscription();
           if (!subscribed) {
@@ -131,7 +123,7 @@ const MyPage: React.FC = () => {
     }
   };
 
-  const handleSettingChange = async <K extends 'scheduleAlarm' | 'groupAlarm' | 'remindOneDayBefore' | 'remindSameDay' | 'importantAlarm'>(
+  const handleSettingChange = async <K extends 'pushAlarm' | 'remindOneDayBefore' | 'remindSameDay' | 'importantAlarm'>(
     key: K,
     value: boolean,
     rollback: () => void,
@@ -142,8 +134,12 @@ const MyPage: React.FC = () => {
     }
 
     try {
-      if (value && (key === 'scheduleAlarm' || key === 'groupAlarm')) {
-        await requestBrowserNotificationPermission();
+      if (value && key === 'pushAlarm') {
+        const granted = await requestBrowserNotificationPermission();
+        if (!granted) {
+          rollback();
+          return;
+        }
       }
       const settings = await settingsApi.updateNotifications({ [key]: value });
       applyNotificationSettings(settings);
@@ -165,9 +161,6 @@ const MyPage: React.FC = () => {
     setScheduleAlarm(value);
 
     try {
-      if (value) {
-        await requestBrowserNotificationPermission();
-      }
       const settings = await settingsApi.updateNotifications(
         value
           ? { scheduleAlarm: true }
@@ -182,6 +175,12 @@ const MyPage: React.FC = () => {
       setImportantAlarm(previous.importantAlarm);
       appToast.error('알림 설정 저장에 실패했습니다', error);
     }
+  };
+
+  const handlePushAlarmChange = async (value: boolean) => {
+    const previous = pushAlarm;
+    setPushAlarm(value);
+    await handleSettingChange('pushAlarm', value, () => setPushAlarm(previous));
   };
 
   const handleLogout = async () => {
@@ -345,12 +344,8 @@ const MyPage: React.FC = () => {
         <section className="bg-card rounded-2xl shadow-soft overflow-hidden">
           <div className="px-5 pt-4 pb-2"><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">알림 설정</p></div>
           <div className="divide-y divide-border/60">
-            <SettingRow label="일정 알림" desc="일정과 리마인드 알림을 받습니다" checked={scheduleAlarm} onChange={handleScheduleAlarmChange} />
-            <SettingRow label="그룹 알림" desc="그룹 일정 생성, 조율 시 알림" checked={groupAlarm} onChange={v => {
-              const previous = groupAlarm;
-              setGroupAlarm(v);
-              handleSettingChange('groupAlarm', v, () => setGroupAlarm(previous));
-            }} />
+            <SettingRow label="일정 알림" desc="알림을 켠 일정의 시작 알림과 리마인드를 받습니다" checked={scheduleAlarm} onChange={handleScheduleAlarmChange} />
+            <SettingRow label="푸시 알림" desc="켜두면 일정과 그룹 알림을 기기 푸시로도 받습니다" checked={pushAlarm} onChange={handlePushAlarmChange} />
           </div>
         </section>
 

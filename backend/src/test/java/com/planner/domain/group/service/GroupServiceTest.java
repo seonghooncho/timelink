@@ -168,6 +168,28 @@ class GroupServiceTest {
     }
 
     @Test
+    @DisplayName("update — 그룹 정보 변경 시 수정자를 제외한 멤버에게 알림을 보낸다")
+    void update_notifiesOtherMembers() {
+        Group group = sampleGroup("g1", "other");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+        when(repository.findMembersByGroupId("g1")).thenReturn(
+                List.of(sampleMember("g1", "user1", "member"), sampleMember("g1", "user2", "member")));
+
+        GroupUpdateReqDTO req = new GroupUpdateReqDTO();
+        req.setName("Updated");
+
+        service.update("user1", "g1", req);
+
+        verify(notificationService).createGroupNotification(
+                eq("user2"),
+                eq("그룹 정보가 변경되었습니다"),
+                contains("Updated 그룹 정보가 변경되었습니다")
+        );
+        verify(notificationService, never()).createGroupNotification(eq("user1"), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("update — 그룹 멤버가 아니면 예외")
     void update_notMember_throws() {
         when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
@@ -193,6 +215,11 @@ class GroupServiceTest {
         verify(repository, times(2)).deleteMember(eq("g1"), anyString());
         verify(repository).deleteInvite("ABC123");
         verify(repository).deleteGroup("g1");
+        verify(notificationService).createGroupNotification(
+                eq("user2"),
+                eq("그룹이 삭제되었습니다"),
+                contains("Study 그룹이 삭제되었습니다")
+        );
     }
 
     @Test
@@ -233,12 +260,12 @@ class GroupServiceTest {
                         && "https://img/join.png".equals(m.getAvatarUrl())
         ));
         verify(repository).updateMemberCount("g1", 1);
-        verify(notificationService).createGroupNotificationIfEnabled(
+        verify(notificationService).createGroupNotification(
                 eq("other"),
                 eq("새 멤버가 참여했습니다"),
                 contains("테스터님이 들어왔습니다")
         );
-        verify(notificationService, never()).createGroupNotificationIfEnabled(eq("user1"), anyString(), anyString());
+        verify(notificationService, never()).createGroupNotification(eq("user1"), anyString(), anyString());
     }
 
     @Test
@@ -317,6 +344,11 @@ class GroupServiceTest {
 
         verify(repository).deleteMember("g1", "user2");
         verify(repository).updateMemberCount("g1", -1);
+        verify(notificationService).createGroupNotification(
+                eq("user2"),
+                eq("그룹에서 내보내졌습니다"),
+                contains("Study 그룹에서 내보내졌습니다")
+        );
     }
 
     @Test

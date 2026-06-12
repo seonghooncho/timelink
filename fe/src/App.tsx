@@ -23,6 +23,7 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
+import PushPermissionNudge from "@/components/pwa/PushPermissionNudge";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <PwaInstallPrompt />
+            <PushPermissionNudge />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />

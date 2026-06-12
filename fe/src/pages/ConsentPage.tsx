@@ -7,6 +7,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import { Checkbox } from '@/components/ui/checkbox';
 import { appToast } from '@/lib/appToast';
 import { profileApi } from '@/services/api';
+import { markPushPermissionNudgePending } from '@/pwa/pushNotifications';
 
 const getSafeRedirect = (value: string | null) => {
   if (!value || !value.startsWith('/') || value.startsWith('//')) {
@@ -36,6 +37,7 @@ const ConsentPage: React.FC = () => {
     mutationFn: profileApi.agreeRequiredConsents,
     onSuccess: (profile) => {
       queryClient.setQueryData(['profile'], profile);
+      markPushPermissionNudgePending();
       appToast.success('동의가 완료되었습니다');
       navigate(redirectPath, { replace: true });
     },

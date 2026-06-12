@@ -6,6 +6,7 @@ import lombok.Data;
 public class NotificationSettingsUpdateReqDTO {
     private Boolean scheduleAlarm;
     private Boolean groupAlarm;
+    private Boolean pushAlarm;
     private Boolean remindOneDayBefore;
     private String remindOneDayBeforeTime;
     private Boolean remindSameDay;

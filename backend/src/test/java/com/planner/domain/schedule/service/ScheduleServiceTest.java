@@ -164,9 +164,9 @@ class ScheduleServiceTest {
 
             // then
             then(notificationService).should()
-                    .createGroupScheduleNotificationIfEnabled(eq("member-2"), any(Schedule.class));
+                    .createGroupScheduleNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
-                    .createGroupScheduleNotificationIfEnabled(eq(USER_ID), any(Schedule.class));
+                    .createGroupScheduleNotification(eq(USER_ID), any(Schedule.class));
         }
     }
 
@@ -254,6 +254,44 @@ class ScheduleServiceTest {
         }
 
         @Test
+        @DisplayName("그룹 일정의 표시 정보가 변경되면 작성자를 제외한 그룹 멤버에게 알림을 보낸다")
+        void shouldNotifyGroupMembersWhenGroupScheduleUpdated() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setTitle("수정된 그룹 회의");
+
+            service.update(USER_ID, "s1", req);
+
+            then(notificationService).should()
+                    .createGroupScheduleUpdatedNotification(eq("member-2"), any(Schedule.class));
+            then(notificationService).should(never())
+                    .createGroupScheduleUpdatedNotification(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("그룹 일정 완료 상태만 바뀌면 그룹 변경 알림을 보내지 않는다")
+        void shouldNotNotifyGroupMembersWhenOnlyCompletionChanges() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setIsCompleted(true);
+
+            service.update(USER_ID, "s1", req);
+
+            then(notificationService).should(never())
+                    .createGroupScheduleUpdatedNotification(anyString(), any(Schedule.class));
+        }
+
+        @Test
         @DisplayName("startTime 변경 시 GSI1SK도 업데이트한다")
         void shouldUpdateGsiOnStartTimeChange() {
             Schedule schedule = createSampleSchedule("s1");
@@ -330,6 +368,24 @@ class ScheduleServiceTest {
 
             then(reminderSchedulingService).should().deleteScheduleJobs(USER_ID, "s1");
             then(repository).should().delete(USER_ID, "s1");
+        }
+
+        @Test
+        @DisplayName("그룹 일정 삭제 시 작성자를 제외한 그룹 멤버에게 알림을 보낸다")
+        void shouldNotifyGroupMembersWhenGroupScheduleDeleted() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            service.delete(USER_ID, "s1");
+
+            then(notificationService).should()
+                    .createGroupScheduleDeletedNotification(eq("member-2"), any(Schedule.class));
+            then(notificationService).should(never())
+                    .createGroupScheduleDeletedNotification(eq(USER_ID), any(Schedule.class));
         }
 
         @Test

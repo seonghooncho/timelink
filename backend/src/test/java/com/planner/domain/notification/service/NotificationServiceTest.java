@@ -36,18 +36,28 @@ class NotificationServiceTest {
     @InjectMocks private NotificationService service;
 
     private Notification sampleNotif(String id, String type, boolean read) {
+        return sampleNotif(id, type, null, read);
+    }
+
+    private Notification sampleNotif(String id, String type, String category, boolean read) {
         return Notification.builder()
                 .pk("USER#user1").sk("NOTIF#" + id)
                 .id(id).userId("user1").type(type)
                 .title("Test").content("Content")
+                .category(category)
                 .isRead(read).createdAt("2025-01-01T00:00:00Z")
                 .build();
     }
 
     private NotificationSettings settings(boolean scheduleAlarm, boolean groupAlarm) {
+        return settings(scheduleAlarm, groupAlarm, groupAlarm);
+    }
+
+    private NotificationSettings settings(boolean scheduleAlarm, boolean groupAlarm, boolean pushAlarm) {
         return NotificationSettings.builder()
                 .pk("USER#user1").sk("NOTIF_SETTINGS")
                 .scheduleAlarm(scheduleAlarm).groupAlarm(groupAlarm)
+                .pushAlarm(pushAlarm)
                 .remindOneDayBefore(false).remindOneDayBeforeTime("22:00")
                 .remindSameDay(false).remindSameDayTime("08:00")
                 .importantAlarm(false).importantAlarmTime("08:00")
@@ -79,6 +89,55 @@ class NotificationServiceTest {
         CursorPageResult<NotificationResDTO> result = service.getAllPaged("user1", "schedule", null, null, null);
         assertThat(result.getItems()).hasSize(1);
         assertThat(result.getItems().get(0).getType()).isEqualTo("schedule");
+    }
+
+    @Test
+    @DisplayName("getAllPaged — 그룹 탭은 기존 system/group 알림도 함께 보여준다")
+    void getAll_groupFilterIncludesLegacyGroupCategory() {
+        when(repository.findByUserIdPaged("user1", 20, null))
+                .thenReturn(CursorPageResult.<Notification>builder().items(List.of(
+                        sampleNotif("n1", "system", "group", false),
+                        sampleNotif("n2", "group", "group", false),
+                        sampleNotif("n3", "system", "system", false)
+                )).build());
+
+        CursorPageResult<NotificationResDTO> result = service.getAllPaged("user1", "group", null, null, null);
+
+        assertThat(result.getItems())
+                .extracting(NotificationResDTO::getId)
+                .containsExactly("n1", "n2");
+    }
+
+    @Test
+    @DisplayName("createGroupNotification — 그룹 타입으로 알림센터와 푸시에 전달한다")
+    void createGroupNotification_savesGroupTypeAndPushes() {
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, false, true)));
+        when(repository.findByUserIdAndNotifId(eq("user1"), anyString())).thenReturn(Optional.empty());
+
+        service.createGroupNotification("user1", "그룹 알림", "내용");
+
+        verify(repository).saveNotification(argThat(notification ->
+                "group".equals(notification.getType())
+                        && "group".equals(notification.getCategory())
+                        && "그룹 알림".equals(notification.getTitle())
+        ));
+        verify(webPushService).sendNotification(eq("user1"), any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("createGroupNotification — 푸시가 꺼져도 알림센터에는 저장한다")
+    void createGroupNotification_savesWithoutPushWhenGroupPushOff() {
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, true, false)));
+        when(repository.findByUserIdAndNotifId(eq("user1"), anyString())).thenReturn(Optional.empty());
+
+        service.createGroupNotification("user1", "그룹 알림", "내용");
+
+        verify(repository).saveNotification(argThat(notification ->
+                "group".equals(notification.getType())
+                        && "group".equals(notification.getCategory())
+                        && "그룹 알림".equals(notification.getTitle())
+        ));
+        verify(webPushService, never()).sendNotification(anyString(), any(Notification.class));
     }
 
     @Test
@@ -133,7 +192,8 @@ class NotificationServiceTest {
 
         NotificationSettingsResDTO result = service.getSettings("user1");
         assertThat(result.getScheduleAlarm()).isFalse();
-        assertThat(result.getGroupAlarm()).isFalse();
+        assertThat(result.getGroupAlarm()).isTrue();
+        assertThat(result.getPushAlarm()).isFalse();
         assertThat(result.getRemindOneDayBefore()).isFalse();
         assertThat(result.getRemindSameDay()).isFalse();
         assertThat(result.getImportantAlarm()).isFalse();
@@ -145,7 +205,7 @@ class NotificationServiceTest {
     void updateSettings_partialUpdate() {
         NotificationSettings settings = NotificationSettings.builder()
                 .pk("USER#user1").sk("NOTIF_SETTINGS")
-                .scheduleAlarm(true).groupAlarm(true)
+                .scheduleAlarm(true).groupAlarm(true).pushAlarm(false)
                 .remindOneDayBefore(true).remindOneDayBeforeTime("22:00")
                 .remindSameDay(true).remindSameDayTime("08:00")
                 .importantAlarm(true).importantAlarmTime("08:00")
@@ -154,9 +214,11 @@ class NotificationServiceTest {
 
         NotificationSettingsUpdateReqDTO req = new NotificationSettingsUpdateReqDTO();
         req.setScheduleAlarm(false);
+        req.setPushAlarm(true);
 
         NotificationSettingsResDTO result = service.updateSettings("user1", req);
         assertThat(result.getScheduleAlarm()).isFalse();
+        assertThat(result.getPushAlarm()).isTrue();
         assertThat(result.getRemindOneDayBefore()).isTrue();
         assertThat(result.getRemindSameDay()).isTrue();
         assertThat(result.getImportantAlarm()).isTrue();
@@ -192,6 +254,7 @@ class NotificationServiceTest {
         event.setCategory("task");
         event.setImportant(false);
 
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(true, false, true)));
         when(repository.findByUserIdAndNotifId("user1", "remind-one-day-s1"))
                 .thenReturn(Optional.empty());
 
@@ -204,5 +267,50 @@ class NotificationServiceTest {
         ));
         verify(webPushService).sendNotification(eq("user1"), any(Notification.class));
         verify(reminderSchedulingService).deleteJobRecord("user1", "one-day-s1");
+    }
+
+    @Test
+    @DisplayName("deliverScheduledNotification — 일정 알림이 꺼져 있으면 저장과 푸시를 건너뛴다")
+    void deliverScheduledNotification_skipsWhenScheduleAlarmOff() {
+        ScheduledNotificationEvent event = new ScheduledNotificationEvent();
+        event.setJobId("one-day-s1");
+        event.setUserId("user1");
+        event.setNotificationId("remind-one-day-s1");
+        event.setType("schedule");
+        event.setTitle("내일 일정 리마인드");
+        event.setContent("3월 10일 09:00 · 회의");
+
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, false, true)));
+
+        service.deliverScheduledNotification(event);
+
+        verify(repository, never()).saveNotification(any(Notification.class));
+        verify(webPushService, never()).sendNotification(anyString(), any(Notification.class));
+        verify(reminderSchedulingService).deleteJobRecord("user1", "one-day-s1");
+    }
+
+    @Test
+    @DisplayName("deliverScheduledNotification — 푸시가 꺼져 있으면 알림센터에만 저장한다")
+    void deliverScheduledNotification_savesWithoutPushWhenPushOff() {
+        ScheduledNotificationEvent event = new ScheduledNotificationEvent();
+        event.setJobId("same-day-s1");
+        event.setUserId("user1");
+        event.setNotificationId("remind-same-day-s1");
+        event.setType("schedule");
+        event.setTitle("오늘 일정 리마인드");
+        event.setContent("3월 10일 09:00 · 회의");
+
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(true, false, false)));
+        when(repository.findByUserIdAndNotifId("user1", "remind-same-day-s1"))
+                .thenReturn(Optional.empty());
+
+        service.deliverScheduledNotification(event);
+
+        verify(repository).saveNotification(argThat(notification ->
+                "remind-same-day-s1".equals(notification.getId())
+                        && "schedule".equals(notification.getType())
+        ));
+        verify(webPushService, never()).sendNotification(anyString(), any(Notification.class));
+        verify(reminderSchedulingService).deleteJobRecord("user1", "same-day-s1");
     }
 }

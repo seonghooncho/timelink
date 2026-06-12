@@ -3,10 +3,10 @@ import { Schedule } from '@/types/types';
 import { getDayLabel, getScheduleColorStyle } from '@/utils';
 import { formatScheduleSlotLabel } from '@/lib/scheduleTime';
 import {
+  getInitialTimetableScrollTop,
   getTimetableDraggedScrollTop,
   isScheduleVisibleOnDate,
   layoutSchedules,
-  TIMETABLE_DEFAULT_VISIBLE_HOUR,
   TIMETABLE_HOUR_END,
   TIMETABLE_HOUR_HEIGHT,
   TIMETABLE_HOUR_START,
@@ -23,7 +23,6 @@ interface TimetableProps {
 
 const HOUR_START = TIMETABLE_HOUR_START;
 const HOUR_END = TIMETABLE_HOUR_END;
-const DEFAULT_VISIBLE_HOUR = TIMETABLE_DEFAULT_VISIBLE_HOUR;
 const HOUR_HEIGHT = TIMETABLE_HOUR_HEIGHT;
 
 const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlockClick, onPrev, onNext }) => {
@@ -56,9 +55,9 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
       return;
     }
 
-    scrollRef.current.scrollTop = DEFAULT_VISIBLE_HOUR * HOUR_HEIGHT;
+    scrollRef.current.scrollTop = getInitialTimetableScrollTop(dayDates, new Date(), scrollRef.current.clientHeight);
     initializedRef.current = true;
-  }, []);
+  }, [dayDates]);
 
   const getPointerY = (event: React.PointerEvent<HTMLDivElement>) => {
     if (Number.isFinite(event.clientY)) return event.clientY;
