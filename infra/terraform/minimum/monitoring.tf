@@ -14,13 +14,16 @@ locals {
 }
 
 resource "aws_sns_topic" "monitoring_alerts" {
-  name = "${var.project_name}-${var.environment}-monitoring-alerts"
+  name         = "${var.project_name}-${var.environment}-monitoring-alerts"
+  display_name = "TimelinkAlerts"
 }
 
 resource "aws_sns_topic_subscription" "monitoring_alerts_email" {
-  topic_arn = aws_sns_topic.monitoring_alerts.arn
-  protocol  = "email"
-  endpoint  = var.monitoring_alert_email
+  topic_arn                       = aws_sns_topic.monitoring_alerts.arn
+  protocol                        = "email-json"
+  endpoint                        = var.monitoring_alert_email
+  confirmation_timeout_in_minutes = 1
+  endpoint_auto_confirms          = false
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
