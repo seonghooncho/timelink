@@ -87,3 +87,8 @@ output "monitoring_alert_topic_arn" {
   description = "SNS topic ARN for CloudWatch monitoring alerts"
   value       = aws_sns_topic.monitoring_alerts.arn
 }
+
+output "monitoring_alert_formatter_function_name" {
+  description = "Lambda function name for readable monitoring alert emails"
+  value       = aws_lambda_function.monitoring_alert_formatter.function_name
+}
