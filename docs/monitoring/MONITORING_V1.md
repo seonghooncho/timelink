@@ -22,11 +22,11 @@ Terraform `infra/terraform/minimum/monitoring.tf`에서 아래 리소스를 관�
 | 영역 | 리소스 |
 | --- | --- |
 | 알림 채널 | SNS topic `planner-prod-monitoring-alerts` |
-| 알림 수신 | email subscription `sunghuncho127@gmail.com` |
+| 알림 수신 | email-json subscription `sunghuncho127@gmail.com` |
 | 지표/알람 | CloudWatch metric alarm |
 | 비용 구조 | CloudWatch 기본 지표 + SNS 이메일 중심의 저비용 구조 |
 
-SNS email subscription은 Terraform apply 후 `PendingConfirmation` 상태가 됩니다. 실제 알림을 받으려면 수신 메일함에서 AWS SNS 확인 메일의 Confirm 링크를 눌러야 합니다.
+SNS email-json subscription은 Terraform apply 후 `PendingConfirmation` 상태가 됩니다. 실제 알림을 받으려면 수신 메일함에서 AWS SNS 확인 메일의 Confirm 링크를 눌러야 합니다. 일반 `email` 구독 확인 메일이 지연되거나 누락될 수 있어 운영 v1에서는 수신이 확인된 `email-json` 방식을 사용합니다.
 
 ## 알람 기준
 
