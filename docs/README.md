@@ -23,6 +23,14 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       ├── test/           # 프론트 테스트 유틸
 │       ├── types/          # TypeScript 타입
 │       └── utils/          # 포맷팅/도메인 유틸
+├── mobile/                 # Expo React Native 모바일 앱
+│   └── src/
+│       ├── components/     # 공용 UI와 일정 컴포넌트
+│       ├── context/        # 모바일 인증 상태
+│       ├── hooks/          # react-query 기반 모바일 도메인 훅
+│       ├── navigation/     # 앱 링크와 탭/스택 네비게이션
+│       ├── screens/        # 홈, 캘린더, 그룹, 조율, 마이페이지
+│       └── services/       # 운영 API 클라이언트와 세션 저장
 ├── backend/                # Spring Boot + Java 21 + DynamoDB
 │   └── src/main/java/com/planner/
 │       ├── domain/
@@ -67,6 +75,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       └── README.md
 ├── docs/                   # 설계/운영 문서
 │   ├── infrastructure/     # 배포/아키텍처/부하테스트/확장 문서
+│   ├── mobile/             # 모바일 앱 제출 준비 문서
 │   └── monitoring/         # 운영 초기 모니터링 문서
 └── README.md
 ```
@@ -77,6 +86,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 - [인프라 문서 인덱스](infrastructure/README.md): 배포, 아키텍처 정합성, 부하테스트, 확장 로드맵을 모아 둔 문서입니다.
 - [운영 배포 유의사항](infrastructure/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
 - [모니터링 v1](monitoring/MONITORING_V1.md): CloudWatch/SNS 기반 저비용 운영 알림과 확장 전환 기준을 정리한 문서입니다.
+- [모바일 앱 스토어 제출 준비](mobile/STORE_READINESS.md): Expo 모바일 앱 구조, 검증 명령, 스토어 제출 전 외부 설정을 정리한 문서입니다.
 
 ## 백엔드 아키텍처 원칙
 
@@ -110,6 +120,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 | 영역 | 기술 |
 |------|------|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, react-query |
+| Mobile | Expo, React Native, React Navigation, React Query |
 | Backend | Spring Boot 3.3, Java 21, AWS SDK DynamoDB |
 | AI | FastAPI, Python 3.12, Google Gemini 2.5 Flash |
 | Infra | Terraform, AWS API Gateway, Lambda, DynamoDB |
