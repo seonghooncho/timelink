@@ -192,6 +192,13 @@ resource "aws_cloudfront_distribution" "frontend" {
   tags = {
     Name = "${var.project_name}-frontend-cdn"
   }
+
+  lifecycle {
+    ignore_changes = [
+      aliases,
+      viewer_certificate,
+    ]
+  }
 }
 
 # ──────────────────────────────────────
