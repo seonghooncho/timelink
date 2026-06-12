@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 test-results
+__pycache__
 *.local
 backend/.gradle
 backend/build
@@ -23,6 +24,8 @@ infra/.terraform
 infra/*.tfstate
 infra/*.tfstate.*
 infra/terraform/**/.terraform
+infra/terraform/**/.terraform-build
+infra/terraform/**/*.zip
 infra/terraform/**/*.tfstate
 infra/terraform/**/*.tfstate.*
 infra/terraform/**/backend.hcl

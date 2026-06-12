@@ -1,0 +1,11 @@
+{
+  "Records": [
+    {
+      "EventSource": "aws:sns",
+      "Sns": {
+        "Message": "{\"AlarmName\":\"planner-prod-api-lambda-errors\",\"AlarmDescription\":\"Lambda errors detected for planner-prod-api.\",\"AWSAccountId\":\"160885253413\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"Threshold Crossed: 1 datapoint was greater than or equal to the threshold (1.0).\",\"StateChangeTime\":\"2026-06-12T00:00:00.000+0000\",\"Region\":\"Asia Pacific (Seoul)\",\"OldStateValue\":\"OK\",\"Trigger\":{\"MetricName\":\"Errors\",\"Namespace\":\"AWS/Lambda\",\"Statistic\":\"Sum\",\"Threshold\":1,\"ComparisonOperator\":\"GreaterThanOrEqualToThreshold\",\"Dimensions\":[{\"name\":\"FunctionName\",\"value\":\"planner-prod-api\"}]}}",
+        "Timestamp": "2026-06-12T00:00:00.000Z"
+      }
+    }
+  ]
+}

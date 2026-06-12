@@ -13,9 +13,19 @@ locals {
   monitoring_dynamodb_table    = "${var.project_name}_${var.environment}_main"
 }
 
+data "archive_file" "monitoring_alert_formatter" {
+  type        = "zip"
+  source_file = "${path.module}/functions/monitoring-alert-formatter/index.py"
+  output_path = "${path.module}/functions/monitoring-alert-formatter.zip"
+}
+
 resource "aws_sns_topic" "monitoring_alerts" {
   name         = "${var.project_name}-${var.environment}-monitoring-alerts"
   display_name = "TimelinkAlerts"
+}
+
+resource "aws_sesv2_email_identity" "monitoring_alert_sender" {
+  email_identity = var.monitoring_alert_email
 }
 
 resource "aws_sns_topic_subscription" "monitoring_alerts_email" {
@@ -24,6 +34,90 @@ resource "aws_sns_topic_subscription" "monitoring_alerts_email" {
   endpoint                        = var.monitoring_alert_email
   confirmation_timeout_in_minutes = 1
   endpoint_auto_confirms          = false
+}
+
+resource "aws_sns_topic_subscription" "monitoring_alert_formatter" {
+  topic_arn = aws_sns_topic.monitoring_alerts.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.monitoring_alert_formatter.arn
+}
+
+resource "aws_lambda_permission" "monitoring_alert_formatter_sns" {
+  statement_id  = "AllowExecutionFromMonitoringAlertsSns"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.monitoring_alert_formatter.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.monitoring_alerts.arn
+}
+
+resource "aws_lambda_function" "monitoring_alert_formatter" {
+  function_name    = "${var.project_name}-${var.environment}-monitoring-alert-formatter"
+  description      = "Formats CloudWatch monitoring alerts into readable Korean emails."
+  filename         = data.archive_file.monitoring_alert_formatter.output_path
+  source_code_hash = data.archive_file.monitoring_alert_formatter.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "python3.12"
+  role             = aws_iam_role.monitoring_alert_formatter.arn
+  memory_size      = 128
+  timeout          = 10
+  architectures    = ["arm64"]
+
+  environment {
+    variables = {
+      ALERT_EMAIL_FROM      = var.monitoring_alert_email
+      ALERT_EMAIL_FROM_NAME = "Timelink 운영 알림"
+      ALERT_EMAIL_TO        = var.monitoring_alert_email
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-monitoring-alert-formatter"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "monitoring_alert_formatter" {
+  name              = "/aws/lambda/${aws_lambda_function.monitoring_alert_formatter.function_name}"
+  retention_in_days = 14
+}
+
+resource "aws_iam_role" "monitoring_alert_formatter" {
+  name = "${var.project_name}-${var.environment}-monitoring-alert-formatter-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "monitoring_alert_formatter_basic" {
+  role       = aws_iam_role.monitoring_alert_formatter.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "monitoring_alert_formatter_ses" {
+  name = "${var.project_name}-${var.environment}-monitoring-alert-formatter-ses"
+  role = aws_iam_role.monitoring_alert_formatter.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:SendEmail"
+        ]
+        Resource = aws_sesv2_email_identity.monitoring_alert_sender.arn
+      }
+    ]
+  })
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {

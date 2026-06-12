@@ -22,11 +22,12 @@ Terraform `infra/terraform/minimum/monitoring.tf`에서 아래 리소스를 관�
 | 영역 | 리소스 |
 | --- | --- |
 | 알림 채널 | SNS topic `planner-prod-monitoring-alerts` |
-| 알림 수신 | email-json subscription `sunghuncho127@gmail.com` |
+| 읽기용 알림 | Lambda `planner-prod-monitoring-alert-formatter` -> SES 한글 이메일 |
+| 백업 알림 | SNS email-json subscription `sunghuncho127@gmail.com` |
 | 지표/알람 | CloudWatch metric alarm |
-| 비용 구조 | CloudWatch 기본 지표 + SNS 이메일 중심의 저비용 구조 |
+| 비용 구조 | CloudWatch 기본 지표 + SNS/Lambda/SES 중심의 저비용 구조 |
 
-SNS email-json subscription은 Terraform apply 후 `PendingConfirmation` 상태가 됩니다. 실제 알림을 받으려면 수신 메일함에서 AWS SNS 확인 메일의 Confirm 링크를 눌러야 합니다. 일반 `email` 구독 확인 메일이 지연되거나 누락될 수 있어 운영 v1에서는 수신이 확인된 `email-json` 방식을 사용합니다.
+CloudWatch 알람은 SNS topic으로 발행되고, formatter Lambda가 원본 JSON을 한글 요약 메일로 변환해 SES로 발송합니다. SES가 sandbox 상태이면 `monitoring_alert_email`로 지정한 이메일 identity가 인증되어 있어야 발송됩니다. 기존 SNS email-json 구독은 formatter 장애나 SES 인증 문제를 대비한 백업 경로로 유지합니다.
 
 ## 알람 기준
 
@@ -69,6 +70,25 @@ aws sns list-subscriptions-by-topic \
   --topic-arn "$(terraform output -raw monitoring_alert_topic_arn)"
 ```
 
+SES identity 인증 상태 확인:
+
+```sh
+aws sesv2 get-email-identity \
+  --region ap-northeast-2 \
+  --email-identity sunghuncho127@gmail.com \
+  --query '{IdentityType:IdentityType,VerifiedForSendingStatus:VerifiedForSendingStatus}'
+```
+
+Formatter Lambda 테스트:
+
+```sh
+aws lambda invoke \
+  --function-name "$(terraform output -raw monitoring_alert_formatter_function_name)" \
+  --cli-binary-format raw-in-base64-out \
+  --payload file://test/fixtures/cloudwatch-alarm-sns-event.json \
+  /tmp/timelink-monitoring-alert-test.json
+```
+
 알람 확인:
 
 ```sh
@@ -91,7 +111,8 @@ npm run ops:backfill-metadata -- --fix-duplicate-invites
 
 ## 한계와 다음 개선 시점
 
-- SNS 이메일은 확인과 대응 자동화가 없습니다. 알림이 하루 3회 이상 반복되면 Slack/Discord webhook 또는 Incident Manager로 전환합니다.
+- SES 이메일은 확인과 대응 자동화가 없습니다. 알림이 하루 3회 이상 반복되면 Slack/Discord webhook 또는 Incident Manager로 전환합니다.
+- SES sandbox 상태에서는 인증된 주소로만 보낼 수 있습니다. 운영 알림 수신자를 늘리거나 도메인 발신 품질을 높일 때는 `timelink.cloud` 도메인 identity와 DKIM/SPF/DMARC를 Terraform/Cloudflare로 관리합니다.
 - CloudWatch 기본 지표는 어떤 API가 느린지까지 알려주지 않습니다. API Gateway p95가 2일 연속 2초를 넘거나 5xx가 반복되면 구조화 로그와 CloudWatch Logs Insights 쿼리를 문서화합니다.
 - Lambda throttle이 운영 중 1회라도 재발하면 예약 동시성/계정 동시성/비동기 큐 분리 여부를 검토합니다.
 - DynamoDB scan 알람이 앱 트래픽 중 울리면 해당 repository 경로를 즉시 query/get 기반으로 바꿉니다.
