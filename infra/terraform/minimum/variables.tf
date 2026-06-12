@@ -46,6 +46,12 @@ variable "frontend_origin_override" {
   default     = ""
 }
 
+variable "additional_frontend_cors_origins" {
+  description = "Additional frontend origins that may upload directly to S3 with presigned URLs."
+  type        = list(string)
+  default     = ["https://www.timelink.cloud"]
+}
+
 variable "backend_log_level" {
   description = "Application log level for the backend Lambda."
   type        = string
