@@ -11,7 +11,7 @@
 ## 문서 목록
 
 - [운영 배포 유의사항](DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포와 소셜 로그인 콜백 확인 절차입니다.
-- 이미지 업로드 파이프라인은 `infra/terraform/minimum/image_processing.tf`에서 S3 `upload/` 트리거 Lambda와 lifecycle 정리를 관리합니다.
+- [이미지 처리 파이프라인](IMAGE_PROCESSING_PIPELINE.md): presigned upload, WebP 변환 Lambda, 처리 상태 관리의 선택 이유와 한계입니다.
 - [아키텍처 정합성 점검](ARCHITECTURE_ALIGNMENT.md): 프론트/백엔드/인프라 호출 경로와 데이터 계약 정리입니다.
 - [부하테스트 결과](LOAD_TEST_REPORT.md): k6/Playwright로 확인한 현 구조의 처리량, 지연, 실패 양상입니다.
 - [확장 로드맵](SCALING_ROADMAP.md): 부하테스트 결과를 기준으로 언제 어떤 구조를 바꿀지 정리한 개선 문서입니다.
