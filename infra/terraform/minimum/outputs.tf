@@ -92,3 +92,8 @@ output "monitoring_alert_formatter_function_name" {
   description = "Lambda function name for readable monitoring alert emails"
   value       = aws_lambda_function.monitoring_alert_formatter.function_name
 }
+
+output "image_processor_function_name" {
+  description = "Lambda function name for uploaded image WebP conversion"
+  value       = aws_lambda_function.image_processor.function_name
+}

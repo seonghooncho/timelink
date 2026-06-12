@@ -16,6 +16,9 @@ function mapResponse(r: ScheduleResponse): Schedule {
     isCompleted: r.isCompleted,
     hasAlarm: r.hasAlarm,
     groupId: r.groupId,
+    imageUrl: r.imageUrl,
+    imageId: r.imageId,
+    imageStatus: r.imageStatus,
   };
 }
 

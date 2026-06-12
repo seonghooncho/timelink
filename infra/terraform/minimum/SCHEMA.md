@@ -14,6 +14,7 @@
 # │ GroupMember          │ GROUP#{groupId}              │ MEMBER#{userId}  │
 # │ Coordination        │ GROUP#{groupId}              │ COORD#{coordId}  │
 # │ CoordinationResponse│ COORD#{coordId}              │ RESP#{userId}#.. │
+# │ ImageUpload         │ IMAGE#{imageId}              │ METADATA         │
 # └─────────────────────┴──────────────────────────────┴──────────────────┘
 #
 # GSI1: schedules-by-time
@@ -26,6 +27,7 @@
 # - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')
 # - SELECT * FROM "planner_prod_main" WHERE SK='METADATA' AND inviteCode='ABC123'
+# - SELECT * FROM "planner_prod_main" WHERE PK='IMAGE#{imageId}' AND SK='METADATA'
 #
 # 운영 원칙:
 # - hot path는 PK/SK/GSI 기반 조회를 유지한다.

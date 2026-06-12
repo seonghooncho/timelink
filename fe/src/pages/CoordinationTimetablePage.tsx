@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
@@ -33,6 +33,11 @@ const CoordinationTimetablePage: React.FC = () => {
   const [hasShownRecommendationModal, setHasShownRecommendationModal] = useState(false);
   const [dateWindowStart, setDateWindowStart] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dragSelectionRef = useRef<{
+    pointerId: number;
+    mode: 'select' | 'deselect';
+    appliedKeys: Set<string>;
+  } | null>(null);
 
   useEffect(() => {
     if (!groupId || !coordId) return;
@@ -119,7 +124,7 @@ const CoordinationTimetablePage: React.FC = () => {
   }, [coordination, hasShownRecommendationModal, viewMode]);
 
   const toggleSlot = (dateIdx: number, hour: number) => {
-    const key = `${dateIdx}-${hour}`;
+    const key = buildCoordinationSlotKey(dateIdx, hour);
     setSelectedSlots(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -129,6 +134,58 @@ const CoordinationTimetablePage: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const setSlotSelected = (key: string, shouldSelect: boolean) => {
+    setSelectedSlots(prev => {
+      const next = new Set(prev);
+      if (shouldSelect) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  };
+
+  const applyDragSelectionToKey = (key: string) => {
+    const drag = dragSelectionRef.current;
+    if (!drag || drag.appliedKeys.has(key)) return;
+    drag.appliedKeys.add(key);
+    setSlotSelected(key, drag.mode === 'select');
+  };
+
+  const findSlotKeyFromPoint = (clientX: number, clientY: number) => {
+    const element = document.elementFromPoint(clientX, clientY);
+    if (!(element instanceof HTMLElement)) return null;
+    return element.closest<HTMLElement>('[data-coordination-slot-key]')?.dataset.coordinationSlotKey ?? null;
+  };
+
+  const handleSlotPointerDown = (event: React.PointerEvent<HTMLButtonElement>, key: string) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const shouldSelect = !selectedSlots.has(key);
+    dragSelectionRef.current = {
+      pointerId: event.pointerId,
+      mode: shouldSelect ? 'select' : 'deselect',
+      appliedKeys: new Set([key]),
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setSlotSelected(key, shouldSelect);
+  };
+
+  const handleSlotPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragSelectionRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const key = findSlotKeyFromPoint(event.clientX, event.clientY);
+    if (key) {
+      applyDragSelectionToKey(key);
+    }
+  };
+
+  const handleSlotPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragSelectionRef.current?.pointerId === event.pointerId) {
+      dragSelectionRef.current = null;
+    }
   };
 
   const moveDateWindow = (direction: 'prev' | 'next') => {
@@ -260,7 +317,7 @@ const CoordinationTimetablePage: React.FC = () => {
 
       {viewMode === 'select' ? (
         <>
-          <p className="px-4 text-xs text-muted-foreground mb-3">가능한 시간을 터치하여 선택하세요.</p>
+          <p className="px-4 text-xs text-muted-foreground mb-3">가능한 시간을 터치하거나 드래그하여 연속 선택하세요.</p>
           {renderDateWindowPager()}
           <div className="mx-4 overflow-hidden rounded-xl border border-border bg-card">
             <div className="grid border-b border-border" style={{ gridTemplateColumns: dateGridTemplateColumns }}>
@@ -284,8 +341,19 @@ const CoordinationTimetablePage: React.FC = () => {
                         key={dateIndex}
                         type="button"
                         aria-pressed={isSelected}
-                        onClick={() => toggleSlot(dateIndex, hour)}
-                        className={`relative h-10 min-w-0 overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
+                        data-coordination-slot-key={key}
+                        onPointerDown={(event) => handleSlotPointerDown(event, key)}
+                        onPointerMove={handleSlotPointerMove}
+                        onPointerUp={handleSlotPointerEnd}
+                        onPointerCancel={handleSlotPointerEnd}
+                        onClick={(event) => event.preventDefault()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            toggleSlot(dateIndex, hour);
+                          }
+                        }}
+                        className={`relative h-10 min-w-0 touch-none select-none overflow-hidden border-l border-border/50 bg-card transition-colors hover:bg-muted/60 ${isSelected ? 'ring-1 ring-primary/30 ring-inset' : ''}`}
                       >
                         {renderExistingScheduleLayer(existingSchedules)}
                         {isSelected && (

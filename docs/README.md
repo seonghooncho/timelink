@@ -27,7 +27,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │   └── src/main/java/com/planner/
 │       ├── domain/
 │       │   ├── auth/            # 백엔드 JWT 세션 발급
-│       │   ├── storage/         # 프로필/그룹 이미지 업로드
+│       │   ├── storage/         # 이미지 presign/status API
 │       │   ├── profile/         # controller/service/repository/model/dto/converter/error
 │       │   ├── schedule/        # 작은 도메인은 dto/ 단일 계층 유지
 │       │   ├── group/           # 작은 도메인은 dto/ 단일 계층 유지
@@ -54,6 +54,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   ├── dynamodb.tf      # Single Table Design
 │       │   ├── s3_cloudfront.tf # 프론트 CloudFront + S3
 │       │   ├── s3_storage.tf    # 업로드 이미지 버킷
+│       │   ├── image_processing.tf # S3 upload/ WebP 변환 Lambda
 │       │   ├── ssm.tf           # 런타임 설정 SSM Parameter Store
 │       │   ├── monitoring.tf    # CloudWatch/SNS 운영 알림
 │       │   └── outputs.tf       # 배포 결과 출력

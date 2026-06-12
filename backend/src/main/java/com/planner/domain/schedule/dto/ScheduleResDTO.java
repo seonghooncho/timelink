@@ -17,6 +17,9 @@ public class ScheduleResDTO {
     private Boolean isCompleted;
     private Boolean hasAlarm;
     private String groupId;
+    private String imageUrl;
+    private String imageId;
+    private String imageStatus;
     private String createdAt;
     private String updatedAt;
 }

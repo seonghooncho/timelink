@@ -148,6 +148,9 @@ export interface ScheduleResponse {
   isCompleted: boolean;
   hasAlarm: boolean;
   groupId?: string;
+  imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -161,6 +164,8 @@ export interface ScheduleCreateRequest {
   duration: number;
   hasAlarm?: boolean;
   groupId?: string;
+  imageUrl?: string;
+  imageId?: string;
 }
 
 export interface ScheduleUpdateRequest {
@@ -172,6 +177,8 @@ export interface ScheduleUpdateRequest {
   duration?: number;
   isCompleted?: boolean;
   hasAlarm?: boolean;
+  imageUrl?: string;
+  imageId?: string;
 }
 
 export interface ScheduleListRequest extends PaginationParams {
@@ -199,6 +206,8 @@ export interface ProfileResponse {
   id: string;
   nickname: string;
   avatarUrl: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   termsVersion?: string;
   termsAgreedAt?: string;
   privacyVersion?: string;
@@ -210,7 +219,7 @@ export interface ProfileResponse {
 
 export const profileApi = {
   getMe: () => request<ProfileResponse>('GET', '/profiles/me'),
-  updateMe: (data: { nickname?: string; avatarUrl?: string }) =>
+  updateMe: (data: { nickname?: string; avatarUrl?: string; imageId?: string }) =>
     request<ProfileResponse>('PATCH', '/profiles/me', data),
   agreeRequiredConsents: () => request<ProfileResponse>('POST', '/profiles/me/consents/required'),
 };
@@ -222,6 +231,8 @@ export interface GroupListResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   inviteCode: string;
   memberCount: number;
   myRole: string;
@@ -242,6 +253,8 @@ export interface GroupDetailResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   inviteCode: string;
   createdBy: string;
   members: GroupMemberResponse[];
@@ -263,9 +276,9 @@ export const groupApi = {
     return groups;
   },
   getById: (id: string) => request<GroupDetailResponse>('GET', `/groups/${id}`),
-  create: (data: { name: string; description?: string; imageUrl?: string }) =>
+  create: (data: { name: string; description?: string; imageUrl?: string; imageId?: string }) =>
     request<GroupDetailResponse>('POST', '/groups', data),
-  update: (id: string, data: { name?: string; description?: string; imageUrl?: string }) =>
+  update: (id: string, data: { name?: string; description?: string; imageUrl?: string; imageId?: string }) =>
     request<GroupDetailResponse>('PATCH', `/groups/${id}`, data),
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
@@ -408,14 +421,55 @@ export const pushApi = {
 
 // ── Storage ──
 
+export type ImagePurpose = 'MEMBER' | 'GROUP' | 'SCHEDULE';
+export type ImageStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
 export interface ImageUploadResponse {
-  objectKey: string;
-  url: string;
+  imageId?: string;
+  objectKey?: string;
+  uploadKey?: string;
+  publicKey?: string;
+  url?: string;
+  status?: ImageStatus;
+  failureReason?: string;
+}
+
+export interface PresignImageUploadRequest {
+  purpose: ImagePurpose;
+  fileName: string;
+  contentType: string;
+  contentLength: number;
+  targetId?: string;
+}
+
+export interface PresignImageUploadResponse {
+  imageId: string;
+  uploadKey: string;
+  uploadUrl: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  maxSizeBytes: number;
+  status: ImageStatus;
 }
 
 export const storageApi = {
   uploadProfileImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/profile', file),
   uploadGroupImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/group', file),
+  createImageUpload: (data: PresignImageUploadRequest) =>
+    request<PresignImageUploadResponse>('POST', '/storage/images/presign', data),
+  getImageUpload: (imageId: string) =>
+    request<ImageUploadResponse>('GET', `/storage/images/${imageId}`),
+  uploadToPresignedUrl: async (uploadUrl: string, file: Blob, headers: Record<string, string>) => {
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers,
+      body: file,
+    });
+
+    if (!res.ok) {
+      throw new Error(`이미지 업로드에 실패했습니다 (${res.status})`);
+    }
+  },
 };
 
 // ── AI (FastAPI) ──

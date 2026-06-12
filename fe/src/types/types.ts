@@ -12,6 +12,9 @@ export interface Schedule {
   isCompleted: boolean;
   hasAlarm: boolean;
   groupId?: string;
+  imageUrl?: string;
+  imageId?: string;
+  imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
 }
 
 export interface Group {
@@ -19,6 +22,8 @@ export interface Group {
   name: string;
   description: string;
   image?: string;
+  imageId?: string;
+  imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
   inviteCode?: string;
   memberCount?: number;
   myRole?: string;

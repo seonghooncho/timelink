@@ -8,8 +8,8 @@ interface MobileLayoutProps {
 
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children, hideNav = false }) => {
   return (
-    <div className="min-h-screen max-w-lg mx-auto bg-background relative">
-      <div className={hideNav ? '' : 'app-content-with-nav'}>
+    <div className="relative mx-auto min-h-screen w-full max-w-lg overflow-x-hidden bg-background">
+      <div className={hideNav ? 'min-w-0' : 'app-content-with-nav min-w-0'}>
         {children}
       </div>
       {!hideNav && <BottomNav />}

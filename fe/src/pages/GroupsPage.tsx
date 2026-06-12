@@ -60,7 +60,7 @@ const GroupsPage: React.FC = () => {
             {groups.map(group => (
               <button key={group.id} onClick={() => navigate(`/groups/${group.id}`)}
                 className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-soft hover:shadow-card transition-all text-left pressable">
-                <GroupAvatar image={group.image} name={group.name} size="sm" />
+                <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-bold text-foreground">{group.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">멤버 {group.memberCount ?? 0}명</p>

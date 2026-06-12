@@ -54,5 +54,5 @@ logging:
     software.amazon.awssdk: INFO
 
 spring.servlet.multipart:
-  max-file-size: 5MB
-  max-request-size: 5MB
+  max-file-size: 15MB
+  max-request-size: 15MB

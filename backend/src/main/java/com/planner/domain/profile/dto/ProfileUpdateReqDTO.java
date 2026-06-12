@@ -6,4 +6,5 @@ import lombok.Data;
 public class ProfileUpdateReqDTO {
     private String nickname;
     private String avatarUrl;
+    private String imageId;
 }

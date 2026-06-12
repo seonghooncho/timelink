@@ -1,6 +1,7 @@
 package com.planner.domain.storage.service;
 
 import com.planner.domain.storage.dto.ImageUploadResDTO;
+import com.planner.domain.storage.repository.ImageUploadRepository;
 import com.planner.global.config.AwsProperties;
 import com.planner.global.error.CustomException;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +26,10 @@ class StorageServiceTest {
 
     @Mock
     private S3Client s3Client;
+    @Mock
+    private S3Presigner s3Presigner;
+    @Mock
+    private ImageUploadRepository imageUploadRepository;
 
     private StorageService storageService;
 
@@ -32,7 +38,7 @@ class StorageServiceTest {
         AwsProperties awsProperties = new AwsProperties();
         awsProperties.setRegion("ap-northeast-2");
         awsProperties.getS3().setBucketName("planner-public-assets-prod");
-        storageService = new StorageService(s3Client, awsProperties);
+        storageService = new StorageService(s3Client, s3Presigner, awsProperties, imageUploadRepository);
     }
 
     @Test
@@ -64,6 +70,6 @@ class StorageServiceTest {
 
         assertThatThrownBy(() -> storageService.uploadProfileImage("user-1", file))
                 .isInstanceOf(CustomException.class)
-                .hasMessage("이미지 파일만 업로드 가능합니다");
+                .hasMessage("jpg, png, webp 이미지만 업로드 가능합니다");
     }
 }

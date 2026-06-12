@@ -13,4 +13,6 @@ public class ScheduleCreateReqDTO {
     private Double duration;
     private Boolean hasAlarm = false;
     private String groupId;
+    private String imageUrl;
+    private String imageId;
 }

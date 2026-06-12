@@ -353,7 +353,7 @@ const GroupDetailPage: React.FC = () => {
 
       <div className="mx-4 mt-4 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center gap-3">
-          <GroupAvatar image={group.image} name={group.name} size="md" />
+          <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="md" />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-bold text-foreground">{group.name}</h2>
             {group.description ? (
