@@ -146,7 +146,52 @@ describe('GroupDetailPage group posts', () => {
     renderPage();
 
     expect(await screen.findByText('모임 게시판')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /모임 일정/ })).not.toBeInTheDocument();
+    expect(screen.getByText('스터디')).toBeInTheDocument();
+    expect(screen.getByText('주간 스터디')).toBeInTheDocument();
+    expect(screen.queryByText('나의 모임')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /확정 일정/ })).not.toBeInTheDocument();
+  });
+
+  it('shows upcoming schedules and active coordinations as horizontal sections', async () => {
+    const futureStart = new Date(Date.now() + 86_400_000).toISOString();
+    mocks.useSchedules.mockReturnValue({
+      data: [{
+        id: 'schedule-1',
+        title: '정기 스터디',
+        content: '',
+        category: 'group',
+        isImportant: false,
+        startTime: futureStart,
+        duration: 1,
+        isCompleted: false,
+        hasAlarm: false,
+        groupId: 'group-1',
+      }],
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+    mocks.getCoordinationPage.mockResolvedValue({
+      data: [{
+        id: 'coord-1',
+        title: '회식 시간 조율',
+        mode: 'one_time',
+        dates: ['2026-06-14'],
+        startHour: 18,
+        endHour: 22,
+        status: 'active',
+        responseCount: 2,
+        createdBy: 'user-1',
+        createdAt: '2026-06-13T00:00:00Z',
+      }],
+      meta: { perPage: 10, nextCursor: null },
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: /확정 일정/ })).toBeInTheDocument();
+    expect(screen.getByText('정기 스터디')).toBeInTheDocument();
+    expect(await screen.findByText('회식 시간 조율')).toBeInTheDocument();
   });
 
   it('creates a group post from the group detail page', async () => {

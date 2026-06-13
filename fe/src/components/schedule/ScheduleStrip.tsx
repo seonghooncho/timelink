@@ -12,7 +12,7 @@ interface ScheduleGroup {
 interface ScheduleStripProps {
   groups: ScheduleGroup[];
   onScheduleClick: (schedule: Schedule) => void;
-  onComplete: (schedule: Schedule) => void;
+  onComplete?: (schedule: Schedule) => void;
   emptyMessage?: string;
   initialScheduleId?: string;
 }

@@ -47,4 +47,10 @@ describe('ScheduleCardCompact', () => {
     expect(completeButton).toHaveClass('bg-primary');
     expect(completeButton).toHaveClass('border-primary');
   });
+
+  it('완료 핸들러가 없으면 완료 버튼을 표시하지 않는다', () => {
+    render(<ScheduleCardCompact schedule={makeSchedule()} onClick={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: '완료' })).not.toBeInTheDocument();
+  });
 });

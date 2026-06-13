@@ -166,13 +166,14 @@
 
 ### `ScheduleCardCompact`
 > 컴팩트 일정 카드 (110×140px, 수평 스크롤용)
-- 카테고리별 배경색 + 시간 + 제목 + 소요시간 + 체크박스
+- 카테고리별 배경색 + 시간 + 제목 + 소요시간 + 선택적 체크박스
 - `isImportant`일 때 진한 색 배경
+- `onComplete`가 없으면 체크박스를 표시하지 않는다.
 
 ### `ScheduleStrip`
 > 날짜별 그룹화된 수평 스크롤 일정 카드 목록
-- Props: `groups`, `onScheduleClick`, `onComplete`, `emptyMessage`
-- MainPage에서 홈 일정 카드 영역으로 사용
+- Props: `groups`, `onScheduleClick`, `onComplete?`, `emptyMessage`
+- MainPage와 모임 상세의 확정 일정 영역에서 사용
 
 ```tsx
 <ScheduleStrip
@@ -205,9 +206,22 @@
 > 반복 시간 조율 폼 (요일 선택)
 - 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
 
+### `CoordinationStrip`
+> 조율 중인 일정용 수평 스크롤 카드 목록
+- 모임 상세에서 사용하며, 확정 일정 카드보다 낮은 전용 카드로 표시한다.
+
 ---
 
-## 6. 커스텀 훅 (`fe/src/hooks/`)
+## 6. 커뮤니티 컴포넌트 (`fe/src/components/community/`)
+
+### `PostListItem`
+> 게시글 목록용 플랫 리스트 아이템
+- 모임 게시판과 커뮤니티 목록에서 공유한다.
+- 큰 카드 박스 대신 얇은 실선과 여백으로 아이템을 구분한다.
+
+---
+
+## 7. 커스텀 훅 (`fe/src/hooks/`)
 
 ### `useGroupedSchedules`
 > 일정 배열을 날짜별로 그룹화하는 훅
@@ -224,7 +238,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-## 7. 유틸리티 (`fe/src/utils/`)
+## 8. 유틸리티 (`fe/src/utils/`)
 
 | 함수 | 파일 | 설명 |
 |------|------|------|
@@ -236,7 +250,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-## 8. 페이지 구조
+## 9. 페이지 구조
 
 | 경로 | 페이지 | 주요 컴포넌트 |
 |------|--------|-------------|
@@ -244,10 +258,10 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/calendar` | CalendarPage | 캘린더 그리드, ScheduleDetailModal |
 | `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
 | `/groups` | GroupsPage | 내 모임/둘러보기 탭, 다음 일정 요약, 공개 모임 가입 요청 |
-| `/community` | CommunityPage | 커뮤니티 게시물 목록, 글쓰기 바텀시트 |
-| `/community/posts/:postId` | CommunityPostDetailPage | 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
+| `/community` | CommunityPage | PostListItem, 글쓰기 바텀시트 |
+| `/community/posts/:postId` | CommunityPostDetailPage | 플랫 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
 | `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
-| `/groups/:id` | GroupDetailPage | GroupAvatar, 헤더 메뉴, 멤버/멤버관리 모달, 모임 게시판, 일정/조율 목록 |
+| `/groups/:id` | GroupDetailPage | 헤더 그룹 요약, ScheduleStrip, CoordinationStrip, PostListItem, 멤버/멤버관리 모달 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
 | `/mypage` | MyPage | ToggleSwitch |
@@ -256,7 +270,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-## 9. 디자인 원칙
+## 10. 디자인 원칙
 
 1. **모바일 퍼스트**: `max-w-lg` 제한, 터치 친화적 (min 44px 터치 영역)
 2. **시맨틱 토큰**: 하드코딩 색상 금지, CSS 변수 기반

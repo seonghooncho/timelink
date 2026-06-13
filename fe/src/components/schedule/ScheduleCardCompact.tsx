@@ -7,7 +7,7 @@ import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 interface ScheduleCardCompactProps {
   schedule: Schedule;
   onClick: (schedule: Schedule) => void;
-  onComplete: (schedule: Schedule) => void;
+  onComplete?: (schedule: Schedule) => void;
 }
 
 const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete }) => {
@@ -42,22 +42,24 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
         <span className={`font-num text-[10px] font-medium ${isImportant ? 'opacity-60' : 'text-muted-foreground'}`}>
           {formatDurationLabel(schedule.duration)}
         </span>
-        <button
-          type="button"
-          aria-label={schedule.isCompleted ? '완료 해제' : '완료'}
-          onClick={(e) => { e.stopPropagation(); onComplete(schedule); }}
-          className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
-            schedule.isCompleted
-              ? 'bg-primary border-primary'
-              : isImportant
-                ? 'border-primary-foreground/40 hover:border-primary-foreground/70'
-                : 'border-muted-foreground/30 hover:border-primary'
-          }`}
-        >
-          {schedule.isCompleted && (
-            <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
-          )}
-        </button>
+        {onComplete ? (
+          <button
+            type="button"
+            aria-label={schedule.isCompleted ? '완료 해제' : '완료'}
+            onClick={(e) => { e.stopPropagation(); onComplete(schedule); }}
+            className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+              schedule.isCompleted
+                ? 'bg-primary border-primary'
+                : isImportant
+                  ? 'border-primary-foreground/40 hover:border-primary-foreground/70'
+                  : 'border-muted-foreground/30 hover:border-primary'
+            }`}
+          >
+            {schedule.isCompleted && (
+              <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+            )}
+          </button>
+        ) : null}
       </div>
     </div>
   );

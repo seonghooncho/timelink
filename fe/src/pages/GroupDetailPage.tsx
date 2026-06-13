@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Copy, Heart, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, Copy, Heart, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
+import PostListItem from '@/components/community/PostListItem';
+import CoordinationStrip from '@/components/coordination/CoordinationStrip';
+import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,28 +35,11 @@ import {
 } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
-import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
+import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
-
-const getCategoryLabel = (category: string) => {
-  switch (category) {
-    case 'task':
-      return '할 일';
-    case 'appointment':
-      return '약속';
-    case 'group':
-      return '그룹';
-    case 'important':
-      return '중요';
-    case 'repeat':
-      return '반복';
-    default:
-      return '일정';
-  }
-};
 
 const GroupDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -180,6 +166,7 @@ const GroupDetailPage: React.FC = () => {
     const now = Date.now();
     return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() >= now);
   }, [sortedGroupSchedules]);
+  const groupedUpcomingSchedules = useGroupedSchedules(upcomingGroupSchedules);
 
   const memberCount = members.length || group?.memberCount || 0;
   const currentMember = sortedMembers.find((member) => member.userId === userId);
@@ -225,14 +212,6 @@ const GroupDetailPage: React.FC = () => {
     const source = member.nickname || member.userId;
     return source.slice(0, 1).toUpperCase();
   };
-
-  const formatScheduleSummary = (schedule: typeof schedules[number]) => {
-    const start = new Date(schedule.startTime);
-    const date = `${start.getMonth() + 1}.${String(start.getDate()).padStart(2, '0')}`;
-    return `${date} · ${formatScheduleClock(start)} · ${formatDurationLabel(schedule.duration)}`;
-  };
-
-  const formatHourLabel = (hour: number) => `${hour}:00`;
 
   const handleCopyLink = async () => {
     try {
@@ -404,9 +383,20 @@ const GroupDetailPage: React.FC = () => {
   return (
     <MobileLayout>
       <PageHeader
-        title="나의 모임"
+        title="모임"
         showBack
         backTo="/groups"
+        titleElement={
+          <div className="flex min-w-0 items-center gap-2">
+            <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold leading-5 text-foreground">{group.name}</p>
+              <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                {group.description || `멤버 ${memberCount}명`}
+              </p>
+            </div>
+          </div>
+        }
         rightElement={
           <div ref={menuRef} className="relative">
             <button
@@ -482,20 +472,127 @@ const GroupDetailPage: React.FC = () => {
         }
       />
 
-      <div className="mx-4 mt-4 rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center gap-3">
-          <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="md" />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-bold text-foreground">{group.name}</h2>
-            {group.description ? (
-              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{group.description}</p>
+      {groupedUpcomingSchedules.length > 0 ? (
+        <section className="border-t border-border/50 pt-3">
+          <div className="mb-2 flex items-end justify-between gap-3 px-5">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-foreground">확정 일정 ({groupScheduleCountLabel})</h2>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">가까운 약속부터 좌우로 확인하세요.</p>
+            </div>
+          </div>
+          <ScheduleStrip
+            groups={groupedUpcomingSchedules}
+            onScheduleClick={handleScheduleClick}
+          />
+          {hasNextSchedulePage ? (
+            <div className="px-5 pt-2">
+              <button
+                type="button"
+                onClick={() => fetchNextSchedulePage()}
+                disabled={isFetchingNextSchedulePage}
+                className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {isFetchingNextSchedulePage ? '불러오는 중...' : '일정 더보기'}
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {isCoordinationLoading || coordinations.length > 0 ? (
+        <section className="mt-5 border-t border-border/50 pt-3">
+          <div className="mb-2 px-5">
+            <h2 className="text-sm font-bold text-foreground">조율 중인 일정 ({coordinationCountLabel})</h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">아직 확정 전인 후보 시간을 확인하세요.</p>
+          </div>
+          {isCoordinationLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <CoordinationStrip
+              coordinations={coordinations}
+              onCoordinationClick={(coord) => navigate(`/groups/${id}/coordination/${coord.id}/timetable`)}
+              onReachEnd={handleLoadMoreCoordinations}
+              isLoadingMore={isFetchingMoreCoordinations}
+            />
+          )}
+        </section>
+      ) : null}
+
+      <section className="mt-5 border-t border-border/50 pt-4">
+        <div className="mb-2 flex items-center justify-between gap-3 px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">모임 게시판</h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">멤버들과 약속 준비 이야기를 남겨보세요.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPostComposer((prev) => !prev)}
+            className="shrink-0 text-xs font-bold text-primary"
+          >
+            {showPostComposer ? '닫기' : '글쓰기'}
+          </button>
+        </div>
+
+        {showPostComposer ? (
+          <div className="border-y border-border/60 px-5 py-3">
+            <div className="space-y-2">
+              <Input
+                value={postTitle}
+                onChange={(event) => setPostTitle(event.target.value)}
+                maxLength={80}
+                className="rounded-xl bg-muted text-base"
+                placeholder="게시물 제목"
+              />
+              <Textarea
+                value={postContent}
+                onChange={(event) => setPostContent(event.target.value)}
+                maxLength={2000}
+                rows={4}
+                className="resize-none rounded-xl bg-muted text-base"
+                placeholder="멤버들에게 공유할 내용을 적어주세요."
+              />
+              <button
+                type="button"
+                onClick={handleCreateGroupPost}
+                disabled={createGroupPost.isPending}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+              >
+                {createGroupPost.isPending ? '등록 중...' : '게시물 등록'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {isGroupPostsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : groupPosts.length > 0 ? (
+          <div>
+            {groupPosts.map((post) => (
+              <GroupPostItem key={post.id} groupId={id || ''} post={post} />
+            ))}
+            {hasNextGroupPostPage ? (
+              <div className="px-5 pt-3">
+                <button
+                  type="button"
+                  onClick={handleLoadMoreGroupPosts}
+                  disabled={isFetchingNextGroupPostPage}
+                  className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                >
+                  {isFetchingNextGroupPostPage ? '게시물을 불러오는 중...' : '게시물 더보기'}
+                </button>
+              </div>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-            멤버 {memberCount}명
-          </span>
-        </div>
-      </div>
+        ) : (
+          <p className="border-y border-dashed border-border/70 px-5 py-6 text-xs text-muted-foreground">
+            아직 게시물이 없습니다. 첫 글로 모임 소식을 남겨보세요.
+          </p>
+        )}
+      </section>
 
       {showMembersModal && (
         <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowMembersModal(false)}>
@@ -817,168 +914,6 @@ const GroupDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-border bg-card px-4 py-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold text-foreground">모임 게시판</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">멤버들과 약속 준비 이야기를 남겨보세요.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPostComposer((prev) => !prev)}
-              className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
-            >
-              {showPostComposer ? '닫기' : '글쓰기'}
-            </button>
-          </div>
-
-          {showPostComposer ? (
-            <div className="mb-4 space-y-2 rounded-2xl border border-border/70 bg-background p-3">
-              <Input
-                value={postTitle}
-                onChange={(event) => setPostTitle(event.target.value)}
-                maxLength={80}
-                className="rounded-xl bg-muted text-base"
-                placeholder="게시물 제목"
-              />
-              <Textarea
-                value={postContent}
-                onChange={(event) => setPostContent(event.target.value)}
-                maxLength={2000}
-                rows={4}
-                className="resize-none rounded-xl bg-muted text-base"
-                placeholder="멤버들에게 공유할 내용을 적어주세요."
-              />
-              <button
-                type="button"
-                onClick={handleCreateGroupPost}
-                disabled={createGroupPost.isPending}
-                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
-              >
-                {createGroupPost.isPending ? '등록 중...' : '게시물 등록'}
-              </button>
-            </div>
-          ) : null}
-
-          {isGroupPostsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : groupPosts.length > 0 ? (
-            <ScrollableFadeList
-              ariaLabel="모임 게시물 목록"
-              onReachEnd={handleLoadMoreGroupPosts}
-              isLoadingMore={isFetchingNextGroupPostPage}
-              loadingLabel="게시물을 더 불러오는 중..."
-              maxHeightClassName="max-h-[30rem]"
-            >
-              {groupPosts.map((post) => (
-                <GroupPostItem key={post.id} groupId={id || ''} post={post} />
-              ))}
-            </ScrollableFadeList>
-          ) : (
-            <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
-              아직 게시물이 없습니다. 첫 글로 모임 소식을 남겨보세요.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {upcomingGroupSchedules.length > 0 ? (
-        <div className="mt-6 px-4">
-          <div className="rounded-2xl border border-border bg-card px-4 py-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="truncate text-sm font-bold text-foreground">모임 일정 ({groupScheduleCountLabel})</h3>
-                <p className="mt-1 text-[11px] text-muted-foreground">확정된 모임 일정입니다. 가까운 일정부터 확인해 보세요.</p>
-              </div>
-            </div>
-
-            <ScrollableFadeList
-              ariaLabel="모임 일정 목록"
-              onReachEnd={handleLoadMoreGroupSchedules}
-              isLoadingMore={isFetchingNextSchedulePage}
-              loadingLabel="일정을 더 불러오는 중..."
-            >
-              {upcomingGroupSchedules.map((schedule) => (
-                <button
-                  key={schedule.id}
-                  type="button"
-                  onClick={() => handleScheduleClick(schedule)}
-                  className="w-full rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-left transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-medium text-muted-foreground">
-                        {formatScheduleSummary(schedule)}
-                      </p>
-                      <p className="mt-1 truncate text-sm font-semibold text-foreground">{schedule.title}</p>
-                      {schedule.content ? (
-                        <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{schedule.content}</p>
-                      ) : null}
-                    </div>
-                    <span className="max-w-[92px] shrink-0 truncate rounded-full bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">
-                      {getCategoryLabel(schedule.category)}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </ScrollableFadeList>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-6 px-4">
-        <div className="rounded-2xl border border-border bg-card px-4 py-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold text-foreground">조율 중인 일정 ({coordinationCountLabel})</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">아직 확정 전인 조율입니다. 가능한 시간을 모아보세요.</p>
-            </div>
-          </div>
-
-          {isCoordinationLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : coordinations.length > 0 ? (
-            <ScrollableFadeList
-              ariaLabel="조율 중인 일정 목록"
-              onReachEnd={handleLoadMoreCoordinations}
-              isLoadingMore={isFetchingMoreCoordinations}
-              loadingLabel="조율을 더 불러오는 중..."
-            >
-              {coordinations.map((coord) => (
-                <button
-                  key={coord.id}
-                  type="button"
-                  onClick={() => navigate(`/groups/${id}/coordination/${coord.id}/timetable`)}
-                  className="w-full rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-left transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-medium text-muted-foreground">
-                        {coord.mode === 'repeat' ? '반복 조율' : '일회성 조율'} · {coord.dates.length}일
-                      </p>
-                      <p className="mt-1 truncate text-sm font-semibold text-foreground">{coord.title}</p>
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                        응답 {coord.responseCount ?? 0}건 · {formatHourLabel(coord.startHour)} - {formatHourLabel(coord.endHour)}
-                      </p>
-                    </div>
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
-            </ScrollableFadeList>
-          ) : (
-            <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
-              조율 중인 일정이 없습니다. 멤버들과 맞는 시간을 찾아보세요.
-            </p>
-          )}
-        </div>
-      </div>
-
       <div className="h-24" aria-hidden="true" />
 
       <div className="fixed inset-x-0 app-layer-floating app-bottom-sheet-root pointer-events-none">
@@ -1042,60 +977,38 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
   };
 
   return (
-    <article className="rounded-2xl border border-border/70 bg-background px-3.5 py-3">
-      <div className="flex items-start gap-3">
-        <Avatar className="h-9 w-9 border border-border/70">
-          <AvatarImage src={post.authorAvatarUrl} alt={post.authorNickname} />
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-            {post.authorNickname.slice(0, 1)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-foreground">{post.authorNickname}</p>
-              <p className="text-[10px] text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
-            </div>
-            {post.mine ? (
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                내 글
-              </span>
-            ) : null}
-          </div>
-
-          <h4 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-foreground">{post.title}</h4>
-          <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{post.content}</p>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToggleLike}
-              disabled={toggleLike.isPending}
-              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
-                post.likedByMe
-                  ? 'border-primary/30 bg-primary/10 text-primary'
-                  : 'border-border bg-card text-muted-foreground'
-              } disabled:opacity-50`}
-            >
-              <Heart className={`h-3.5 w-3.5 ${post.likedByMe ? 'fill-primary' : ''}`} />
-              {post.likeCount ?? 0}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowComments((prev) => !prev)}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              댓글 {post.commentCount ?? 0}
-            </button>
-          </div>
-
-          {showComments ? (
-            <GroupPostComments groupId={groupId} postId={post.id} />
-          ) : null}
+    <PostListItem
+      post={post}
+      actions={
+        <div className="flex items-center gap-2 pl-12">
+          <button
+            type="button"
+            onClick={handleToggleLike}
+            disabled={toggleLike.isPending}
+            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
+              post.likedByMe
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground'
+            } disabled:opacity-50`}
+          >
+            <Heart className={`h-3.5 w-3.5 ${post.likedByMe ? 'fill-primary' : ''}`} />
+            {post.likeCount ?? 0}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowComments((prev) => !prev)}
+            className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            댓글 {post.commentCount ?? 0}
+          </button>
         </div>
-      </div>
-    </article>
+      }
+    >
+      {showComments ? (
+        <GroupPostComments groupId={groupId} postId={post.id} />
+      ) : null}
+    </PostListItem>
   );
 };
 
@@ -1132,7 +1045,7 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
   };
 
   return (
-    <div className="mt-3 rounded-2xl border border-border/70 bg-card p-3">
+    <div className="mt-3 border-t border-border/60 pt-3 pl-12">
       <div className="flex gap-2">
         <Textarea
           value={content}
@@ -1153,7 +1066,7 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
         </button>
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-5">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1163,7 +1076,7 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
             <GroupPostCommentItem key={comment.id} comment={comment} />
           ))
         ) : (
-          <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+          <p className="border-y border-dashed border-border/70 px-3 py-4 text-center text-[11px] text-muted-foreground">
             아직 댓글이 없습니다.
           </p>
         )}
@@ -1173,7 +1086,7 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
             type="button"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="w-full rounded-xl border border-border bg-background py-2 text-[11px] font-semibold text-muted-foreground disabled:opacity-50"
+            className="w-full border-y border-border/60 py-2 text-[11px] font-semibold text-muted-foreground disabled:opacity-50"
           >
             {isFetchingNextPage ? '불러오는 중...' : '댓글 더보기'}
           </button>
@@ -1188,7 +1101,7 @@ interface GroupPostCommentItemProps {
 }
 
 const GroupPostCommentItem: React.FC<GroupPostCommentItemProps> = ({ comment }) => (
-  <div className="flex items-start gap-2 rounded-xl bg-background px-3 py-2.5">
+  <div className="flex items-start gap-2 border-b border-border/50 px-1 py-2.5 last:border-b-0">
     <Avatar className="h-7 w-7 border border-border/70">
       <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
       <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
