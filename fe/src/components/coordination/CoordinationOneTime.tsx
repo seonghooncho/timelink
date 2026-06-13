@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { coordinationApi } from '@/services/api';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
+import { trackEvent } from '@/lib/analytics';
 
 interface CoordinationOneTimeProps {
   groupId?: string;
@@ -67,6 +68,11 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
     setIsCreating(true);
     try {
       const dates = Array.from(selectedDates).sort();
+      trackEvent('coordination_create_start', {
+        mode: 'once',
+        date_count: dates.length,
+        hour_count: endHour - startHour,
+      });
       const result = await coordinationApi.create(groupId, {
         title: title.trim(),
         mode: 'once',

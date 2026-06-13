@@ -128,9 +128,10 @@ npm run ops:backfill-metadata -- --fix-duplicate-invites
 ## 프론트 배포 방법
 
 `main`의 배포 대상 커밋에서 빌드합니다. Vite는 JS/CSS asset 파일명에 hash를 붙여 버저닝하므로, `index.html`은 항상 최신을 받게 하고 `/assets/*`는 장기 캐시해도 됩니다.
+GA4를 사용할 때는 빌드 시 운영 웹 스트림 측정 ID `VITE_GA_MEASUREMENT_ID=G-H1B1N6FF66` 값을 함께 주입합니다. 값이 없으면 분석 스크립트는 로드되지 않습니다.
 
 ```sh
-npm run fe:build
+VITE_GA_MEASUREMENT_ID=G-H1B1N6FF66 npm run fe:build
 aws s3 sync fe/dist s3://planner-frontend-prod-160885253413 \
   --delete \
   --exclude 'assets/*' \

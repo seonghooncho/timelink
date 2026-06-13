@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -24,6 +24,7 @@ import { getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { createDemoCoordination, createDemoSchedules, demoMembers } from '@/lib/demoData';
 import type { DemoCoordinationSlot } from '@/lib/demoData';
 import type { Schedule } from '@/types/types';
+import { trackEvent } from '@/lib/analytics';
 
 type DemoTab = 'home' | 'group' | 'coordination';
 
@@ -60,12 +61,18 @@ const DemoPage: React.FC = () => {
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === 'demo-group');
   const selectedSlot = coordination.slots.find((slot) => `${slot.date}-${slot.hour}` === selectedSlotKey) ?? coordination.recommended;
 
+  useEffect(() => {
+    trackEvent('demo_view', { tab: activeTab });
+  }, [activeTab]);
+
   const openLoginPrompt = (prompt: LoginPrompt) => {
+    trackEvent('demo_login_prompt', { redirect_path: prompt.redirect });
     setLoginPrompt(prompt);
   };
 
   const goLogin = () => {
     const redirect = loginPrompt?.redirect ?? '/';
+    trackEvent('demo_login_click', { redirect_path: redirect });
     navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
   };
 

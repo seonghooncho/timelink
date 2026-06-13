@@ -16,6 +16,7 @@ import { SCHEDULE_DURATION_OPTIONS } from '@/lib/scheduleTime';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
 import DurationSelect from '@/components/common/DurationSelect';
 import { validateImageFile } from '@/lib/images';
+import { trackEvent } from '@/lib/analytics';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
@@ -145,6 +146,13 @@ const ScheduleFormPage: React.FC = () => {
     }
 
     try {
+      trackEvent('schedule_create_start', {
+        category,
+        has_group: Boolean(initialContext.groupId),
+        has_alarm: hasAlarm,
+        is_important: isImportant,
+        source: initialContext.sourceLabel ? 'coordination' : 'manual',
+      });
       await createMutation.mutateAsync(result.data);
       appToast.success('일정이 등록되었습니다');
       navigate('/');
