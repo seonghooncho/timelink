@@ -40,6 +40,7 @@ export const requestPushPermission = async () => {
 };
 
 const urlBase64ToUint8Array = (base64String: string) => {
+  // 브라우저 PushManager는 VAPID public key를 Uint8Array 형태로 요구한다.
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -85,6 +86,7 @@ const getRegistration = async () => {
     return existing;
   }
 
+  // service worker 등록이 늦게 끝나는 PWA 진입도 기다려서 구독 실패를 줄인다.
   return navigator.serviceWorker.ready.catch(() => null);
 };
 
@@ -103,6 +105,7 @@ export const ensurePushSubscription = async () => {
     return false;
   }
 
+  // 같은 브라우저에서 이미 만든 구독이 있으면 재사용하고 서버 저장만 갱신한다.
   const existing = await registration.pushManager.getSubscription();
   const subscription = existing || await registration.pushManager.subscribe({
     userVisibleOnly: true,

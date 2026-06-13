@@ -7,6 +7,7 @@ export interface Schedule {
   category: ScheduleCategory;
   isImportant: boolean;
   startTime: string;
+  /** @deprecated 일정 표시는 startTime + duration을 기준으로 계산합니다. */
   endTime?: string;
   duration: number;
   isCompleted: boolean;

@@ -38,6 +38,7 @@ export async function assetToBlob(asset: PickedImageAsset) {
   return res.blob();
 }
 
+// 네이티브에서 고른 이미지를 Blob으로 바꿔 웹과 같은 presigned 업로드 흐름을 사용한다.
 export async function uploadProcessedImage(
   purpose: ImagePurpose,
   asset: PickedImageAsset,
@@ -67,6 +68,7 @@ export async function uploadProcessedImage(
   };
 }
 
+// Lambda 변환 완료 전에는 PROCESSING 상태를 유지하므로 짧게 polling한다.
 export async function waitForImageProcessing(imageId: string) {
   const startedAt = Date.now();
 

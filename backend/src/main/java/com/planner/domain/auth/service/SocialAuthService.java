@@ -32,6 +32,9 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Google/Kakao OAuth 왕복과 Timelink 세션 발급을 연결한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class SocialAuthService {
@@ -207,6 +210,7 @@ public class SocialAuthService {
     private String createState(Provider provider, String frontendOrigin, String redirectPath) {
         SecretKey key = signingKey();
 
+        // 콜백에서 프론트 origin과 복귀 경로를 신뢰할 수 있도록 짧은 JWT state로 묶는다.
         return Jwts.builder()
                 .subject("oauth-state")
                 .claim("provider", provider.id())
@@ -409,6 +413,7 @@ public class SocialAuthService {
         boolean defaultNickname = profile.path("is_default_nickname").asBoolean(false);
         String seed = firstText(userInfo, "id", "kakao");
 
+        // 선택 동의가 없거나 기본 닉네임이면 이메일 또는 생성형 기본 닉네임으로 대체한다.
         return firstNonBlank(
                 firstText(account, "name", null),
                 defaultNickname ? null : firstText(profile, "nickname", null),
@@ -422,6 +427,7 @@ public class SocialAuthService {
         JsonNode profile = userInfo.path("kakao_account").path("profile");
         String seed = firstText(userInfo, "id", "kakao");
 
+        // 프로필 사진 동의가 없으면 생성형 기본 이미지를 사용한다.
         return firstNonBlank(
                 firstText(profile, "profile_image_url", null),
                 firstText(profile, "thumbnail_image_url", null),

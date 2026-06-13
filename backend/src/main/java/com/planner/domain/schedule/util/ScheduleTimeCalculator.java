@@ -9,6 +9,9 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
+/**
+ * 일정의 시작시간과 소요시간으로 종료시간을 계산하는 공통 유틸이다.
+ */
 public final class ScheduleTimeCalculator {
 
     public static final double DEFAULT_DURATION_HOURS = 1.0;
@@ -29,6 +32,7 @@ public final class ScheduleTimeCalculator {
             throw new ScheduleException(ScheduleErrorCode.INVALID_DURATION);
         }
 
+        // double 입력 오차를 감안해 분 단위 정수로 변환한 뒤 30분 단위를 검증한다.
         double rawMinutes = durationHours * 60;
         long minutes = Math.round(rawMinutes);
         if (Math.abs(rawMinutes - minutes) > EPSILON
@@ -48,6 +52,7 @@ public final class ScheduleTimeCalculator {
         long durationMinutes = Math.round(durationHours * 60);
         String trimmedStartTime = startTime.trim();
         try {
+            // OAuth/API 클라이언트가 offset 포함 시간을 보내면 offset을 보존해 응답한다.
             OffsetDateTime start = OffsetDateTime.parse(trimmedStartTime);
             OffsetDateTime end = start.plusMinutes(durationMinutes);
             if (!start.toLocalDate().equals(end.toLocalDate())) {

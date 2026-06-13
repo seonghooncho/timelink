@@ -11,6 +11,7 @@ export const TIMETABLE_CURRENT_TIME_LOOKBACK_HOURS = 2;
 export const getTimetableDraggedScrollTop = (startScrollTop: number, startY: number, currentY: number) =>
   startScrollTop - (currentY - startY);
 
+// 오늘이 보이는 경우 현재 시간보다 조금 앞선 영역을 첫 화면에 맞춘다.
 export const getInitialTimetableScrollTop = (visibleDates: Date[], now = new Date(), viewportHeight = 0) => {
   const gridHeight = (TIMETABLE_HOUR_END - TIMETABLE_HOUR_START) * TIMETABLE_HOUR_HEIGHT;
   const maxScrollTop = Math.max(0, gridHeight - Math.max(0, viewportHeight));
@@ -42,6 +43,7 @@ export const getScheduleEndHour = (schedule: Pick<Schedule, 'startTime' | 'endTi
   const start = new Date(schedule.startTime);
   const startHour = start.getHours() + start.getMinutes() / 60;
   if (schedule.duration > 0) {
+    // 신규 일정 표시는 호환용 endTime보다 duration 계산을 우선한다.
     const end = getScheduleEndDate(schedule);
     const endHour = end.getHours() + end.getMinutes() / 60;
     if (toLocalDateKey(end) !== toLocalDateKey(start)) {
@@ -103,6 +105,7 @@ export function layoutSchedules(daySchedules: Schedule[]): RenderedTimetableSegm
   const times = Array.from(boundaries).sort((a, b) => a - b);
   if (times.length < 2) return [];
 
+  // 시작/끝 경계로 하루를 잘라 겹치는 일정의 열 배치를 안정적으로 계산한다.
   type SliceInfo = { start: number; end: number; active: Schedule[] };
   const slices: SliceInfo[] = [];
   for (let i = 0; i < times.length - 1; i++) {
@@ -132,6 +135,7 @@ export function layoutSchedules(daySchedules: Schedule[]): RenderedTimetableSegm
 
     for (const schedule of active) {
       const prevCol = scheduleColumnMap.get(schedule.id);
+      // 같은 일정은 인접 slice에서도 이전 열을 유지해 블록이 흔들리지 않게 한다.
       if (prevCol !== undefined && prevCol < 2 && !usedCols.has(prevCol)) {
         assigned.push({ schedule, column: prevCol });
         usedCols.add(prevCol);
@@ -189,6 +193,7 @@ export function layoutSchedules(daySchedules: Schedule[]): RenderedTimetableSegm
       const last = segments[segments.length - 1];
       const overflow = visible.column === maxColumn ? sliceLayout.hiddenCount : 0;
 
+      // 같은 열로 이어지는 slice는 하나의 시각 블록으로 합친다.
       if (last && last.end === sliceLayout.start && last.column === visible.column && last.totalCols === totalCols) {
         last.end = sliceLayout.end;
         last.overflowCount = Math.max(last.overflowCount, overflow);

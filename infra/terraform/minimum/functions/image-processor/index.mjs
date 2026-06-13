@@ -11,6 +11,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import sharp from 'sharp';
 
+// S3 upload/ 객체를 WebP로 변환하고 DB 이미지 상태와 대상 엔티티를 갱신한다.
 const s3 = new S3Client({});
 const dynamodb = new DynamoDBClient({});
 
@@ -55,6 +56,7 @@ async function processRecord(record) {
   let targetId = null;
 
   try {
+    // presigned PUT의 메타데이터를 우선 사용하고, 누락 시 upload key 규칙으로 보정한다.
     const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     const metadata = head.Metadata || {};
     imageId = metadata['image-id'] || parsed.imageId;
@@ -66,6 +68,7 @@ async function processRecord(record) {
     targetId = metadata['target-id'] || getString(uploadRecord, 'targetId') || null;
     const source = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     const inputBuffer = await streamToBuffer(source.Body);
+    // 원본 방향 정보를 반영하고, 과도하게 큰 이미지는 공개용 최대 크기로 줄인다.
     const webpBuffer = await sharp(inputBuffer)
       .rotate()
       .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
@@ -89,6 +92,7 @@ async function processRecord(record) {
     const publicUrl = buildPublicUrl(destinationKey);
     await markImageCompleted(imageId, destinationKey, publicUrl);
     if (targetId) {
+      // 생성 직후 targetId가 연결된 경우 최종 WebP URL까지 대상 엔티티에 반영한다.
       await updateTargetEntity({ purpose, targetId, ownerUserId, imageId, destinationKey, publicUrl });
     }
 
@@ -104,6 +108,7 @@ function decodeS3Key(value) {
 }
 
 function parseUploadKey(key) {
+  // upload/<purpose>/<owner>/<imageId>/original.ext 규칙을 fallback 메타데이터로 사용한다.
   const parts = key.split('/');
   const prefix = parts[1];
   const ownerUserId = parts[2];
@@ -220,6 +225,7 @@ async function updateTargetEntity({ purpose, targetId, ownerUserId, imageId, des
     }));
   } catch (error) {
     if (error?.name === 'ConditionalCheckFailedException') {
+      // 그룹/일정 생성보다 Lambda가 먼저 끝난 경우 attach API가 나중에 다시 연결한다.
       console.log('Skip target update because entity does not exist yet', { purpose, targetId, imageId });
       return;
     }
@@ -271,6 +277,7 @@ async function markImageFailed(imageId, purpose, ownerUserId, targetId, error) {
   }));
 
   if (targetId && purpose) {
+    // 이미지 레코드와 실제 대상 엔티티의 실패 상태를 맞춰 UI가 placeholder를 보여주게 한다.
     const key = getTargetKey(purpose, targetId, ownerUserId);
     if (key) {
       await dynamodb.send(new UpdateItemCommand({

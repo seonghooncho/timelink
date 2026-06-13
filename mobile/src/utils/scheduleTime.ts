@@ -31,6 +31,7 @@ export function addDuration(startIso: string, duration: number) {
 }
 
 export function getScheduleEnd(schedule: { startTime: string; duration?: number; endTime?: string }) {
+  // 모바일 표시도 웹/백엔드와 같이 duration을 우선하고 endTime은 호환용으로만 사용한다.
   if (schedule.duration && Number.isFinite(schedule.duration)) {
     return addDuration(schedule.startTime, schedule.duration);
   }
@@ -44,6 +45,7 @@ export function isSameLocalDate(first: Date, second: Date) {
 }
 
 export function validateScheduleDateTime(date: string, time: string, duration: number) {
+  // 생성 전 검증으로 백엔드 예외를 기다리지 않고 사용자에게 즉시 안내한다.
   if (!date) return '날짜를 선택해주세요.';
   if (!time) return '시작 시간을 선택해주세요.';
   if (!isHalfHourTime(time)) return '시작 시간은 30분 단위로 선택해주세요.';

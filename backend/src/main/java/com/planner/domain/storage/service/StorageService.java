@@ -29,6 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 이미지 업로드의 presigned URL 발급과 업로드 메타데이터 관리를 맡는다.
+ */
 @Service
 @RequiredArgsConstructor
 public class StorageService {
@@ -73,6 +76,7 @@ public class StorageService {
                 .build();
         imageUploadRepository.save(upload);
 
+        // Lambda가 S3 이벤트만 보고도 대상과 용도를 찾을 수 있게 메타데이터를 같이 서명한다.
         Map<String, String> metadata = buildUploadMetadata(imageId, purpose, userId, targetId);
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -119,6 +123,7 @@ public class StorageService {
             throw new CustomException(GeneralErrorCode.BAD_REQUEST, "이미지 용도와 연결 대상이 맞지 않습니다");
         }
 
+        // 생성 시점에 targetId가 없던 그룹/일정 이미지는 실제 대상 생성 후 여기서 연결한다.
         String now = Instant.now().toString();
         imageUploadRepository.attachTarget(imageId, targetId, now);
         upload.setTargetId(targetId);
@@ -126,10 +131,12 @@ public class StorageService {
         return upload;
     }
 
+    @Deprecated(since = "2026-06-13", forRemoval = false)
     public ImageUploadResDTO uploadProfileImage(String userId, MultipartFile file) {
         return uploadImage(userId, "profile", file);
     }
 
+    @Deprecated(since = "2026-06-13", forRemoval = false)
     public ImageUploadResDTO uploadGroupImage(String userId, MultipartFile file) {
         return uploadImage(userId, "group", file);
     }

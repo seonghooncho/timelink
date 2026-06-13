@@ -6,7 +6,7 @@
 
 ## 비목적
 
-이 문서는 API 필드 전체, 내부 인프라 구성, 상세 UI 디자인 토큰을 중복 설명하지 않습니다. API 계약은 `API_SPEC.md`, 배포 절차는 `infrastructure/DEPLOYMENT_NOTES.md`, 디자인 원칙은 `DESIGN_GUIDE.md`를 기준으로 합니다.
+이 문서는 API 필드 전체, 내부 인프라 구성, 상세 UI 디자인 토큰을 중복 설명하지 않습니다. API 계약은 [API 명세서](../reference/API_SPEC.md), 배포 절차는 [운영 배포 유의사항](../operations/DEPLOYMENT_NOTES.md), 디자인 원칙은 [디자인 가이드](../design/DESIGN_GUIDE.md)를 기준으로 합니다.
 
 ## 문서 기준
 

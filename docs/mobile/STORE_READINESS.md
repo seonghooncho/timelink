@@ -29,10 +29,12 @@ npm run mobile:export:web
 
 ## 반영된 기능 계약
 
-- 일정 생성은 `날짜 + 시작 시간 + 소요시간`으로 보낸다. 종료 시각은 앱에서 `시작 + 소요시간`으로 계산해 표시한다.
+- 일정 생성은 `날짜 + 시작 시간 + 소요시간`으로 보낸다. 종료 시각은 앱에서 `시작 + 소요시간`으로 계산해 표시하고, 알림 기본값은 웹과 동일하게 꺼진 상태다.
 - 시작 시간은 30분 단위 선택 UI로 제한한다.
 - 프로필, 그룹, 일정 이미지는 15MB 이하 파일을 presigned URL로 `upload/`에 올리고, 백엔드 WebP 처리 결과를 `imageId/imageStatus`로 추적한다.
+- 모바일 이미지는 Expo 기본 편집 UI를 거쳐 업로드한다. 웹의 커스텀 crop/position UI와 완전히 같은 조작감은 추후 네이티브 crop 컴포넌트 도입 때 맞춘다.
 - 그룹 알림 on/off는 모바일 마이페이지에 노출하지 않는다. 그룹 알림은 서버 기본 정책대로 알림센터에 생성된다.
+- `pushAlarm` 설정값은 모바일에서도 조회/저장하지만, 현재 실제 푸시 대상은 Web Push 구독이다. 앱 자체 APNs/FCM 푸시는 별도 설계가 필요하다.
 - 일정 알림이 꺼져 있으면 리마인드 설정은 보이지만 수정할 수 없다.
 - 조율 결과 타임슬롯을 선택하면 투표한 사람의 프로필과 이름을 모달로 보여준다.
 
@@ -58,9 +60,9 @@ npm run mobile:export:web
 
 ## 네이티브 푸시 판단
 
-현재 운영 백엔드 푸시는 Web Push(VAPID) 구조다. iOS/Android 네이티브 앱은 Web Push subscription이 아니라 APNs/FCM 또는 Expo Push Token을 사용해야 하므로 같은 토글을 그대로 노출하면 실제 동작과 UI가 어긋난다.
+현재 운영 백엔드 푸시는 Web Push(VAPID) 구조다. iOS/Android 네이티브 앱은 Web Push subscription이 아니라 APNs/FCM 또는 Expo Push Token을 사용해야 하므로 `pushAlarm` 설정값만으로 앱 자체 푸시가 전달되지는 않는다.
 
-이번 모바일 통합에서는 알림센터와 일정 알림 설정만 노출하고, 네이티브 푸시는 별도 설계로 분리한다. 장기적으로는 `NativePushSubscription` 저장소를 추가하고 notification worker가 Web Push와 Native Push를 목적지별로 분기하는 구조가 맞다.
+이번 모바일 통합에서는 알림센터와 일정 알림 설정을 맞추고, `pushAlarm`은 서버 설정 동기화 수준으로 유지한다. 장기적으로는 `NativePushSubscription` 저장소를 추가하고 notification worker가 Web Push와 Native Push를 목적지별로 분기하는 구조가 맞다.
 
 ## 검증 결과
 

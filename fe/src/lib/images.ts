@@ -33,6 +33,7 @@ export function toImageFile(blob: Blob, name: string) {
   return new File([blob], name, { type: blob.type || 'image/webp', lastModified: Date.now() });
 }
 
+// crop이 끝난 파일을 upload/ prefix로 올리고, WebP 변환은 Lambda가 비동기로 처리한다.
 export async function uploadProcessedImage(
   purpose: ImagePurpose,
   file: File,
@@ -59,6 +60,7 @@ export async function uploadProcessedImage(
   };
 }
 
+// 화면은 처리 중 상태를 먼저 보여주고, 완료/실패만 짧게 polling한다.
 export async function waitForImageProcessing(imageId: string): Promise<ImageUploadResponse> {
   const startedAt = Date.now();
 

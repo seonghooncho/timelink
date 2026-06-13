@@ -24,6 +24,7 @@ const sameState = (a: ScrollAffordanceState, b: ScrollAffordanceState) => (
   && a.endFadeOpacity === b.endFadeOpacity
 );
 
+// 스크롤 가능 여부와 페이드 투명도를 한 곳에서 읽어 목록/모달 UI에 재사용한다.
 export function useScrollAffordance<T extends HTMLElement>({
   axis = 'vertical',
   threshold = 1,
@@ -32,6 +33,7 @@ export function useScrollAffordance<T extends HTMLElement>({
 }: UseScrollAffordanceOptions = {}) {
   const [scrollElement, setScrollElement] = useState<T | null>(null);
   const scrollRef = useMemo<ScrollAffordanceRef<T>>(() => {
+    // 조건부 렌더링으로 ref 대상이 늦게 생겨도 다시 측정되도록 콜백 ref를 쓴다.
     const ref = ((node: T | null) => {
       if (ref.current === node) return;
       ref.current = node;
@@ -93,6 +95,7 @@ export function useScrollAffordance<T extends HTMLElement>({
 
     if (remaining <= reachEndThreshold) {
       const now = Date.now();
+      // 끝 근처에서 같은 페이지 요청이 연속으로 나가지 않게 짧게 제한한다.
       if (now - lastReachEndAtRef.current < 400) return;
       lastReachEndAtRef.current = now;
       onReachEndRef.current();
@@ -120,6 +123,7 @@ export function useScrollAffordance<T extends HTMLElement>({
     const mutationObserver = typeof MutationObserver === 'undefined'
       ? null
       : new MutationObserver(refresh);
+    // 목록 아이템 개수나 텍스트가 바뀌면 overflow 상태도 즉시 다시 계산한다.
     mutationObserver?.observe(element, {
       childList: true,
       subtree: true,

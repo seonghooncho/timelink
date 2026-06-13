@@ -18,6 +18,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 
+/**
+ * 사용자 프로필과 소셜 로그인에서 전달된 초기 프로필 힌트를 관리한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
@@ -90,6 +93,7 @@ public class ProfileService {
 
         String currentNickname = profile.getNickname();
         String resolvedNickname = ProfileConverter.resolveNickname(nicknameHint);
+        // 사용자가 직접 바꾼 닉네임은 소셜 로그인 때 들어온 provider 값으로 덮어쓰지 않는다.
         return !resolvedNickname.equals(currentNickname)
                 && (!StringUtils.hasText(currentNickname) || isGeneratedNickname(currentNickname));
     }
@@ -109,6 +113,7 @@ public class ProfileService {
         }
 
         String currentAvatarUrl = profile.getAvatarUrl();
+        // 기본 이미지 상태일 때만 provider 프로필 이미지를 초기값으로 반영한다.
         return !StringUtils.hasText(currentAvatarUrl)
                 || GeneratedProfileDefaults.isGeneratedAvatarUrl(currentAvatarUrl);
     }

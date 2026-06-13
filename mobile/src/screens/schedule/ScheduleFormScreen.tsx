@@ -47,7 +47,7 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState(DEFAULT_SCHEDULE_DURATION);
   const [isImportant, setIsImportant] = useState(false);
-  const [hasAlarm, setHasAlarm] = useState(true);
+  const [hasAlarm, setHasAlarm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [pickedImage, setPickedImage] = useState<PickedImageAsset | null>(null);

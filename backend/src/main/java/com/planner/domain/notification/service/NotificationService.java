@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 알림센터 저장, 사용자 알림 설정, 푸시 발송 진입점을 함께 관리한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -100,6 +103,7 @@ public class NotificationService {
 
         if (req.getScheduleAlarm() != null) settings.setScheduleAlarm(req.getScheduleAlarm());
         if (req.getGroupAlarm() != null) {
+            // 과거 클라이언트는 groupAlarm으로 푸시 여부를 보냈으므로 pushAlarm이 없을 때만 맞춰준다.
             settings.setGroupAlarm(req.getGroupAlarm());
             if (req.getPushAlarm() == null) {
                 settings.setPushAlarm(req.getGroupAlarm());
@@ -171,6 +175,7 @@ public class NotificationService {
         NotificationSettings settings = repository.findSettings(event.getUserId())
                 .orElseGet(() -> createDefaultSettings(event.getUserId()));
         if ("schedule".equals(event.getType()) && !Boolean.TRUE.equals(settings.getScheduleAlarm())) {
+            // 예약 시점 이후 사용자가 일정 알림을 껐으면 알림센터 저장과 푸시 모두 건너뛴다.
             reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
             return;
         }
@@ -202,6 +207,7 @@ public class NotificationService {
     }
 
     private boolean isPushEnabled(NotificationSettings settings) {
+        // 신규 설정은 pushAlarm을 우선하고, 기존 데이터만 groupAlarm으로 보정한다.
         return settings.getPushAlarm() != null
                 ? Boolean.TRUE.equals(settings.getPushAlarm())
                 : Boolean.TRUE.equals(settings.getGroupAlarm());

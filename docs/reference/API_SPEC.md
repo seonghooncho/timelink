@@ -232,6 +232,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
+`end_time`은 하위 호환 응답 필드다. 신규 화면의 시간 계산과 타임테이블 표시는 `start_time + duration`을 기준으로 한다.
+
 ---
 
 #### `GET` /api/planner/v1/schedules/:id
@@ -822,7 +824,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|--------|------|
 | `user_id` | `string` PK | — | 백엔드 JWT subject (`userId`) |
 | `schedule_alarm` | `boolean` | false | 일정 알림 |
-| `group_alarm` | `boolean` | false | 그룹 알림 |
+| `group_alarm` | `boolean` | true | 하위 호환용 그룹 알림 필드. 알림센터 그룹 알림은 기본 생성되고, 푸시 발송 여부는 `push_alarm`을 기준으로 한다. |
+| `push_alarm` | `boolean` | false | Web Push 발송 여부 |
 | `remind_one_day_before` | `boolean` | false | 1일 전 리마인드 |
 | `remind_one_day_before_time` | `text` | '22:00' | 리마인드 시간 |
 | `remind_same_day` | `boolean` | false | 당일 리마인드 |
@@ -862,7 +865,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 알림 설정 수정 (변경할 필드만)
 
-`schedule_alarm`이 `false`이면 리마인드 알림과 예약 일정 알림은 발송되지 않는다. `push_alarm`은 알림센터 저장 여부와 별개로 Web Push 발송 여부만 제어한다.
+`schedule_alarm`이 `false`이면 리마인드 알림과 예약 일정 알림은 알림센터에도 저장되지 않는다. `push_alarm`은 알림센터 저장 여부와 별개로 Web Push 발송 여부만 제어한다. `group_alarm`은 과거 클라이언트 호환용이며 신규 클라이언트는 직접 수정하지 않는다.
 
 **Request Body**
 ```json
@@ -1034,7 +1037,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/storage/images/group
 
-그룹 이미지 multipart 업로드. 하위 호환용이며 신규 클라이언트는 presigned 업로드를 사용한다.
+그룹 이미지 multipart 업로드. Deprecated 하위 호환용이며 신규 클라이언트는 반드시 presigned 업로드를 사용한다.
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
@@ -1055,7 +1058,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/storage/images/profile
 
-프로필 아바타 multipart 업로드. 하위 호환용이며 신규 클라이언트는 presigned 업로드를 사용한다.
+프로필 아바타 multipart 업로드. Deprecated 하위 호환용이며 신규 클라이언트는 반드시 presigned 업로드를 사용한다.
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
@@ -1185,8 +1188,8 @@ auth-session (JWT subject = userId)
 | `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
 | `POST` | `/storage/images/presign` | 이미지 presigned 업로드 URL 발급 | 인증 | ✅ |
 | `GET` | `/storage/images/:imageId` | 이미지 처리 상태 조회 | 인증(소유자) | ✅ |
-| `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(하위 호환) | 인증 | ✅ |
-| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(하위 호환) | 인증 | ✅ |
+| `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | ✅ |
+| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | ✅ |
 
 > **Base URL prefix**: `api/planner/v1`  
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`)

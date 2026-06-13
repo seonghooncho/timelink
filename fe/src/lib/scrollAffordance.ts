@@ -27,6 +27,7 @@ function getFadeOpacity(distanceFromEdge: number, threshold: number, rampDistanc
     return 0;
   }
 
+  // 가장자리에서는 연하게 시작하고 조금 스크롤하면 완전한 힌트로 보이게 한다.
   const progress = clamp((distanceFromEdge - threshold) / rampDistance, 0, 1);
   return Number((0.35 + progress * 0.65).toFixed(2));
 }

@@ -25,6 +25,7 @@ export function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [imageStatus, setImageStatus] = useState(profile?.imageStatus);
   const [scheduleAlarm, setScheduleAlarm] = useState(false);
+  const [pushAlarm, setPushAlarm] = useState(false);
   const [remindOneDayBefore, setRemindOneDayBefore] = useState(false);
   const [remindOneDayBeforeTime, setRemindOneDayBeforeTime] = useState('22:00');
   const [remindSameDay, setRemindSameDay] = useState(false);
@@ -44,6 +45,7 @@ export function ProfileScreen() {
     settingsApi.getNotifications()
       .then((settings) => {
         setScheduleAlarm(settings.scheduleAlarm);
+        setPushAlarm(settings.pushAlarm);
         setRemindOneDayBefore(settings.remindOneDayBefore);
         setRemindOneDayBeforeTime(settings.remindOneDayBeforeTime);
         setRemindSameDay(settings.remindSameDay);
@@ -106,7 +108,7 @@ export function ProfileScreen() {
   };
 
   const updateSetting = async (
-    key: 'scheduleAlarm' | 'remindOneDayBefore' | 'remindSameDay' | 'importantAlarm',
+    key: 'scheduleAlarm' | 'pushAlarm' | 'remindOneDayBefore' | 'remindSameDay' | 'importantAlarm',
     value: boolean,
   ) => {
     try {
@@ -170,6 +172,15 @@ export function ProfileScreen() {
               await updateSetting('scheduleAlarm', next);
             } catch {
               setScheduleAlarm(previous);
+            }
+          }} />
+          <SettingRow label="푸시 알림" desc="등록된 브라우저/PWA 구독으로 일정과 그룹 알림을 함께 받습니다" value={pushAlarm} onChange={async (next) => {
+            const previous = pushAlarm;
+            setPushAlarm(next);
+            try {
+              await updateSetting('pushAlarm', next);
+            } catch {
+              setPushAlarm(previous);
             }
           }} />
         </SectionCard>
