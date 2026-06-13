@@ -18,7 +18,7 @@ public final class ScheduleConverter {
         double duration = ScheduleTimeCalculator.resolveDuration(req.getDuration());
         String endTime = ScheduleTimeCalculator.calculateEndTime(req.getStartTime(), duration);
 
-        return Schedule.builder()
+        Schedule schedule = Schedule.builder()
                 .pk("USER#" + userId)
                 .sk("SCHEDULE#" + id)
                 .id(id)
@@ -40,6 +40,8 @@ public final class ScheduleConverter {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        applyGroupScheduleIndex(schedule);
+        return schedule;
     }
 
     public static ScheduleResDTO toResponse(Schedule s) {
@@ -61,5 +63,15 @@ public final class ScheduleConverter {
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .build();
+    }
+
+    public static void applyGroupScheduleIndex(Schedule schedule) {
+        if (schedule.getGroupId() == null || schedule.getGroupId().isBlank()) {
+            schedule.setGsi4pk(null);
+            schedule.setGsi4sk(null);
+            return;
+        }
+        schedule.setGsi4pk("GROUP#" + schedule.getGroupId());
+        schedule.setGsi4sk("START#" + schedule.getStartTime() + "#SCHEDULE#" + schedule.getId());
     }
 }

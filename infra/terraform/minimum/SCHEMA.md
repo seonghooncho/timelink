@@ -24,6 +24,9 @@ DynamoDB 단일 테이블의 key pattern과 운영 lookup 기준을 문서화해
 # │ GroupJoinRequest    │ GROUP#{groupId}              │ JOIN_REQUEST#{userId} │
 # │ Coordination        │ GROUP#{groupId}              │ COORD#{coordId}  │
 # │ CoordinationResponse│ COORD#{coordId}              │ RESP#{userId}#.. │
+# │ CommunityPost       │ POST#{postId}                │ METADATA         │
+# │ CommunityComment    │ POST#{postId}                │ COMMENT#{ts}#{id}│
+# │ CommunityPostLike   │ POST#{postId}                │ LIKE#{userId}    │
 # │ ImageUpload         │ IMAGE#{imageId}              │ METADATA         │
 # └─────────────────────┴──────────────────────────────┴──────────────────┘
 #
@@ -36,10 +39,18 @@ DynamoDB 단일 테이블의 key pattern과 운영 lookup 기준을 문서화해
 # GSI3: public-groups
 #   PK: GROUP#PUBLIC  SK: CREATED_AT#{createdAt}#GROUP#{groupId}
 #
+# GSI4: group-schedules
+#   PK: GROUP#{groupId}  SK: START#{startTime}#SCHEDULE#{scheduleId}
+#
+# GSI5: community-posts
+#   PK: COMMUNITY#POSTS  SK: CREATED_AT#{createdAt}#POST#{postId}
+#
 # PartiQL reference:
 # - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'JOIN_REQUEST#')
+# - SELECT * FROM "planner_prod_main" WHERE PK='POST#{postId}' AND SK='METADATA'
+# - SELECT * FROM "planner_prod_main" WHERE PK='POST#{postId}' AND begins_with(SK, 'COMMENT#')
 # - SELECT * FROM "planner_prod_main" WHERE SK='METADATA' AND inviteCode='ABC123'
 # - SELECT * FROM "planner_prod_main" WHERE PK='IMAGE#{imageId}' AND SK='METADATA'
 #

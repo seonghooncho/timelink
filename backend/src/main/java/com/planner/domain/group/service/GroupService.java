@@ -19,6 +19,8 @@ import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.schedule.model.Schedule;
+import com.planner.domain.schedule.repository.ScheduleRepository;
 import com.planner.domain.storage.model.ImagePurpose;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.model.ImageUpload;
@@ -55,6 +57,7 @@ public class GroupService {
     private final NotificationService notificationService;
     private final CursorCodec cursorCodec;
     private final StorageService storageService;
+    private final ScheduleRepository scheduleRepository;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -142,12 +145,17 @@ public class GroupService {
                             .map(group -> GroupConverter.toListResponse(
                                     group,
                                     m,
-                                    resolveMemberCount(group, groupId)
+                                    resolveMemberCount(group, groupId),
+                                    findNextSchedule(groupId)
                             ))
                             .orElse(null);
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    private Schedule findNextSchedule(String groupId) {
+        return scheduleRepository.findNextByGroupId(groupId, Instant.now().toString()).orElse(null);
     }
 
     public GroupDetailResDTO getDetail(String userId, String groupId) {
@@ -600,7 +608,7 @@ public class GroupService {
                 "%s 모임 가입요청이 거절되었습니다.".formatted(group.getName()),
                 "GROUP",
                 group.getId(),
-                "/community"
+                "/groups?tab=discover"
         );
     }
 

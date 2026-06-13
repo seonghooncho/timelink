@@ -103,6 +103,7 @@ public class ScheduleService {
             schedule.setGsi1sk(nextStartTime);
             schedule.setDuration(nextDuration);
             schedule.setEndTime(ScheduleTimeCalculator.calculateEndTime(nextStartTime, nextDuration));
+            ScheduleConverter.applyGroupScheduleIndex(schedule);
         }
         if (req.getIsCompleted() != null) schedule.setIsCompleted(req.getIsCompleted());
         if (req.getHasAlarm() != null) schedule.setHasAlarm(req.getHasAlarm());

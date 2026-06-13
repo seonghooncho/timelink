@@ -22,16 +22,17 @@
 4. [일정 (Schedules)](#4-일정-schedules)
 5. [모임 (Groups)](#5-모임-groups)
 6. [모임 멤버 (Group Members)](#6-모임-멤버-group-members)
-7. [시간 조율 (Coordinations)](#7-시간-조율-coordinations)
-8. [시간 조율 응답 (Coordination Responses)](#8-시간-조율-응답-coordination-responses)
-9. [알림 (Notifications)](#9-알림-notifications)
-10. [알림 설정 (Notification Settings)](#10-알림-설정-notification-settings)
-11. [푸시 알림 (Push Notifications)](#11-푸시-알림-push-notifications)
-12. [파일 업로드 (Storage)](#12-파일-업로드-storage)
-13. [AI 기능](#13-ai-기능)
-14. [데이터베이스 스키마](#14-데이터베이스-스키마)
-15. [DynamoDB / PartiQL 운영 기준](#15-dynamodb--partiql-운영-기준)
-16. [전체 엔드포인트 요약](#16-전체-엔드포인트-요약)
+7. [커뮤니티 (Community)](#7-커뮤니티-community)
+8. [시간 조율 (Coordinations)](#8-시간-조율-coordinations)
+9. [시간 조율 응답 (Coordination Responses)](#9-시간-조율-응답-coordination-responses)
+10. [알림 (Notifications)](#10-알림-notifications)
+11. [알림 설정 (Notification Settings)](#11-알림-설정-notification-settings)
+12. [푸시 알림 (Push Notifications)](#12-푸시-알림-push-notifications)
+13. [파일 업로드 (Storage)](#13-파일-업로드-storage)
+14. [AI 기능](#14-ai-기능)
+15. [데이터베이스 스키마](#15-데이터베이스-스키마)
+16. [DynamoDB / PartiQL 운영 기준](#16-dynamodb--partiql-운영-기준)
+17. [전체 엔드포인트 요약](#17-전체-엔드포인트-요약)
 
 ---
 
@@ -354,6 +355,12 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "memberCount": 4,
       "myRole": "manager",
       "joinRequestStatus": null,
+      "nextSchedule": {
+        "id": "schedule-uuid",
+        "title": "주말 회고",
+        "startTime": "2026-03-03T19:00:00",
+        "duration": 1.5
+      },
       "createdAt": "2026-03-01T00:00:00Z"
     }
   ],
@@ -368,7 +375,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `GET` /api/planner/v1/groups/public
 
-커뮤니티에서 탐색 가능한 공개 모임 목록. `visibility=PUBLIC` 모임만 반환하며, 커서 페이지네이션을 사용합니다.
+모임 화면의 둘러보기 탭에서 탐색 가능한 공개 모임 목록. `visibility=PUBLIC` 모임만 반환하며, 커서 페이지네이션을 사용합니다.
 
 **Query Parameters**
 | 이름 | 타입 | 필수 | 설명 |
@@ -661,7 +668,189 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 7. 시간 조율 (Coordinations)
+## 7. 커뮤니티 (Community)
+
+### DynamoDB 키 설계
+
+| 엔티티 | PK | SK |
+|--------|----|----|
+| CommunityPost | `POST#{postId}` | `METADATA` |
+| CommunityComment | `POST#{postId}` | `COMMENT#{createdAt}#{commentId}` |
+| CommunityPostLike | `POST#{postId}` | `LIKE#{userId}` |
+
+**GSI5** (게시물 최신순 목록):
+| GSI5PK | GSI5SK |
+|--------|--------|
+| `COMMUNITY#POSTS` | `CREATED_AT#{createdAt}#POST#{postId}` |
+
+### Endpoints
+
+---
+
+#### `GET` /api/planner/v1/community/posts
+
+전체 커뮤니티 게시물 최신순 목록. 커서 페이지네이션을 사용하며 `limit` 기본값은 20, 최대값은 100입니다.
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "post-uuid",
+      "title": "약속 잡는 팁",
+      "content": "가능한 시간 후보를 너무 많이 열지 않는 것이 좋아요.",
+      "authorUserId": "user-uuid",
+      "authorNickname": "민지",
+      "authorAvatarUrl": "https://...",
+      "likeCount": 3,
+      "commentCount": 2,
+      "likedByMe": true,
+      "mine": false,
+      "createdAt": "2026-03-01T00:00:00Z",
+      "updatedAt": "2026-03-01T00:00:00Z"
+    }
+  ],
+  "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
+}
+```
+
+---
+
+#### `POST` /api/planner/v1/community/posts
+
+커뮤니티 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다.
+
+**Request Body**
+```json
+{
+  "title": "약속 잡는 팁",
+  "content": "가능한 시간 후보를 너무 많이 열지 않는 것이 좋아요."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `title` | string | 필수 | 제목. 최대 80자 |
+| `content` | string | 필수 | 본문. 최대 2000자 |
+
+**Response** `201 Created` — CommunityPostResDTO 반환
+
+---
+
+#### `GET` /api/planner/v1/community/posts/:postId
+
+게시물 상세 조회.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+**Error** `404 POST_NOT_FOUND` — 게시물이 없는 경우
+
+---
+
+#### `PATCH` /api/planner/v1/community/posts/:postId
+
+게시물 수정. **작성자만** 수행 가능합니다.
+
+**Request Body**
+```json
+{
+  "title": "수정한 제목",
+  "content": "수정한 본문"
+}
+```
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+**Error** `403 NOT_AUTHOR` — 작성자가 아닌 경우
+
+---
+
+#### `DELETE` /api/planner/v1/community/posts/:postId
+
+게시물 삭제. **작성자만** 수행 가능하며 댓글과 좋아요도 함께 삭제합니다.
+
+**Response** `204 No Content`
+
+---
+
+#### `PUT` /api/planner/v1/community/posts/:postId/like
+
+게시물 좋아요. 중복 호출해도 좋아요 수는 한 번만 증가합니다.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+---
+
+#### `DELETE` /api/planner/v1/community/posts/:postId/like
+
+게시물 좋아요 취소. 중복 호출해도 좋아요 수는 음수가 되지 않습니다.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+---
+
+#### `GET` /api/planner/v1/community/posts/:postId/comments
+
+게시물 댓글 목록. 1단 댓글만 지원하며 커서 페이지네이션을 사용합니다.
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "comment-uuid",
+      "postId": "post-uuid",
+      "content": "좋은 팁이에요.",
+      "authorUserId": "user-uuid",
+      "authorNickname": "민지",
+      "authorAvatarUrl": "https://...",
+      "mine": true,
+      "createdAt": "2026-03-01T00:00:00Z",
+      "updatedAt": "2026-03-01T00:00:00Z"
+    }
+  ],
+  "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
+}
+```
+
+---
+
+#### `POST` /api/planner/v1/community/posts/:postId/comments
+
+댓글 작성.
+
+**Request Body**
+```json
+{
+  "content": "좋은 팁이에요."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `content` | string | 필수 | 댓글 내용. 최대 500자 |
+
+**Response** `201 Created` — CommunityCommentResDTO 반환
+
+---
+
+#### `PATCH` /api/planner/v1/community/posts/:postId/comments/:commentId
+
+댓글 수정. **작성자만** 수행 가능합니다.
+
+**Response** `200 OK` — CommunityCommentResDTO 반환
+
+---
+
+#### `DELETE` /api/planner/v1/community/posts/:postId/comments/:commentId
+
+댓글 삭제. **작성자만** 수행 가능합니다.
+
+**Response** `204 No Content`
+
+---
+
+## 8. 시간 조율 (Coordinations)
 
 ### 테이블: `coordinations`
 
@@ -795,7 +984,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 8. 시간 조율 응답 (Coordination Responses)
+## 9. 시간 조율 응답 (Coordination Responses)
 
 ### 테이블: `coordination_responses`
 
@@ -869,7 +1058,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 9. 알림 (Notifications)
+## 10. 알림 (Notifications)
 
 ### 테이블: `notifications`
 
@@ -957,7 +1146,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 10. 알림 설정 (Notification Settings)
+## 11. 알림 설정 (Notification Settings)
 
 ### 테이블: `notification_settings`
 
@@ -1021,7 +1210,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 11. 푸시 알림 (Push Notifications)
+## 12. 푸시 알림 (Push Notifications)
 
 그룹 활동 알림은 알림센터 저장을 기본으로 한다. 일정 알림은 사용자가 `schedule_alarm`을 켠 경우에만 예약 알림을 생성한다. Web Push는 `push_alarm`과 브라우저 Push Subscription이 준비된 사용자에게만 함께 전송한다.
 
@@ -1095,7 +1284,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 12. 파일 업로드 (Storage)
+## 13. 파일 업로드 (Storage)
 
 이미지는 새 파이프라인 기준으로 `upload/` prefix에 임시 업로드한 뒤 Lambda가 WebP로 변환한다. 변환 결과는 용도별 public prefix에 저장된다.
 
@@ -1218,7 +1407,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 13. AI 기능
+## 14. AI 기능
 
 ### Endpoints
 
@@ -1256,7 +1445,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 14. 데이터베이스 스키마
+## 15. 데이터베이스 스키마
 
 > **저장소**: Amazon DynamoDB (Single Table Design)
 > **테이블명**: `planner_{environment}_main`
@@ -1269,13 +1458,17 @@ auth-session (JWT subject = userId)
   ├── NotificationSettings (PK: USER#{userId}, SK: NOTIF_SETTINGS)
   ├── PushSubscription (PK: USER#{userId}, SK: PUSH_SUB#{endpointHash})
   ├── ReminderJob (PK: USER#{userId}, SK: REMINDER_JOB#{type}-{scheduleId})
-  ├── Schedule (PK: USER#{userId}, SK: SCHEDULE#{id})
+  ├── Schedule (PK: USER#{userId}, SK: SCHEDULE#{id}, GSI4: 모임별 다음 일정 조회)
   ├── Notification (PK: USER#{userId}, SK: NOTIF#{id})
   └── GroupMember (GSI2PK: USER#{userId}, GSI2SK: GROUP#{groupId})
         └── Group (PK: GROUP#{groupId}, SK: METADATA, GSI3: 공개 모임 탐색)
               └── GroupJoinRequest (PK: GROUP#{groupId}, SK: JOIN_REQUEST#{userId})
               └── Coordination (PK: GROUP#{groupId}, SK: COORD#{id})
                     └── CoordinationResponse (PK: COORD#{coordId}, SK: RESP#{userId}#{date}#{hour})
+Community
+  └── CommunityPost (PK: POST#{postId}, SK: METADATA, GSI5: 커뮤니티 최신글 목록)
+        ├── CommunityComment (PK: POST#{postId}, SK: COMMENT#{createdAt}#{commentId})
+        └── CommunityPostLike (PK: POST#{postId}, SK: LIKE#{userId})
 ```
 
 ### 프론트엔드 연동
@@ -1283,7 +1476,7 @@ auth-session (JWT subject = userId)
 - `fe/src/context/AppContext.tsx`: 인증 상태 감지 후 자동으로 백엔드에서 데이터 로드
 - Mock 데이터 의존성 제거, 모든 CRUD는 백엔드 API 경유
 
-## 15. DynamoDB / PartiQL 운영 기준
+## 16. DynamoDB / PartiQL 운영 기준
 
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
 - 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
@@ -1291,7 +1484,7 @@ auth-session (JWT subject = userId)
 
 ---
 
-## 16. 전체 엔드포인트 요약
+## 17. 전체 엔드포인트 요약
 
 | 메서드 | 엔드포인트 | 설명 | 권한 | 구현 상태 |
 |--------|-----------|------|------|----------|
@@ -1302,8 +1495,8 @@ auth-session (JWT subject = userId)
 | `POST` | `/schedules` | 일정 생성 | 인증 | 구현됨 |
 | `PATCH` | `/schedules/:id` | 일정 수정 | 인증(본인) | 구현됨 |
 | `DELETE` | `/schedules/:id` | 일정 삭제 | 인증(본인) | 구현됨 |
-| `GET` | `/groups` | 내 모임 목록 | 인증 | 구현됨 |
-| `GET` | `/groups/public` | 공개 모임 탐색 | 인증 | 구현됨 |
+| `GET` | `/groups` | 내 모임 목록과 다음 일정 요약 | 인증 | 구현됨 |
+| `GET` | `/groups/public` | 모임 둘러보기 공개 모임 목록 | 인증 | 구현됨 |
 | `GET` | `/groups/:id` | 모임 상세 | 멤버 | 구현됨 |
 | `POST` | `/groups` | 모임 생성 | 인증 | 구현됨 |
 | `PATCH` | `/groups/:id` | 모임 수정 | 멤버 | 구현됨 |
@@ -1315,6 +1508,17 @@ auth-session (JWT subject = userId)
 | `GET` | `/groups/:gid/members` | 멤버 목록 | 멤버 | 구현됨 |
 | `DELETE` | `/groups/:gid/members/me` | 모임 나가기 | 멤버 | 구현됨 |
 | `DELETE` | `/groups/:gid/members/:memberUserId` | 멤버 내보내기 | manager | 구현됨 |
+| `GET` | `/community/posts` | 커뮤니티 게시물 목록 | 인증 | 구현됨 |
+| `POST` | `/community/posts` | 커뮤니티 게시물 작성 | 인증 | 구현됨 |
+| `GET` | `/community/posts/:postId` | 커뮤니티 게시물 상세 | 인증 | 구현됨 |
+| `PATCH` | `/community/posts/:postId` | 커뮤니티 게시물 수정 | 작성자 | 구현됨 |
+| `DELETE` | `/community/posts/:postId` | 커뮤니티 게시물 삭제 | 작성자 | 구현됨 |
+| `PUT` | `/community/posts/:postId/like` | 게시물 좋아요 | 인증 | 구현됨 |
+| `DELETE` | `/community/posts/:postId/like` | 게시물 좋아요 취소 | 인증 | 구현됨 |
+| `GET` | `/community/posts/:postId/comments` | 게시물 댓글 목록 | 인증 | 구현됨 |
+| `POST` | `/community/posts/:postId/comments` | 게시물 댓글 작성 | 인증 | 구현됨 |
+| `PATCH` | `/community/posts/:postId/comments/:commentId` | 게시물 댓글 수정 | 작성자 | 구현됨 |
+| `DELETE` | `/community/posts/:postId/comments/:commentId` | 게시물 댓글 삭제 | 작성자 | 구현됨 |
 | `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | 구현됨 |
 | `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | 구현됨 |
 | `POST` | `/groups/:gid/coordinations` | 조율 생성 | 멤버 | 구현됨 |
@@ -1342,4 +1546,4 @@ auth-session (JWT subject = userId)
 
 ---
 
-*마지막 업데이트: 2026-06-13 (커뮤니티 공개 모임 및 가입 요청 API 반영)*
+*마지막 업데이트: 2026-06-13 (모임 둘러보기 이동 및 커뮤니티 게시판 API 반영)*

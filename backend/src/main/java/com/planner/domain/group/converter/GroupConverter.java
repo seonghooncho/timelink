@@ -4,9 +4,11 @@ import com.planner.domain.group.dto.GroupDetailResDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
+import com.planner.domain.group.dto.GroupScheduleSummaryDTO;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.schedule.model.Schedule;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,6 +18,10 @@ public final class GroupConverter {
     private GroupConverter() {}
 
     public static GroupResDTO toListResponse(Group group, GroupMember membership, int memberCount) {
+        return toListResponse(group, membership, memberCount, null);
+    }
+
+    public static GroupResDTO toListResponse(Group group, GroupMember membership, int memberCount, Schedule nextSchedule) {
         return GroupResDTO.builder()
                 .id(group.getId())
                 .name(group.getName())
@@ -27,6 +33,7 @@ public final class GroupConverter {
                 .visibility(resolveVisibility(group))
                 .memberCount(memberCount)
                 .myRole(membership.getRole())
+                .nextSchedule(toScheduleSummary(nextSchedule))
                 .createdAt(group.getCreatedAt())
                 .build();
     }
@@ -89,6 +96,18 @@ public final class GroupConverter {
                 .avatarUrl(request.getAvatarUrl())
                 .createdAt(request.getCreatedAt())
                 .decidedAt(request.getDecidedAt())
+                .build();
+    }
+
+    private static GroupScheduleSummaryDTO toScheduleSummary(Schedule schedule) {
+        if (schedule == null) {
+            return null;
+        }
+        return GroupScheduleSummaryDTO.builder()
+                .id(schedule.getId())
+                .title(schedule.getTitle())
+                .startTime(schedule.getStartTime())
+                .duration(schedule.getDuration())
                 .build();
     }
 
