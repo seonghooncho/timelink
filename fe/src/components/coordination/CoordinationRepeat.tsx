@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { coordinationApi } from '@/services/api';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
+import { trackEvent } from '@/lib/analytics';
 
 interface CoordinationRepeatProps {
   groupId?: string;
@@ -63,6 +64,11 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
       }
       dates.sort();
 
+      trackEvent('coordination_create_start', {
+        mode: 'repeat',
+        date_count: dates.length,
+        hour_count: endHour - startHour,
+      });
       const result = await coordinationApi.create(groupId, {
         title: title.trim(),
         mode: 'repeat',

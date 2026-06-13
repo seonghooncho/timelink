@@ -7,6 +7,7 @@ import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/a
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { Loader2, PlayCircle } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
+import { trackEvent } from '@/lib/analytics';
 
 type LoginMode = SocialAuthProvider | 'guest' | null;
 
@@ -74,6 +75,7 @@ const LoginPage: React.FC = () => {
       return;
     }
 
+    trackEvent(`login_start_${provider}`, { redirect_path: redirectPath });
     setIsLoading(provider);
     window.location.href = authApi.getOAuthStartUrl(provider, getPublicAppOrigin(), redirectPath);
   };
@@ -176,6 +178,7 @@ const LoginPage: React.FC = () => {
 
         <Link
           to="/demo"
+          onClick={() => trackEvent('demo_entry_click', { location: 'login' })}
           className="mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
         >
           <PlayCircle className="h-4 w-4 text-primary" />

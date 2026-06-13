@@ -10,6 +10,7 @@ import type { ImageStatus } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { Camera, X } from 'lucide-react';
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
+import { trackEvent } from '@/lib/analytics';
 
 const GroupFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -81,6 +82,7 @@ const GroupFormPage: React.FC = () => {
     }
     setIsUploading(true);
     try {
+      trackEvent('group_create_start', { has_image: Boolean(imageUpload?.imageId) });
       const result = await createGroupMutation.mutateAsync({
         name: name.trim(),
         description: description.trim(),

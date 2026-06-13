@@ -25,6 +25,7 @@ import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import PwaInstallPrompt from "@/components/pwa/PwaInstallPrompt";
 import PushPermissionNudge from "@/components/pwa/PushPermissionNudge";
+import AnalyticsRouteTracker from "@/components/analytics/AnalyticsRouteTracker";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ const App = () => (
         <AppProvider>
           <Sonner />
           <BrowserRouter>
+            <AnalyticsRouteTracker />
             <PwaInstallPrompt />
             <PushPermissionNudge />
             <Routes>
