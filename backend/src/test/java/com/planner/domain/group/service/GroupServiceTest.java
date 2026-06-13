@@ -71,6 +71,14 @@ class GroupServiceTest {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
         lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
         lenient().when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(true);
+        lenient().when(repository.findGroupsByIds(anyCollection())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            var groupIds = (java.util.Collection<String>) invocation.getArgument(0);
+            return groupIds.stream().collect(java.util.stream.Collectors.toMap(
+                    groupId -> groupId,
+                    groupId -> sampleGroup(groupId, "other")
+            ));
+        });
         lenient().when(repository.findMembersByGroupId(anyString(), anyInt())).thenReturn(List.of());
         lenient().when(imageUploadRepository.findById(anyString())).thenReturn(Optional.empty());
         lenient().when(scheduleRepository.findUpcomingByGroupId(anyString(), anyString(), anyInt())).thenReturn(List.of());
@@ -186,7 +194,6 @@ class GroupServiceTest {
     void getMyGroups_returnsList() {
         GroupMember member = sampleMember("g1", "user1", "member");
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
 
         List<GroupResDTO> result = service.getMyGroups("user1");
         assertThat(result).hasSize(1);
@@ -206,7 +213,6 @@ class GroupServiceTest {
                 .duration(1.0)
                 .build();
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
         when(scheduleRepository.findUpcomingByGroupId(eq("g1"), anyString(), anyInt())).thenReturn(List.of(schedule));
 
         List<GroupResDTO> result = service.getMyGroups("user1");
@@ -233,7 +239,6 @@ class GroupServiceTest {
                 .duration(1.0)
                 .build();
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
         when(scheduleRepository.findUpcomingByGroupId(eq("g1"), anyString(), anyInt())).thenReturn(List.of(first, second));
 
         List<GroupResDTO> result = service.getMyGroups("user1");
@@ -259,7 +264,6 @@ class GroupServiceTest {
                 .createdAt("2026-06-13T00:00:00Z")
                 .build();
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
         when(coordinationRepository.findByGroupIdPaged(eq("g1"), anyInt(), isNull()))
                 .thenReturn(CursorPageResult.<Coordination>builder().items(List.of(coordination)).build());
 
@@ -277,7 +281,7 @@ class GroupServiceTest {
         Group group = sampleGroup("g1", "other");
         group.setMemberCount(null);
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findGroupsByIds(anyCollection())).thenReturn(Map.of("g1", group));
         when(repository.findMembersByGroupId("g1")).thenReturn(
                 List.of(sampleMember("g1", "user1", "member"), sampleMember("g1", "other", "manager")));
 
@@ -293,7 +297,6 @@ class GroupServiceTest {
         GroupMember member = sampleMember("g1", "user1", "member");
         when(repository.findGroupsByUserIdPaged("user1", 20, null))
                 .thenReturn(CursorPageResult.<GroupMember>builder().items(List.of(member)).build());
-        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
 
         CursorPageResult<GroupResDTO> result = service.getMyGroupsPaged("user1", 20, null);
 

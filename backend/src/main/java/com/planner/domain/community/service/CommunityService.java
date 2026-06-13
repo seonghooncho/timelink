@@ -37,6 +37,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -373,14 +374,36 @@ public class CommunityService {
     }
 
     private List<CommunityPublicGroupDTO> findPublicGroupsForProfile(String viewerUserId, String targetUserId) {
-        return groupRepository.findGroupsByUserId(targetUserId).stream()
-                .map(membership -> groupRepository.findGroupById(membership.getGroupId()))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        List<GroupMember> memberships = groupRepository.findGroupsByUserId(targetUserId);
+        Map<String, Group> groupsById = groupRepository.findGroupsByIds(
+                memberships.stream()
+                        .map(this::resolveGroupIdFromMembership)
+                        .filter(StringUtils::hasText)
+                        .toList()
+        );
+
+        return memberships.stream()
+                .map(this::resolveGroupIdFromMembership)
+                .map(groupsById::get)
+                .filter(Objects::nonNull)
                 .filter(group -> VISIBILITY_PUBLIC.equals(resolveVisibility(group)))
                 .limit(PUBLIC_PROFILE_GROUP_LIMIT)
                 .map(group -> toPublicGroupProfileSummary(viewerUserId, group))
                 .toList();
+    }
+
+    private String resolveGroupIdFromMembership(GroupMember membership) {
+        if (membership == null) {
+            return null;
+        }
+        if (StringUtils.hasText(membership.getGroupId())) {
+            return membership.getGroupId();
+        }
+        String gsi2sk = membership.getGsi2sk();
+        if (StringUtils.hasText(gsi2sk) && gsi2sk.startsWith("GROUP#")) {
+            return gsi2sk.substring("GROUP#".length());
+        }
+        return null;
     }
 
     private CommunityPublicGroupDTO toPublicGroupProfileSummary(String viewerUserId, Group group) {

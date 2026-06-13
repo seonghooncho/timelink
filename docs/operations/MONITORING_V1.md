@@ -47,7 +47,7 @@ CloudWatch 알람은 SNS topic으로 발행되고, formatter Lambda가 원본 JS
 
 - 그룹 초대코드는 `INVITE#code` 직접 조회로 변경해 join 시 DynamoDB scan을 제거합니다.
 - 기존 운영 데이터는 `scripts/ops/backfill-dynamodb-metadata.mjs`로 invite mapping, `memberCount`, `responseCount`를 백필합니다.
-- 그룹 목록은 `memberCount`, 조율 목록은 `responseCount`를 우선 사용해 목록 조회마다 하위 아이템 전체를 읽지 않습니다.
+- 그룹 목록은 `memberCount`와 그룹 metadata batch get을 사용하고, 조율 목록은 `responseCount`를 우선 사용해 목록 조회마다 하위 아이템 전체를 읽지 않습니다.
 - PWA 설치 유도는 핵심 플로우와 닫기 후 7일 동안 숨겨 Playwright에서 확인된 클릭 차단 문제를 줄입니다.
 
 ## 운영 확인 방법

@@ -117,15 +117,19 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 > 사용자 프로필. 백엔드 로그인 시 없으면 자동 생성됩니다.
 
-### 테이블: `profiles`
+### 저장 모델: `USER#{userId}` / `PROFILE`
 
-| 컬럼 | 타입 | 설명 |
+| 필드 | 타입 | 설명 |
 |------|------|------|
-| `id` | `string` PK | 백엔드가 발급하는 `userId` |
-| `nickname` | `text` | 닉네임 (기본값: 이메일 앞부분) |
-| `avatar_url` | `text` | 프로필 이미지 URL |
-| `created_at` | `timestamptz` | 생성일 |
-| `updated_at` | `timestamptz` | 수정일 |
+| `id` | string | 백엔드가 발급하는 `userId` |
+| `nickname` | string | 닉네임 |
+| `avatarUrl` | string | 확대 가능한 full 프로필 이미지 URL |
+| `thumbnailUrl` | string | 작은 아바타 표시용 thumbnail 이미지 URL |
+| `imageId` | string | storage image record ID |
+| `imageStatus` | enum | `PROCESSING`, `COMPLETED`, `FAILED` |
+| `requiredConsentCompleted` | boolean | 필수 약관 동의 완료 여부 |
+| `createdAt` | string | 생성일 |
+| `updatedAt` | string | 수정일 |
 
 ### Endpoints
 
@@ -141,9 +145,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": {
     "id": "uuid",
     "nickname": "홍길동",
-    "avatar_url": "https://...",
-    "created_at": "2026-03-08T00:00:00Z",
-    "updated_at": "2026-03-08T00:00:00Z"
+    "avatarUrl": "https://timelink.cloud/public/member/user-1/image-uuid/full.webp",
+    "thumbnailUrl": "https://timelink.cloud/public/member/user-1/image-uuid/thumbnail.webp",
+    "imageId": "image-uuid",
+    "imageStatus": "COMPLETED",
+    "requiredConsentCompleted": true,
+    "createdAt": "2026-03-08T00:00:00Z",
+    "updatedAt": "2026-03-08T00:00:00Z"
   }
 }
 ```
@@ -158,14 +166,20 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "nickname": "새 닉네임",
-  "avatar_url": "https://..."
+  "imageId": "image-uuid"
 }
 ```
 
 **Response** `200 OK`
 ```json
 {
-  "data": { "id": "uuid", "nickname": "새 닉네임", "avatar_url": "https://...", ... }
+  "data": {
+    "id": "uuid",
+    "nickname": "새 닉네임",
+    "avatarUrl": "https://timelink.cloud/public/member/user-1/image-uuid/full.webp",
+    "thumbnailUrl": "https://timelink.cloud/public/member/user-1/image-uuid/thumbnail.webp",
+    "imageStatus": "COMPLETED"
+  }
 }
 ```
 
@@ -190,7 +204,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `duration` | `real` | 소요 시간 (시간 단위, 30분 단위, 기본 1시간) |
 | `is_completed` | `boolean` | 완료 여부 (기본: false) |
 | `has_alarm` | `boolean` | 알림 여부 (기본: true) |
-| `group_id` | `uuid` FK nullable | 그룹 일정 시 그룹 ID |
+| `group_id` | `uuid` FK nullable | 모임 일정 시 모임 ID |
 | `group_schedule_id` | `string` nullable | 여러 사용자 일정으로 복제된 모임 일정 묶음 ID |
 | `group_schedule_created_by` | `string` nullable | 모임 일정 작성자 userId |
 | `created_at` | `timestamptz` | 생성일 |
@@ -1215,8 +1229,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 **대상 정책**
 
-- 시간 조율 대상은 해당 그룹의 전체 멤버다.
-- 생성자는 그룹 멤버이므로 별도 선택 없이 항상 대상에 포함된다.
+- 시간 조율 대상은 해당 모임의 전체 멤버다.
+- 생성자는 모임 멤버이므로 별도 선택 없이 항상 대상에 포함된다.
 - 생성 요청은 `memberIds`, `participantIds` 같은 대상 선택 필드를 받지 않는다.
 - 향후 일부 멤버 대상 조율을 도입하더라도 생성자가 빠져 있으면 서버가 자동 포함하는 정책을 따른다.
 
@@ -1226,7 +1240,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `GET` /api/planner/v1/groups/:groupId/coordinations
 
-그룹 내 조율 목록
+모임 내 조율 목록
 
 모임 상세 화면은 기본적으로 `active` 조율만 조회한다. 사용자가 닫힌 조율 보기를 켜면 `status=closed`로 다시 조회한다.
 
@@ -1292,7 +1306,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/groups/:groupId/coordinations
 
-그룹 전체 멤버를 대상으로 조율 생성
+모임 전체 멤버를 대상으로 조율 생성
 
 **Request Body**
 ```json
@@ -1507,7 +1521,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|--------|------|
 | `user_id` | `string` PK | — | 백엔드 JWT subject (`userId`) |
 | `schedule_alarm` | `boolean` | false | 일정 알림 |
-| `group_alarm` | `boolean` | true | 하위 호환용 그룹 알림 필드. 알림센터 그룹 알림은 기본 생성되고, 푸시 발송 여부는 `push_alarm`을 기준으로 한다. |
+| `group_alarm` | `boolean` | true | 하위 호환용 모임 알림 필드. 알림센터 모임 알림은 기본 생성되고, 푸시 발송 여부는 `push_alarm`을 기준으로 한다. |
 | `push_alarm` | `boolean` | false | Web Push 발송 여부 |
 | `remind_one_day_before` | `boolean` | false | 1일 전 리마인드 |
 | `remind_one_day_before_time` | `text` | '22:00' | 리마인드 시간 |
@@ -1643,7 +1657,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 - 임시 원본: `upload/`
 - 프로필/멤버 결과: `public/member/`
-- 그룹 결과: `public/group/`
+- 모임 대표 이미지 결과: `public/group/`
 - 일정 결과: `public/schedule/`
 - 모임 소개 결과: `public/group-intro/`
 - 모임 글 결과: `public/group-post/`
@@ -1658,7 +1672,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/storage/images/presign
 
-이미지 업로드용 presigned PUT URL을 발급한다. 클라이언트는 응답의 `uploadUrl`로 파일을 PUT 하고, 이후 `imageId`를 프로필/그룹/일정 수정 요청에 전달한다.
+이미지 업로드용 presigned PUT URL을 발급한다. 클라이언트는 응답의 `uploadUrl`로 파일을 PUT 하고, 이후 `imageId`를 프로필/모임/일정 수정 요청에 전달한다.
 
 **Request Body**
 ```json
@@ -1725,7 +1739,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/storage/images/group
 
-그룹 이미지 multipart 업로드. Deprecated 하위 호환용이며 신규 클라이언트는 반드시 presigned 업로드를 사용한다.
+모임 이미지 multipart 업로드. Deprecated 하위 호환용이며 신규 클라이언트는 반드시 presigned 업로드를 사용한다.
 
 **Request**: `multipart/form-data`
 | 필드 | 타입 | 설명 |
