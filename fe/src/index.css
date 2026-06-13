@@ -199,6 +199,10 @@
     bottom: var(--app-floating-bottom-space);
   }
 
+  .app-floating-action-above-group-actions {
+    bottom: calc(var(--app-floating-bottom-space) + 5rem);
+  }
+
   .app-layer-content {
     z-index: var(--app-layer-content);
   }

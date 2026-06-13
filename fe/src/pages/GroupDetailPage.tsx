@@ -724,7 +724,7 @@ const GroupDetailPage: React.FC = () => {
         variant="group"
         ariaLabel="글쓰기"
         icon={<MessageCircle className="h-6 w-6" />}
-        className="bottom-[calc(var(--app-floating-bottom-space)+4.75rem)]"
+        className="app-floating-action-above-group-actions"
       />
 
       <PostComposerModal
