@@ -93,6 +93,14 @@ describe("pwa utilities", () => {
     });
   });
 
+  it("does not show install prompt before users understand the service", async () => {
+    renderPrompt("/demo");
+
+    await waitFor(() => {
+      expect(screen.queryByText("Timelink를 홈 화면에 추가")).not.toBeInTheDocument();
+    });
+  });
+
   it("hides install prompt for a while after close", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000_000);
 

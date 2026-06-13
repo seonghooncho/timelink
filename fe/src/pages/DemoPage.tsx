@@ -60,6 +60,32 @@ const DemoPage: React.FC = () => {
 
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === 'demo-group');
   const selectedSlot = coordination.slots.find((slot) => `${slot.date}-${slot.hour}` === selectedSlotKey) ?? coordination.recommended;
+  const primaryPrompt = useMemo(() => {
+    if (activeTab === 'group') {
+      return {
+        label: '내 그룹으로 시작하기',
+        title: '그룹을 만들려면 로그인이 필요합니다',
+        description: '그룹 멤버와 초대 링크는 계정 기준으로 안전하게 관리됩니다.',
+        redirect: '/groups/new',
+      };
+    }
+
+    if (activeTab === 'coordination') {
+      return {
+        label: '시간 조율 시작하기',
+        title: '시간을 조율하려면 로그인이 필요합니다',
+        description: '조율 응답과 그룹 일정은 로그인한 멤버 기준으로 저장됩니다.',
+        redirect: '/groups',
+      };
+    }
+
+    return {
+      label: '내 일정으로 시작하기',
+      title: '일정을 저장하려면 로그인이 필요합니다',
+      description: '내 일정과 알림은 계정에 연결되어야 안전하게 유지됩니다.',
+      redirect: '/schedule/new',
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     trackEvent('demo_view', { tab: activeTab });
@@ -129,6 +155,13 @@ const DemoPage: React.FC = () => {
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             저장, 그룹 참여, 알림 설정은 로그인 후 사용할 수 있습니다.
           </p>
+          <button
+            type="button"
+            onClick={() => requireLoginFor(primaryPrompt.title, primaryPrompt.description, primaryPrompt.redirect)}
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors active:scale-[0.98]"
+          >
+            {primaryPrompt.label}
+          </button>
         </section>
 
         {activeTab === 'home' ? (
@@ -286,15 +319,18 @@ const GroupDemo: React.FC<GroupDemoProps> = ({ groupSchedules, onRequireLogin })
           <p className="text-xs font-semibold text-muted-foreground">참여 멤버 {demoMembers.length}명</p>
           <Users className="h-4 w-4 text-muted-foreground" />
         </div>
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
-          {demoMembers.map((member) => (
-            <div key={member.id} className="flex min-w-[58px] flex-col items-center gap-1 rounded-xl bg-muted/60 px-2 py-2">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="text-xs font-bold text-foreground">{getMemberInitial(member.name)}</AvatarFallback>
-              </Avatar>
-              <span className="max-w-full truncate text-[11px] font-semibold text-foreground">{member.name}</span>
-            </div>
-          ))}
+        <div className="relative -mx-1">
+          <div className="flex gap-2 overflow-x-auto px-1 pb-1 pr-8 scrollbar-hide">
+            {demoMembers.map((member) => (
+              <div key={member.id} className="flex min-w-[58px] flex-col items-center gap-1 rounded-xl bg-muted/60 px-2 py-2">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs font-bold text-foreground">{getMemberInitial(member.name)}</AvatarFallback>
+                </Avatar>
+                <span className="max-w-full truncate text-[11px] font-semibold text-foreground">{member.name}</span>
+              </div>
+            ))}
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card via-card/80 to-transparent" aria-hidden="true" />
         </div>
       </div>
     </section>
@@ -378,7 +414,7 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
     <>
       <section className="rounded-2xl bg-card p-5 shadow-soft">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">모두 가능한 시간</p>
-        <h2 className="mt-1 text-xl font-bold text-foreground">가장 많이 겹치는 시간을 먼저 보여줍니다</h2>
+        <h2 className="mt-1 text-xl font-bold text-foreground">추천 시간을 먼저 보여줘요</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           타임슬롯을 선택하면 투표 인원을 확인할 수 있어요.
         </p>
@@ -427,7 +463,7 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
             <p className="text-sm font-bold text-foreground">
               {formatDateLabel(selectedSlot.date)} {selectedSlot.hour}:00 가능 인원
             </p>
-            <p className="text-xs text-muted-foreground">{selectedSlot.voterIds.length}명이 가능하다고 선택했습니다</p>
+            <p className="text-xs text-muted-foreground">{selectedSlot.voterIds.length}명 참여</p>
           </div>
           <Users className="h-5 w-5 text-muted-foreground" />
         </div>

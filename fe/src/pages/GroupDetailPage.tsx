@@ -381,28 +381,31 @@ const GroupDetailPage: React.FC = () => {
           </button>
 
           {sortedMembers.length > 0 ? (
-            <div className="-mx-1 mt-3 overflow-x-auto px-1 scrollbar-hide" aria-label="참여 멤버 미리보기">
-              <div className="flex w-max min-w-full gap-2 pr-1">
-                {sortedMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex shrink-0 items-center gap-2 rounded-full border border-border/80 bg-muted/60 py-1.5 pl-1.5 pr-2.5"
-                  >
-                    <Avatar className="h-7 w-7 border border-border/70">
-                      <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
-                      <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
-                        {getMemberFallback(member)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="max-w-[82px] truncate text-[11px] font-semibold text-foreground">
-                        {member.nickname || member.userId}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{getRoleLabel(member.role)}</p>
+            <div className="relative -mx-1 mt-3">
+              <div className="overflow-x-auto px-1 pr-8 scrollbar-hide" aria-label="참여 멤버 미리보기">
+                <div className="flex w-max min-w-full gap-2 pr-1">
+                  {sortedMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex shrink-0 items-center gap-2 rounded-full border border-border/80 bg-muted/60 py-1.5 pl-1.5 pr-2.5"
+                    >
+                      <Avatar className="h-7 w-7 border border-border/70">
+                        <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                        <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                          {getMemberFallback(member)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="max-w-[82px] truncate text-[11px] font-semibold text-foreground">
+                          {member.nickname || member.userId}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{getRoleLabel(member.role)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card via-card/80 to-transparent" aria-hidden="true" />
             </div>
           ) : (
             <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-[11px] text-muted-foreground">

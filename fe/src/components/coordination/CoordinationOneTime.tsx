@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { coordinationApi } from '@/services/api';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
@@ -9,29 +10,60 @@ interface CoordinationOneTimeProps {
   groupId?: string;
 }
 
+const formatDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const getMonthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
+
+const formatSelectedDateLabel = (key: string) => {
+  const [, month, day] = key.split('-').map(Number);
+  return `${month}/${day}`;
+};
+
 const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [visibleMonth, setVisibleMonth] = useState(() => getMonthStart(new Date()));
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(18);
   const [isCreating, setIsCreating] = useState(false);
 
+  const currentMonthStart = useMemo(() => getMonthStart(new Date()), []);
+  const todayKey = useMemo(() => formatDateKey(new Date()), []);
   const calendarData = useMemo(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    const year = visibleMonth.getFullYear();
+    const month = visibleMonth.getMonth();
     const firstDay = new Date(year, month, 1);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - startDate.getDay());
     const dates: Date[] = [];
     const current = new Date(startDate);
-    for (let i = 0; i < 35; i++) { dates.push(new Date(current)); current.setDate(current.getDate() + 1); }
+    for (let i = 0; i < 42; i++) { dates.push(new Date(current)); current.setDate(current.getDate() + 1); }
     return { dates, currentMonth: month, currentYear: year };
-  }, []);
+  }, [visibleMonth]);
+
+  const selectedDateLabels = useMemo(() => {
+    const sorted = Array.from(selectedDates).sort();
+    const preview = sorted.slice(0, 3).map(formatSelectedDateLabel).join(', ');
+    return {
+      count: sorted.length,
+      text: sorted.length > 3 ? `${preview} 외 ${sorted.length - 3}일` : preview,
+    };
+  }, [selectedDates]);
+
+  const canMovePrevMonth = visibleMonth.getTime() > currentMonthStart.getTime();
+
+  const moveMonth = (offset: number) => {
+    setVisibleMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
 
   const toggleDate = (key: string) => {
+    if (key < todayKey) {
+      appToast.info('지난 날짜는 선택할 수 없습니다');
+      return;
+    }
     setSelectedDates(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -43,7 +75,6 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
     });
   };
 
-  const formatDateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const isCurrentMonth = (d: Date) => d.getMonth() === calendarData.currentMonth;
   const dayHeaders = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -99,7 +130,38 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
       </div>
 
       <div className="mt-5">
-        <h3 className="text-sm font-bold text-foreground mb-3">며칠에 만날까요?</h3>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-foreground">며칠에 만날까요?</h3>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {selectedDateLabels.count > 0
+                ? `${selectedDateLabels.count}일 선택 · ${selectedDateLabels.text}`
+                : '오늘 이후 날짜를 여러 개 선택할 수 있습니다'}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border bg-card p-1">
+            <button
+              type="button"
+              aria-label="이전 달"
+              onClick={() => moveMonth(-1)}
+              disabled={!canMovePrevMonth}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-[4.5rem] text-center text-xs font-bold text-foreground">
+              {calendarData.currentYear}.{String(calendarData.currentMonth + 1).padStart(2, '0')}
+            </span>
+            <button
+              type="button"
+              aria-label="다음 달"
+              onClick={() => moveMonth(1)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-7 mb-1">
           {dayHeaders.map(day => (
             <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1.5">{day}</div>
@@ -111,12 +173,19 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
             const selected = selectedDates.has(key);
             const inMonth = isCurrentMonth(date);
             const isToday = date.toDateString() === new Date().toDateString();
+            const isPast = key < todayKey;
             const displayDate = date.getDate() === 1 ? `${date.getMonth() + 1}/${date.getDate()}` : `${date.getDate()}`;
             return (
-              <button key={i} onClick={() => toggleDate(key)}
+              <button key={i} onClick={() => toggleDate(key)} disabled={isPast}
                 className={`aspect-square flex items-center justify-center rounded-lg text-xs font-medium transition-all ${
-                  selected ? 'bg-foreground text-background' : inMonth ? 'text-foreground hover:bg-muted' : 'text-muted-foreground/40'
-                } ${isToday && !selected ? 'ring-1 ring-primary' : ''}`}>
+                  selected
+                    ? 'bg-foreground text-background'
+                    : isPast
+                      ? 'text-muted-foreground/25'
+                      : inMonth
+                        ? 'text-foreground hover:bg-muted'
+                        : 'text-muted-foreground/45 hover:bg-muted'
+                } ${isToday && !selected ? 'ring-1 ring-primary' : ''} disabled:cursor-not-allowed`}>
                 {displayDate}
               </button>
             );
