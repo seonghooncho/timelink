@@ -10,11 +10,11 @@
 
 ## 현재 판단
 
-현 구조는 운영 초기 소규모 트래픽에는 사용할 수 있다. 다만 Lambda 동시 실행 quota는 증액 요청과 reserved concurrency로 운영 여유를 확보해야 하고, 알림/조율 목록의 페이지 후 메모리 필터링과 조율 상세의 응답 전체 읽기는 데이터가 늘 때 명확한 확장 한계가 된다. 그룹 목록의 그룹 metadata 조회는 batch get으로 완화했지만, 사용자당 그룹 수가 더 늘면 membership item denormalization까지 검토한다.
+현 구조는 운영 초기 소규모 트래픽에는 사용할 수 있다. Lambda 동시 실행 quota는 `1,000`으로 증액했고 `planner-prod-api` reserved concurrency `50`을 적용해 API 운영 여유를 확보했다. 다만 알림/조율 목록의 페이지 후 메모리 필터링과 조율 상세의 응답 전체 읽기는 데이터가 늘 때 명확한 확장 한계가 된다. 그룹 목록의 그룹 metadata 조회는 batch get으로 완화했지만, 사용자당 그룹 수가 더 늘면 membership item denormalization까지 검토한다.
 
 보수적인 기준:
 
-- 동시 active API 사용자: quota 10 기준 10명 안팎, quota 증액 승인 후에는 실제 모니터링 수치로 재측정
+- 동시 active API 사용자: 계정 quota `1,000`, API reserved concurrency `50` 기준으로 실제 모니터링 수치 재측정 필요
 - 지속 혼합 트래픽: quota 10 기준 5~7 req/s
 - 소규모 그룹: 10~20명 수준
 - 조율 응답: 수십~수백 slot 수준
@@ -33,7 +33,7 @@
 
 ## 2단계: Lambda 동시성 여유 확보
 
-Lambda 계정 동시 실행 quota는 `1,000`으로 증액 요청하고, `planner-prod-api`에는 reserved concurrency `50`을 우선 배정한다. 알림/배치/이미지 처리 Lambda가 사용할 수 있도록 unreserved concurrency는 최소 50~100 이상 남긴다. Provisioned concurrency는 현재 비용 대비 이점이 작아 `0`을 유지한다.
+Lambda 계정 동시 실행 quota는 `1,000`으로 증액했고, `planner-prod-api`에는 reserved concurrency `50`을 우선 배정했다. 알림/배치/이미지 처리 Lambda가 사용할 수 있도록 unreserved concurrency는 최소 50~100 이상 남긴다. Provisioned concurrency는 현재 비용 대비 이점이 작아 `0`을 유지한다.
 
 같이 봐야 할 기준:
 
@@ -81,7 +81,7 @@ SnapStart는 cold start 완화에는 유효하지만 동시 실행 quota를 늘�
 
 ## 당장 제안할 작업
 
-1. Lambda concurrency quota `1,000` 증액 승인 후 `planner-prod-api` reserved concurrency `50`을 적용한다.
+1. Lambda concurrency quota `1,000`과 `planner-prod-api` reserved concurrency `50` 적용 상태를 CloudWatch 지표로 재측정한다.
 2. 그룹 목록 batch get 적용 후 알림/조율 목록 필터링의 실제 read 비용을 CloudWatch 지표와 부하테스트로 추적한다.
 3. 사용자당 그룹 수 20개, 그룹 멤버 50명, 조율 응답 slot 500개 기준에 접근하면 denormalized item 또는 GSI 개선을 먼저 적용한다.
 4. PWA 설치 안내 overlay가 주요 버튼 클릭을 막지 않도록 UI layer를 조정한다.

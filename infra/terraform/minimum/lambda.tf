@@ -11,14 +11,15 @@ locals {
 }
 
 resource "aws_lambda_function" "api" {
-  function_name = "${var.project_name}-${var.environment}-api"
-  description   = "Planner backend API Lambda"
-  handler       = "com.planner.StreamLambdaHandler::handleRequest"
-  runtime       = "java21"
-  publish       = true
-  memory_size   = var.lambda_memory
-  timeout       = var.lambda_timeout
-  architectures = ["arm64"] # Graviton2 — 최소 비용
+  function_name                  = "${var.project_name}-${var.environment}-api"
+  description                    = "Planner backend API Lambda"
+  handler                        = "com.planner.StreamLambdaHandler::handleRequest"
+  runtime                        = "java21"
+  publish                        = true
+  memory_size                    = var.lambda_memory
+  timeout                        = var.lambda_timeout
+  architectures                  = ["arm64"] # Graviton2 — 최소 비용
+  reserved_concurrent_executions = var.api_reserved_concurrent_executions
 
   s3_bucket         = aws_s3_object.backend_lambda_artifact.bucket
   s3_key            = aws_s3_object.backend_lambda_artifact.key

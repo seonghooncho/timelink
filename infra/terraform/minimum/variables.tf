@@ -28,6 +28,12 @@ variable "lambda_timeout" {
   default     = 30
 }
 
+variable "api_reserved_concurrent_executions" {
+  description = "Reserved concurrency for the API Lambda. Keep enough unreserved concurrency for notifications, image processing, and batch jobs."
+  type        = number
+  default     = 50
+}
+
 variable "notification_worker_memory" {
   description = "Notification worker Lambda memory in MB."
   type        = number
