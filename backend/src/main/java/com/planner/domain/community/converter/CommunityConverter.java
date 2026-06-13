@@ -21,21 +21,19 @@ public final class CommunityConverter {
     public static CommunityPost toPost(String userId, Profile profile, CommunityPostCreateReqDTO req) {
         String id = UUID.randomUUID().toString();
         String now = Instant.now().toString();
-        return CommunityPost.builder()
-                .pk("POST#" + id)
-                .sk("METADATA")
-                .id(id)
-                .title(req.getTitle().trim())
-                .content(req.getContent().trim())
-                .authorUserId(userId)
-                .authorNickname(resolveNickname(profile))
-                .authorAvatarUrl(resolveAvatarUrl(profile))
-                .likeCount(0)
-                .commentCount(0)
-                .createdAt(now)
-                .updatedAt(now)
+        return basePost(id, userId, profile, req, now)
                 .gsi5pk(POST_LIST_PK)
                 .gsi5sk("CREATED_AT#" + now + "#POST#" + id)
+                .build();
+    }
+
+    public static CommunityPost toGroupPost(String groupId, String userId, Profile profile, CommunityPostCreateReqDTO req) {
+        String id = UUID.randomUUID().toString();
+        String now = Instant.now().toString();
+        return basePost(id, userId, profile, req, now)
+                .groupId(groupId)
+                .gsi6pk("GROUP#" + groupId + "#POSTS")
+                .gsi6sk("CREATED_AT#" + now + "#POST#" + id)
                 .build();
     }
 
@@ -61,6 +59,7 @@ public final class CommunityConverter {
                 .id(post.getId())
                 .title(post.getTitle())
                 .content(post.getContent())
+                .groupId(post.getGroupId())
                 .authorUserId(post.getAuthorUserId())
                 .authorNickname(post.getAuthorNickname())
                 .authorAvatarUrl(post.getAuthorAvatarUrl())
@@ -71,6 +70,27 @@ public final class CommunityConverter {
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .build();
+    }
+
+    private static CommunityPost.CommunityPostBuilder basePost(
+            String id,
+            String userId,
+            Profile profile,
+            CommunityPostCreateReqDTO req,
+            String now) {
+        return CommunityPost.builder()
+                .pk("POST#" + id)
+                .sk("METADATA")
+                .id(id)
+                .title(req.getTitle().trim())
+                .content(req.getContent().trim())
+                .authorUserId(userId)
+                .authorNickname(resolveNickname(profile))
+                .authorAvatarUrl(resolveAvatarUrl(profile))
+                .likeCount(0)
+                .commentCount(0)
+                .createdAt(now)
+                .updatedAt(now);
     }
 
     public static CommunityCommentResDTO toCommentResponse(CommunityComment comment, String userId) {

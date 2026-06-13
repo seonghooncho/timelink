@@ -69,6 +69,16 @@ resource "aws_dynamodb_table" "main" {
     type = "S"
   }
 
+  attribute {
+    name = "GSI6PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "GSI6SK"
+    type = "S"
+  }
+
   # GSI1: schedules-by-time (USER#{userId} → startTime)
   global_secondary_index {
     name            = "GSI1"
@@ -106,6 +116,14 @@ resource "aws_dynamodb_table" "main" {
     name            = "GSI5"
     hash_key        = "GSI5PK"
     range_key       = "GSI5SK"
+    projection_type = "ALL"
+  }
+
+  # GSI6: group-posts (GROUP#{groupId}#POSTS → CREATED_AT#{createdAt}#POST#{postId})
+  global_secondary_index {
+    name            = "GSI6"
+    hash_key        = "GSI6PK"
+    range_key       = "GSI6SK"
     projection_type = "ALL"
   }
 

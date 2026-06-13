@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Copy, Link as LinkIcon, LogOut, Menu, Pencil, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Heart, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
@@ -13,12 +13,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useGroups } from '@/hooks/useGroups';
+import {
+  useCreateGroupPost,
+  useCreateGroupPostComment,
+  useGroupPostComments,
+  useGroupPosts,
+  useToggleGroupPostLike,
+} from '@/hooks/useCommunity';
 import { useSchedules } from '@/hooks/useSchedules';
-import { coordinationApi, CoordinationResponse as CoordResp, groupApi, GroupJoinRequestResponse, GroupMemberResponse } from '@/services/api';
+import {
+  CommunityCommentResponse,
+  CommunityPostResponse,
+  coordinationApi,
+  CoordinationResponse as CoordResp,
+  groupApi,
+  GroupJoinRequestResponse,
+  GroupMemberResponse,
+} from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
+import { formatRelativeTime } from '@/lib/relativeTime';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -84,6 +100,17 @@ const GroupDetailPage: React.FC = () => {
   const [isCoordinationLoading, setIsCoordinationLoading] = useState(false);
   const [isFetchingMoreCoordinations, setIsFetchingMoreCoordinations] = useState(false);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
+  const [showPostComposer, setShowPostComposer] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const {
+    data: groupPosts = [],
+    isLoading: isGroupPostsLoading,
+    fetchNextPage: fetchNextGroupPostPage,
+    hasNextPage: hasNextGroupPostPage,
+    isFetchingNextPage: isFetchingNextGroupPostPage,
+  } = useGroupPosts(id);
+  const createGroupPost = useCreateGroupPost(id || '');
 
   const group = groups.find((item) => item.id === id);
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === id);
@@ -149,11 +176,15 @@ const GroupDetailPage: React.FC = () => {
   const sortedGroupSchedules = useMemo(() => {
     return [...groupSchedules].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [groupSchedules]);
+  const upcomingGroupSchedules = useMemo(() => {
+    const now = Date.now();
+    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() >= now);
+  }, [sortedGroupSchedules]);
 
   const memberCount = members.length || group?.memberCount || 0;
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
-  const groupScheduleCountLabel = `${sortedGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
+  const groupScheduleCountLabel = `${upcomingGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
   const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
 
@@ -316,6 +347,35 @@ const GroupDetailPage: React.FC = () => {
     if (!coordinationNextCursor || isFetchingMoreCoordinations) return;
     loadCoordinations(coordinationNextCursor);
   }, [coordinationNextCursor, isFetchingMoreCoordinations, loadCoordinations]);
+
+  const handleLoadMoreGroupPosts = useCallback(() => {
+    if (!hasNextGroupPostPage || isFetchingNextGroupPostPage) return;
+    fetchNextGroupPostPage();
+  }, [fetchNextGroupPostPage, hasNextGroupPostPage, isFetchingNextGroupPostPage]);
+
+  const handleCreateGroupPost = async () => {
+    const title = postTitle.trim();
+    const content = postContent.trim();
+
+    if (!title) {
+      appToast.error('게시물 제목을 입력해주세요');
+      return;
+    }
+    if (!content) {
+      appToast.error('게시물 내용을 입력해주세요');
+      return;
+    }
+
+    try {
+      await createGroupPost.mutateAsync({ title, content });
+      setPostTitle('');
+      setPostContent('');
+      setShowPostComposer(false);
+      appToast.success('게시물을 등록했습니다');
+    } catch (error) {
+      appToast.error('게시물을 등록하지 못했습니다', error);
+    }
+  };
 
   const handleLeave = async () => {
     if (!id) return;
@@ -761,19 +821,87 @@ const GroupDetailPage: React.FC = () => {
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold text-foreground">모임 일정 ({groupScheduleCountLabel})</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">확정된 모임 일정입니다. 가까운 일정부터 확인해 보세요.</p>
+              <h3 className="truncate text-sm font-bold text-foreground">모임 게시판</h3>
+              <p className="mt-1 text-[11px] text-muted-foreground">멤버들과 약속 준비 이야기를 남겨보세요.</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowPostComposer((prev) => !prev)}
+              className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+            >
+              {showPostComposer ? '닫기' : '글쓰기'}
+            </button>
           </div>
 
-          {sortedGroupSchedules.length > 0 ? (
+          {showPostComposer ? (
+            <div className="mb-4 space-y-2 rounded-2xl border border-border/70 bg-background p-3">
+              <Input
+                value={postTitle}
+                onChange={(event) => setPostTitle(event.target.value)}
+                maxLength={80}
+                className="rounded-xl bg-muted text-base"
+                placeholder="게시물 제목"
+              />
+              <Textarea
+                value={postContent}
+                onChange={(event) => setPostContent(event.target.value)}
+                maxLength={2000}
+                rows={4}
+                className="resize-none rounded-xl bg-muted text-base"
+                placeholder="멤버들에게 공유할 내용을 적어주세요."
+              />
+              <button
+                type="button"
+                onClick={handleCreateGroupPost}
+                disabled={createGroupPost.isPending}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+              >
+                {createGroupPost.isPending ? '등록 중...' : '게시물 등록'}
+              </button>
+            </div>
+          ) : null}
+
+          {isGroupPostsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : groupPosts.length > 0 ? (
+            <ScrollableFadeList
+              ariaLabel="모임 게시물 목록"
+              onReachEnd={handleLoadMoreGroupPosts}
+              isLoadingMore={isFetchingNextGroupPostPage}
+              loadingLabel="게시물을 더 불러오는 중..."
+              maxHeightClassName="max-h-[30rem]"
+            >
+              {groupPosts.map((post) => (
+                <GroupPostItem key={post.id} groupId={id || ''} post={post} />
+              ))}
+            </ScrollableFadeList>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
+              아직 게시물이 없습니다. 첫 글로 모임 소식을 남겨보세요.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {upcomingGroupSchedules.length > 0 ? (
+        <div className="mt-6 px-4">
+          <div className="rounded-2xl border border-border bg-card px-4 py-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-bold text-foreground">모임 일정 ({groupScheduleCountLabel})</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">확정된 모임 일정입니다. 가까운 일정부터 확인해 보세요.</p>
+              </div>
+            </div>
+
             <ScrollableFadeList
               ariaLabel="모임 일정 목록"
               onReachEnd={handleLoadMoreGroupSchedules}
               isLoadingMore={isFetchingNextSchedulePage}
               loadingLabel="일정을 더 불러오는 중..."
             >
-              {sortedGroupSchedules.map((schedule) => (
+              {upcomingGroupSchedules.map((schedule) => (
                 <button
                   key={schedule.id}
                   type="button"
@@ -797,13 +925,9 @@ const GroupDetailPage: React.FC = () => {
                 </button>
               ))}
             </ScrollableFadeList>
-          ) : (
-            <p className="rounded-2xl border border-dashed border-border px-4 py-5 text-xs text-muted-foreground">
-              아직 확정된 모임 일정이 없습니다. 시간을 조율하거나 직접 일정을 만들어보세요.
-            </p>
-          )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="mt-6 px-4">
         <div className="rounded-2xl border border-border bg-card px-4 py-4">
@@ -899,5 +1023,186 @@ const GroupDetailPage: React.FC = () => {
     </MobileLayout>
   );
 };
+
+interface GroupPostItemProps {
+  groupId: string;
+  post: CommunityPostResponse;
+}
+
+const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
+  const [showComments, setShowComments] = useState(false);
+  const toggleLike = useToggleGroupPostLike(groupId, post.id);
+
+  const handleToggleLike = async () => {
+    try {
+      await toggleLike.mutateAsync(post.likedByMe);
+    } catch (error) {
+      appToast.error('좋아요 상태를 변경하지 못했습니다', error);
+    }
+  };
+
+  return (
+    <article className="rounded-2xl border border-border/70 bg-background px-3.5 py-3">
+      <div className="flex items-start gap-3">
+        <Avatar className="h-9 w-9 border border-border/70">
+          <AvatarImage src={post.authorAvatarUrl} alt={post.authorNickname} />
+          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+            {post.authorNickname.slice(0, 1)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-foreground">{post.authorNickname}</p>
+              <p className="text-[10px] text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
+            </div>
+            {post.mine ? (
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                내 글
+              </span>
+            ) : null}
+          </div>
+
+          <h4 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-foreground">{post.title}</h4>
+          <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{post.content}</p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToggleLike}
+              disabled={toggleLike.isPending}
+              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
+                post.likedByMe
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-border bg-card text-muted-foreground'
+              } disabled:opacity-50`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${post.likedByMe ? 'fill-primary' : ''}`} />
+              {post.likeCount ?? 0}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowComments((prev) => !prev)}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              댓글 {post.commentCount ?? 0}
+            </button>
+          </div>
+
+          {showComments ? (
+            <GroupPostComments groupId={groupId} postId={post.id} />
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+};
+
+interface GroupPostCommentsProps {
+  groupId: string;
+  postId: string;
+}
+
+const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }) => {
+  const [content, setContent] = useState('');
+  const {
+    data: comments = [],
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useGroupPostComments(groupId, postId);
+  const createComment = useCreateGroupPostComment(groupId, postId);
+
+  const handleCreateComment = async () => {
+    const value = content.trim();
+    if (!value) {
+      appToast.error('댓글을 입력해주세요');
+      return;
+    }
+
+    try {
+      await createComment.mutateAsync(value);
+      setContent('');
+      appToast.success('댓글을 등록했습니다');
+    } catch (error) {
+      appToast.error('댓글을 등록하지 못했습니다', error);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-2xl border border-border/70 bg-card p-3">
+      <div className="flex gap-2">
+        <Textarea
+          value={content}
+          onChange={(event) => setContent(event.target.value)}
+          maxLength={500}
+          rows={2}
+          className="min-h-[48px] flex-1 resize-none rounded-xl bg-muted text-base"
+          placeholder="댓글을 입력해주세요"
+        />
+        <button
+          type="button"
+          onClick={handleCreateComment}
+          disabled={createComment.isPending}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-50"
+          aria-label="댓글 등록"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : comments.length > 0 ? (
+          comments.map((comment) => (
+            <GroupPostCommentItem key={comment.id} comment={comment} />
+          ))
+        ) : (
+          <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+            아직 댓글이 없습니다.
+          </p>
+        )}
+
+        {hasNextPage ? (
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="w-full rounded-xl border border-border bg-background py-2 text-[11px] font-semibold text-muted-foreground disabled:opacity-50"
+          >
+            {isFetchingNextPage ? '불러오는 중...' : '댓글 더보기'}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+interface GroupPostCommentItemProps {
+  comment: CommunityCommentResponse;
+}
+
+const GroupPostCommentItem: React.FC<GroupPostCommentItemProps> = ({ comment }) => (
+  <div className="flex items-start gap-2 rounded-xl bg-background px-3 py-2.5">
+    <Avatar className="h-7 w-7 border border-border/70">
+      <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
+      <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+        {comment.authorNickname.slice(0, 1)}
+      </AvatarFallback>
+    </Avatar>
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2">
+        <p className="truncate text-[11px] font-bold text-foreground">{comment.authorNickname}</p>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelativeTime(comment.createdAt)}</span>
+      </div>
+      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-foreground">{comment.content}</p>
+    </div>
+  </div>
+);
 
 export default GroupDetailPage;

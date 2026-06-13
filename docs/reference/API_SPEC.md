@@ -655,7 +655,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-#### `DELETE` /api/planner/v1/groups/:groupId/members/:memberUserId`
+#### `DELETE` /api/planner/v1/groups/:groupId/members/:memberUserId
 
 모임 멤버 내보내기. **manager만** 수행 가능.
 자기 자신은 이 엔드포인트로 내보낼 수 없으며, 본인 탈퇴는 `/members/me`를 사용합니다.
@@ -683,6 +683,13 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |--------|--------|
 | `COMMUNITY#POSTS` | `CREATED_AT#{createdAt}#POST#{postId}` |
 
+**GSI6** (모임별 게시물 최신순 목록):
+| GSI6PK | GSI6SK |
+|--------|--------|
+| `GROUP#{groupId}#POSTS` | `CREATED_AT#{createdAt}#POST#{postId}` |
+
+모임 게시물은 `CommunityPost`를 재사용하되 `groupId`와 GSI6만 가진다. 전체 커뮤니티 목록에는 노출하지 않는다. 댓글과 좋아요는 커뮤니티 게시물과 동일하게 `POST#{postId}` 파티션 아래에 저장한다.
+
 ### Endpoints
 
 ---
@@ -702,6 +709,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "authorUserId": "user-uuid",
       "authorNickname": "민지",
       "authorAvatarUrl": "https://...",
+      "groupId": null,
       "likeCount": 3,
       "commentCount": 2,
       "likedByMe": true,
@@ -845,6 +853,121 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `DELETE` /api/planner/v1/community/posts/:postId/comments/:commentId
 
 댓글 삭제. **작성자만** 수행 가능합니다.
+
+**Response** `204 No Content`
+
+---
+
+### 모임 게시판 엔드포인트
+
+모임 게시판은 커뮤니티 게시물과 같은 DTO와 댓글/좋아요 모델을 사용한다. 단, 모든 조회와 변경은 해당 모임 멤버에게만 허용된다.
+
+#### `GET` /api/planner/v1/groups/:groupId/posts
+
+모임 게시물 최신순 목록. 커서 페이지네이션을 사용하며 `limit` 기본값은 20, 최대값은 100입니다.
+
+**Response** `200 OK` — CommunityPostResDTO 페이지 반환. 각 게시물의 `groupId`는 요청한 모임 ID입니다.
+
+**Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
+
+---
+
+#### `POST` /api/planner/v1/groups/:groupId/posts
+
+모임 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다.
+
+**Request Body**
+```json
+{
+  "title": "이번 주 준비물",
+  "content": "노트북과 충전기를 챙겨와 주세요."
+}
+```
+
+**Response** `201 Created` — CommunityPostResDTO 반환
+
+**Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
+
+---
+
+#### `GET` /api/planner/v1/groups/:groupId/posts/:postId
+
+모임 게시물 상세 조회.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+**Error** `404 POST_NOT_FOUND` — 게시물이 없거나 요청한 모임의 게시물이 아닌 경우
+
+---
+
+#### `PATCH` /api/planner/v1/groups/:groupId/posts/:postId
+
+모임 게시물 수정. **작성자만** 수행 가능합니다.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+**Error** `403 NOT_AUTHOR` — 작성자가 아닌 경우
+
+---
+
+#### `DELETE` /api/planner/v1/groups/:groupId/posts/:postId
+
+모임 게시물 삭제. **작성자만** 수행 가능하며 댓글과 좋아요도 함께 삭제합니다.
+
+**Response** `204 No Content`
+
+---
+
+#### `PUT` /api/planner/v1/groups/:groupId/posts/:postId/like
+
+모임 게시물 좋아요. 중복 호출해도 좋아요 수는 한 번만 증가합니다.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+---
+
+#### `DELETE` /api/planner/v1/groups/:groupId/posts/:postId/like
+
+모임 게시물 좋아요 취소. 중복 호출해도 좋아요 수는 음수가 되지 않습니다.
+
+**Response** `200 OK` — CommunityPostResDTO 반환
+
+---
+
+#### `GET` /api/planner/v1/groups/:groupId/posts/:postId/comments
+
+모임 게시물 댓글 목록. 1단 댓글만 지원하며 커서 페이지네이션을 사용합니다.
+
+**Response** `200 OK` — CommunityCommentResDTO 페이지 반환
+
+---
+
+#### `POST` /api/planner/v1/groups/:groupId/posts/:postId/comments
+
+모임 게시물 댓글 작성.
+
+**Request Body**
+```json
+{
+  "content": "확인했습니다."
+}
+```
+
+**Response** `201 Created` — CommunityCommentResDTO 반환
+
+---
+
+#### `PATCH` /api/planner/v1/groups/:groupId/posts/:postId/comments/:commentId
+
+모임 게시물 댓글 수정. **작성자만** 수행 가능합니다.
+
+**Response** `200 OK` — CommunityCommentResDTO 반환
+
+---
+
+#### `DELETE` /api/planner/v1/groups/:groupId/posts/:postId/comments/:commentId
+
+모임 게시물 댓글 삭제. **작성자만** 수행 가능합니다.
 
 **Response** `204 No Content`
 
@@ -1466,7 +1589,7 @@ auth-session (JWT subject = userId)
               └── Coordination (PK: GROUP#{groupId}, SK: COORD#{id})
                     └── CoordinationResponse (PK: COORD#{coordId}, SK: RESP#{userId}#{date}#{hour})
 Community
-  └── CommunityPost (PK: POST#{postId}, SK: METADATA, GSI5: 커뮤니티 최신글 목록)
+  └── CommunityPost (PK: POST#{postId}, SK: METADATA, GSI5: 커뮤니티 최신글 목록 또는 GSI6: 모임별 최신글 목록)
         ├── CommunityComment (PK: POST#{postId}, SK: COMMENT#{createdAt}#{commentId})
         └── CommunityPostLike (PK: POST#{postId}, SK: LIKE#{userId})
 ```
@@ -1519,6 +1642,17 @@ Community
 | `POST` | `/community/posts/:postId/comments` | 게시물 댓글 작성 | 인증 | 구현됨 |
 | `PATCH` | `/community/posts/:postId/comments/:commentId` | 게시물 댓글 수정 | 작성자 | 구현됨 |
 | `DELETE` | `/community/posts/:postId/comments/:commentId` | 게시물 댓글 삭제 | 작성자 | 구현됨 |
+| `GET` | `/groups/:gid/posts` | 모임 게시물 목록 | 멤버 | 구현됨 |
+| `POST` | `/groups/:gid/posts` | 모임 게시물 작성 | 멤버 | 구현됨 |
+| `GET` | `/groups/:gid/posts/:postId` | 모임 게시물 상세 | 멤버 | 구현됨 |
+| `PATCH` | `/groups/:gid/posts/:postId` | 모임 게시물 수정 | 작성자 | 구현됨 |
+| `DELETE` | `/groups/:gid/posts/:postId` | 모임 게시물 삭제 | 작성자 | 구현됨 |
+| `PUT` | `/groups/:gid/posts/:postId/like` | 모임 게시물 좋아요 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:gid/posts/:postId/like` | 모임 게시물 좋아요 취소 | 멤버 | 구현됨 |
+| `GET` | `/groups/:gid/posts/:postId/comments` | 모임 게시물 댓글 목록 | 멤버 | 구현됨 |
+| `POST` | `/groups/:gid/posts/:postId/comments` | 모임 게시물 댓글 작성 | 멤버 | 구현됨 |
+| `PATCH` | `/groups/:gid/posts/:postId/comments/:commentId` | 모임 게시물 댓글 수정 | 작성자 | 구현됨 |
+| `DELETE` | `/groups/:gid/posts/:postId/comments/:commentId` | 모임 게시물 댓글 삭제 | 작성자 | 구현됨 |
 | `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | 구현됨 |
 | `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | 구현됨 |
 | `POST` | `/groups/:gid/coordinations` | 조율 생성 | 멤버 | 구현됨 |
@@ -1546,4 +1680,4 @@ Community
 
 ---
 
-*마지막 업데이트: 2026-06-13 (모임 둘러보기 이동 및 커뮤니티 게시판 API 반영)*
+*마지막 업데이트: 2026-06-13 (모임 둘러보기 이동, 커뮤니티/모임 게시판 API 반영)*

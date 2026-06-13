@@ -323,6 +323,7 @@ export interface CommunityPostResponse {
   id: string;
   title: string;
   content: string;
+  groupId?: string;
   authorUserId: string;
   authorNickname: string;
   authorAvatarUrl?: string;
@@ -364,6 +365,31 @@ export const communityApi = {
     request<CommunityCommentResponse>('PATCH', `/community/posts/${postId}/comments/${commentId}`, { content }),
   deleteComment: (postId: string, commentId: string) =>
     request<void>('DELETE', `/community/posts/${postId}/comments/${commentId}`),
+};
+
+export const groupPostApi = {
+  getPosts: (groupId: string, params?: PaginationParams) =>
+    requestPage<CommunityPostResponse>(`/groups/${groupId}/posts`, params),
+  createPost: (groupId: string, data: { title: string; content: string }) =>
+    request<CommunityPostResponse>('POST', `/groups/${groupId}/posts`, data),
+  getPost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('GET', `/groups/${groupId}/posts/${postId}`),
+  updatePost: (groupId: string, postId: string, data: { title?: string; content?: string }) =>
+    request<CommunityPostResponse>('PATCH', `/groups/${groupId}/posts/${postId}`, data),
+  deletePost: (groupId: string, postId: string) =>
+    request<void>('DELETE', `/groups/${groupId}/posts/${postId}`),
+  likePost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('PUT', `/groups/${groupId}/posts/${postId}/like`),
+  unlikePost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('DELETE', `/groups/${groupId}/posts/${postId}/like`),
+  getComments: (groupId: string, postId: string, params?: PaginationParams) =>
+    requestPage<CommunityCommentResponse>(`/groups/${groupId}/posts/${postId}/comments`, params),
+  createComment: (groupId: string, postId: string, content: string) =>
+    request<CommunityCommentResponse>('POST', `/groups/${groupId}/posts/${postId}/comments`, { content }),
+  updateComment: (groupId: string, postId: string, commentId: string, content: string) =>
+    request<CommunityCommentResponse>('PATCH', `/groups/${groupId}/posts/${postId}/comments/${commentId}`, { content }),
+  deleteComment: (groupId: string, postId: string, commentId: string) =>
+    request<void>('DELETE', `/groups/${groupId}/posts/${postId}/comments/${commentId}`),
 };
 
 // ── Coordinations ──

@@ -9,6 +9,10 @@ import com.planner.domain.community.error.CommunityException;
 import com.planner.domain.community.model.CommunityComment;
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
+import com.planner.domain.group.error.GroupException;
+import com.planner.domain.group.model.Group;
+import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.global.cursor.CursorCodec;
@@ -39,6 +43,7 @@ class CommunityServiceTest {
 
     @Mock private CommunityRepository repository;
     @Mock private ProfileRepository profileRepository;
+    @Mock private GroupRepository groupRepository;
     @Mock private CursorCodec cursorCodec;
     @InjectMocks private CommunityService service;
 
@@ -53,6 +58,12 @@ class CommunityServiceTest {
                         .build()
         ));
         lenient().when(repository.isLikedBy(anyString(), anyString())).thenReturn(false);
+        lenient().when(groupRepository.findGroupById("group1")).thenReturn(Optional.of(
+                Group.builder().pk("GROUP#group1").sk("METADATA").id("group1").name("스터디").build()
+        ));
+        lenient().when(groupRepository.findMember("group1", "user1")).thenReturn(Optional.of(
+                GroupMember.builder().pk("GROUP#group1").sk("MEMBER#user1").groupId("group1").userId("user1").build()
+        ));
     }
 
     private CommunityPost post(String authorUserId) {
@@ -69,6 +80,14 @@ class CommunityServiceTest {
                 .createdAt("2026-06-13T00:00:00Z")
                 .updatedAt("2026-06-13T00:00:00Z")
                 .build();
+    }
+
+    private CommunityPost groupPost(String authorUserId) {
+        CommunityPost post = post(authorUserId);
+        post.setGroupId("group1");
+        post.setGsi6pk("GROUP#group1#POSTS");
+        post.setGsi6sk("CREATED_AT#2026-06-13T00:00:00Z#POST#p1");
+        return post;
     }
 
     private CommunityComment comment(String authorUserId) {
@@ -119,6 +138,48 @@ class CommunityServiceTest {
     }
 
     @Test
+    @DisplayName("createGroupPost — 그룹 멤버만 그룹 게시물 인덱스로 저장한다")
+    void createGroupPost_savesGroupIndex() {
+        CommunityPostCreateReqDTO req = new CommunityPostCreateReqDTO();
+        req.setTitle(" 모임 공지 ");
+        req.setContent(" 내일 7시에 만나요 ");
+
+        CommunityPostResDTO result = service.createGroupPost("user1", "group1", req);
+
+        ArgumentCaptor<CommunityPost> captor = ArgumentCaptor.forClass(CommunityPost.class);
+        verify(repository).savePost(captor.capture());
+        CommunityPost saved = captor.getValue();
+        assertThat(result.getGroupId()).isEqualTo("group1");
+        assertThat(saved.getGsi5pk()).isNull();
+        assertThat(saved.getGsi6pk()).isEqualTo("GROUP#group1#POSTS");
+        assertThat(saved.getGsi6sk()).contains(saved.getId());
+    }
+
+    @Test
+    @DisplayName("getPost — 그룹 게시물은 그룹 멤버가 아니면 예외")
+    void getPost_groupPostRequiresMembership() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(groupPost("other")));
+        when(groupRepository.findMember("group1", "outsider")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getPost("outsider", "p1"))
+                .isInstanceOf(GroupException.class);
+    }
+
+    @Test
+    @DisplayName("createGroupComment — 그룹 게시물 댓글은 멤버만 작성한다")
+    void createGroupComment_requiresMembershipAndIncrementsCount() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(groupPost("other")));
+        CommunityCommentCreateReqDTO req = new CommunityCommentCreateReqDTO();
+        req.setContent(" 확인했습니다 ");
+
+        CommunityCommentResDTO result = service.createGroupComment("user1", "group1", "p1", req);
+
+        verify(repository).saveComment(any(CommunityComment.class));
+        verify(repository).incrementCommentCount("p1");
+        assertThat(result.getContent()).isEqualTo("확인했습니다");
+    }
+
+    @Test
     @DisplayName("updatePost — 작성자가 아니면 예외")
     void updatePost_notAuthor_throws() {
         when(repository.findPost("p1")).thenReturn(Optional.of(post("other")));
@@ -157,6 +218,7 @@ class CommunityServiceTest {
     @Test
     @DisplayName("deleteComment — 작성자 댓글만 삭제하고 댓글 수를 감소시킨다")
     void deleteComment_authorOnly() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(post("other")));
         when(repository.findComment("p1", "c1")).thenReturn(Optional.of(comment("user1")));
         when(repository.deleteComment(any(CommunityComment.class))).thenReturn(true);
 
@@ -168,6 +230,7 @@ class CommunityServiceTest {
     @Test
     @DisplayName("deleteComment — 작성자가 아니면 예외")
     void deleteComment_notAuthor_throws() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(post("other")));
         when(repository.findComment("p1", "c1")).thenReturn(Optional.of(comment("other")));
 
         assertThatThrownBy(() -> service.deleteComment("user1", "p1", "c1"))

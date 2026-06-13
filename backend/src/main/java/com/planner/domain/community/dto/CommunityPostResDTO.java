@@ -9,6 +9,7 @@ public class CommunityPostResDTO {
     private String id;
     private String title;
     private String content;
+    private String groupId;
     private String authorUserId;
     private String authorNickname;
     private String authorAvatarUrl;
