@@ -346,8 +346,12 @@ describe('GroupDetailPage group posts', () => {
 
     await screen.findByText('모임 글');
     fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
-    fireEvent.change(screen.getByPlaceholderText('게시물 제목'), { target: { value: '내일 준비물' } });
-    fireEvent.change(screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.'), { target: { value: '노트북 챙겨오세요.' } });
+    const titleInput = screen.getByPlaceholderText('제목을 입력해주세요');
+    const contentInput = screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.');
+    expect(titleInput).toHaveAttribute('maxLength', '40');
+    expect(contentInput).toHaveAttribute('maxLength', '2000');
+    fireEvent.change(titleInput, { target: { value: '내일 준비물' } });
+    fireEvent.change(contentInput, { target: { value: '노트북 챙겨오세요.' } });
     fireEvent.click(screen.getByRole('button', { name: '게시물 등록' }));
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({
@@ -365,7 +369,7 @@ describe('GroupDetailPage group posts', () => {
 
     await screen.findByText('모임 글');
     fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
-    fireEvent.change(screen.getByPlaceholderText('게시물 제목'), { target: { value: '멤버 공지' } });
+    fireEvent.change(screen.getByPlaceholderText('제목을 입력해주세요'), { target: { value: '멤버 공지' } });
     fireEvent.change(screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.'), { target: { value: '멤버에게만 공유합니다.' } });
     fireEvent.click(screen.getByRole('button', { name: /모임에만 게시하기/ }));
     fireEvent.click(screen.getByRole('button', { name: '게시물 등록' }));

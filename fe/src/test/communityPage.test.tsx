@@ -71,6 +71,8 @@ describe('CommunityPage', () => {
     expect(screen.getByText('게시물 작성')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('제목을 입력해주세요')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('나누고 싶은 이야기를 적어주세요.')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('제목을 입력해주세요')).toHaveAttribute('maxLength', '40');
+    expect(screen.getByPlaceholderText('나누고 싶은 이야기를 적어주세요.')).toHaveAttribute('maxLength', '2000');
     expect(screen.getByRole('button', { name: /익명으로 작성하기/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /이미지 추가/ })).toBeInTheDocument();
   });

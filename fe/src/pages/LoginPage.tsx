@@ -179,9 +179,9 @@ const LoginPage: React.FC = () => {
         <Link
           to="/demo"
           onClick={() => trackEvent('demo_entry_click', { location: 'login' })}
-          className="mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+          className="mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:bg-primary/90"
         >
-          <PlayCircle className="h-4 w-4 text-primary" />
+          <PlayCircle className="h-4 w-4" />
           먼저 둘러보기
         </Link>
 

@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
   CalendarClock,
+  CalendarPlus,
   ChevronRight,
   Clock,
   Heart,
+  ImagePlus,
   LogIn,
   MessageCircle,
+  ScanText,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -19,17 +22,15 @@ import GroupAvatar from '@/components/common/GroupAvatar';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
-import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { createDemoCoordination, createDemoSchedules, demoMembers } from '@/lib/demoData';
 import type { DemoCoordinationSlot } from '@/lib/demoData';
 import type { Schedule } from '@/types/types';
-import { getScheduleColorStyle } from '@/utils';
 import { trackEvent } from '@/lib/analytics';
 
-type DemoTab = 'home' | 'coordination' | 'group' | 'community' | 'calendar';
+type DemoTab = 'home' | 'scheduleCreate' | 'coordination' | 'group' | 'community';
 type CoordinationDemoStage = 'mine' | 'all';
-type DemoNavKey = 'home' | 'coordinationMine' | 'coordinationAll' | 'group' | 'community' | 'calendar';
+type DemoNavKey = 'home' | 'scheduleCreate' | 'coordinationMine' | 'coordinationAll' | 'group' | 'community';
 
 interface LoginPrompt {
   title: string;
@@ -39,14 +40,14 @@ interface LoginPrompt {
 
 const demoNavItems: { key: DemoNavKey; ariaLabel: string; labelParts: string[] }[] = [
   { key: 'home', ariaLabel: '홈', labelParts: ['홈'] },
+  { key: 'scheduleCreate', ariaLabel: '일정등록', labelParts: ['일정', '등록'] },
   { key: 'coordinationMine', ariaLabel: '시간조율(1)', labelParts: ['시간', '조율', '(1)'] },
   { key: 'coordinationAll', ariaLabel: '시간조율(2)', labelParts: ['시간', '조율', '(2)'] },
   { key: 'group', ariaLabel: '모임', labelParts: ['모임'] },
   { key: 'community', ariaLabel: '커뮤니티', labelParts: ['커뮤', '니티'] },
-  { key: 'calendar', ariaLabel: '캘린더', labelParts: ['캘린', '더'] },
 ];
 
-const demoTabOrder: DemoTab[] = ['home', 'coordination', 'group', 'community', 'calendar'];
+const demoTabOrder: DemoTab[] = ['home', 'scheduleCreate', 'coordination', 'group', 'community'];
 
 const demoCommunityPosts = [
   {
@@ -115,13 +116,7 @@ const formatDateLabel = (dateKey: string) => {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
-const toLocalDateKey = (value: Date | string) => {
-  const date = value instanceof Date ? value : new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-};
-
 const getMemberInitial = (name: string) => name.slice(0, 1);
-const calendarDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
 const DemoPage: React.FC = () => {
   const navigate = useNavigate();
@@ -279,6 +274,10 @@ const DemoPage: React.FC = () => {
           />
         ) : null}
 
+        {activeTab === 'scheduleCreate' ? (
+          <ScheduleCreateDemo onRequireLogin={requireLoginFor} />
+        ) : null}
+
         {activeTab === 'group' ? (
           <GroupDemo
             groupSchedules={groupSchedules}
@@ -303,13 +302,6 @@ const DemoPage: React.FC = () => {
 
         {activeTab === 'community' ? (
           <CommunityDemo onRequireLogin={requireLoginFor} />
-        ) : null}
-
-        {activeTab === 'calendar' ? (
-          <CalendarDemo
-            schedules={schedules}
-            onRequireLogin={requireLoginFor}
-          />
         ) : null}
       </main>
 
@@ -448,6 +440,85 @@ const HomeDemo: React.FC<HomeDemoProps> = ({
         selectedScheduleId={selectedScheduleId}
       />
     </section>
+  </>
+);
+
+interface ScheduleCreateDemoProps {
+  onRequireLogin: (title: string, description: string, redirect: string) => void;
+}
+
+const ScheduleCreateDemo: React.FC<ScheduleCreateDemoProps> = ({ onRequireLogin }) => (
+  <>
+    <section className="border-b border-border/60 pb-3">
+      <p className="text-xs font-semibold text-primary">일정등록</p>
+      <h2 className="mt-1 text-base font-bold text-foreground">사진 속 약속 내용을 일정으로 정리합니다</h2>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        캡처나 안내문을 올리면 날짜, 시간, 장소를 읽어 일정 초안으로 바꿔줍니다.
+      </p>
+    </section>
+
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+      <div className="bg-muted/60 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <ImagePlus className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">사진으로 일정 등록하기</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">초대장, 포스터, 채팅 캡처 모두 가능</p>
+            </div>
+          </div>
+          <ScanText className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-4">
+        <div className="rounded-2xl border border-dashed border-border bg-background p-3">
+          <div className="rounded-xl bg-card px-3 py-3 shadow-soft">
+            <p className="text-[11px] font-semibold text-muted-foreground">사진 속 문구</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-foreground">
+              6월 22일 토요일 오후 2시, 합정 스튜디오에서 팀 촬영
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">준비물: 노트북, 콘티</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-xs font-bold text-primary">
+          <ScanText className="h-4 w-4" />
+          글자를 인식해 일정으로 정리 중
+        </div>
+
+        <div className="rounded-2xl bg-primary/5 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold text-foreground">일정 초안</p>
+            <CalendarPlus className="h-5 w-5 text-primary" />
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">제목</span>
+              <span className="min-w-0 flex-1 truncate text-right font-bold text-foreground">팀 촬영</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">일시</span>
+              <span className="font-bold text-foreground">6/22 14:00</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">장소</span>
+              <span className="min-w-0 flex-1 truncate text-right font-bold text-foreground">합정 스튜디오</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <button
+      type="button"
+      onClick={() => onRequireLogin('사진으로 일정을 등록하려면 로그인이 필요합니다', '사진 인식 결과와 일정 알림은 내 계정에 저장됩니다.', '/schedule/new')}
+      className="w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-soft"
+    >
+      사진으로 일정 등록하기
+    </button>
   </>
 );
 
@@ -846,110 +917,6 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
       </button>
         </>
       )}
-    </>
-  );
-};
-
-interface CalendarDemoProps {
-  schedules: Schedule[];
-  onRequireLogin: (title: string, description: string, redirect: string) => void;
-}
-
-const CalendarDemo: React.FC<CalendarDemoProps> = ({ schedules, onRequireLogin }) => {
-  const today = new Date();
-  const [selectedDay, setSelectedDay] = useState(today.getDate());
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const calendarDays = [
-    ...Array.from({ length: firstDay }, () => null as number | null),
-    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
-  ];
-
-  const getSchedulesForDay = (day: number) => {
-    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return schedules.filter((schedule) => toLocalDateKey(schedule.startTime) === dateKey);
-  };
-
-  const selectedSchedules = getSchedulesForDay(selectedDay);
-
-  return (
-    <>
-      <section className="border-b border-border/60 pb-3">
-        <p className="text-xs font-semibold text-primary">캘린더</p>
-        <h2 className="mt-1 text-base font-bold text-foreground">월간 흐름에서 일정을 확인합니다</h2>
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-3 shadow-soft">
-        <div className="mb-3 flex items-center justify-center">
-          <h3 className="text-sm font-bold text-foreground">{year}년 {month + 1}월</h3>
-        </div>
-        <div className="grid grid-cols-7">
-          {calendarDayLabels.map((label) => (
-            <div key={label} className="py-1 text-center text-[10px] font-semibold text-muted-foreground">
-              {label}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-y-0.5">
-          {calendarDays.map((day, index) => {
-            if (day === null) return <div key={`blank-${index}`} className="min-h-[52px]" />;
-            const daySchedules = getSchedulesForDay(day);
-            const isToday = day === today.getDate();
-            const isSelected = day === selectedDay;
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => setSelectedDay(day)}
-                className={`flex min-h-[52px] flex-col items-center rounded-lg px-1 py-1.5 transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}`}
-              >
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>
-                  {day}
-                </span>
-                <div className="mt-1 flex w-full flex-col gap-0.5">
-                  {daySchedules.slice(0, 2).map((schedule) => (
-                    <span key={schedule.id} className="h-1 rounded-full" style={getScheduleColorStyle(schedule, 'line')} />
-                  ))}
-                  {daySchedules.length > 2 ? (
-                    <span className="text-center text-[8px] font-semibold text-muted-foreground">+{daySchedules.length - 2}</span>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section>
-        <h3 className="mb-2 text-sm font-bold text-foreground">{month + 1}월 {selectedDay}일 일정</h3>
-        {selectedSchedules.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
-            이 날은 샘플 일정이 없습니다.
-          </p>
-        ) : (
-          <div className="border-y border-border/60">
-            {selectedSchedules.map((schedule) => (
-              <button
-                key={schedule.id}
-                type="button"
-                onClick={() => onRequireLogin('캘린더 일정 상세를 보려면 로그인이 필요합니다', '월간 캘린더에서 일정 수정과 알림 관리를 이어가려면 로그인해주세요.', '/calendar')}
-                className="flex w-full items-center gap-3 border-b border-border/60 px-1 py-3.5 text-left transition-colors last:border-b-0 hover:bg-muted/25"
-              >
-                <span className="h-9 w-1 shrink-0 rounded-full" style={getScheduleColorStyle(schedule, 'line')} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{schedule.title}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {formatScheduleClock(schedule.startTime)} · {formatDurationLabel(schedule.duration)}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
     </>
   );
 };

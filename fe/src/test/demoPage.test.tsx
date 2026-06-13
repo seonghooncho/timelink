@@ -15,17 +15,23 @@ describe('DemoPage', () => {
     expect(screen.getByText('Timelink 데모')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다음 기능 둘러보기 >>' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이전 기능' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '일정등록' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '시간조율(1)' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '시간조율(2)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '캘린더' })).not.toBeInTheDocument();
     expect(screen.getAllByText('기획안 마감').length).toBeGreaterThan(0);
   });
 
-  it('opens each split coordination top nav item directly', () => {
+  it('opens schedule creation and split coordination top nav items directly', () => {
     render(
       <MemoryRouter initialEntries={['/demo']}>
         <DemoPage />
       </MemoryRouter>,
     );
+
+    fireEvent.click(screen.getByRole('button', { name: '일정등록' }));
+    expect(screen.getByText('사진 속 약속 내용을 일정으로 정리합니다')).toBeInTheDocument();
+    expect(screen.getAllByText('사진으로 일정 등록하기').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '시간조율(1)' }));
     expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
@@ -34,7 +40,7 @@ describe('DemoPage', () => {
     expect(screen.getByText('겹치는 시간이 진하게 표시됩니다')).toBeInTheDocument();
   });
 
-  it('nudges guests through home, coordination, group, community, and calendar demos', () => {
+  it('nudges guests through home, schedule creation, coordination, group, and community demos', () => {
     render(
       <MemoryRouter initialEntries={['/demo']}>
         <DemoPage />
@@ -42,6 +48,10 @@ describe('DemoPage', () => {
     );
 
     const nextButton = screen.getByRole('button', { name: '다음 기능 둘러보기 >>' });
+    fireEvent.click(nextButton);
+    expect(screen.getByText('사진 속 약속 내용을 일정으로 정리합니다')).toBeInTheDocument();
+    expect(screen.getByText('글자를 인식해 일정으로 정리 중')).toBeInTheDocument();
+
     fireEvent.click(nextButton);
     expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
     expect(screen.getByText('내 일정을 보면서 빈 시간을 고릅니다')).toBeInTheDocument();
@@ -58,13 +68,9 @@ describe('DemoPage', () => {
 
     fireEvent.click(nextButton);
     expect(screen.getAllByText('커뮤니티').length).toBeGreaterThan(0);
-
-    fireEvent.click(nextButton);
-    expect(screen.getByText('월간 흐름에서 일정을 확인합니다')).toBeInTheDocument();
-    expect(screen.getByText(/월 .*일 일정/)).toBeInTheDocument();
   });
 
-  it('moves backward through the coordination depth before returning to home', () => {
+  it('moves backward through the coordination depth before returning to schedule creation and home', () => {
     render(
       <MemoryRouter initialEntries={['/demo']}>
         <DemoPage />
@@ -76,10 +82,14 @@ describe('DemoPage', () => {
 
     fireEvent.click(nextButton);
     fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
     expect(screen.getByText('겹치는 시간이 진하게 표시됩니다')).toBeInTheDocument();
 
     fireEvent.click(prevButton);
     expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
+
+    fireEvent.click(prevButton);
+    expect(screen.getByText('사진 속 약속 내용을 일정으로 정리합니다')).toBeInTheDocument();
 
     fireEvent.click(prevButton);
     expect(screen.getByText('홈 일정 카드')).toBeInTheDocument();
