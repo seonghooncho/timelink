@@ -1,20 +1,15 @@
-package com.planner.domain.community.dto;
+package com.planner.domain.group.dto;
 
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
-public class CommunityPostResDTO {
+public class GroupIntroPostDTO {
     private String id;
     private String title;
     private String content;
-    private String groupId;
-    private Boolean memberOnly;
-    private Boolean locked;
-    private String imageUrl;
-    private String imageId;
-    private String imageStatus;
+    private String contentSnippet;
     private String authorUserId;
     private String authorNickname;
     private String authorAvatarUrl;
@@ -22,6 +17,11 @@ public class CommunityPostResDTO {
     private Integer commentCount;
     private Boolean likedByMe;
     private Boolean mine;
+    private Boolean memberOnly;
+    private Boolean locked;
+    private String imageUrl;
+    private String imageId;
+    private String imageStatus;
     private String createdAt;
     private String updatedAt;
 }

@@ -1,20 +1,31 @@
 package com.planner.domain.group.service;
 
+import com.planner.domain.community.model.CommunityPost;
+import com.planner.domain.community.repository.CommunityRepository;
 import com.planner.domain.group.converter.GroupConverter;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupIntroImageDTO;
+import com.planner.domain.group.dto.GroupIntroNoticeDTO;
+import com.planner.domain.group.dto.GroupIntroPostDTO;
+import com.planner.domain.group.dto.GroupIntroPostPreviewDTO;
+import com.planner.domain.group.dto.GroupIntroResDTO;
+import com.planner.domain.group.dto.GroupIntroUpdateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupIntro;
 import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.model.GroupNotice;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
@@ -24,19 +35,24 @@ import com.planner.domain.schedule.repository.ScheduleRepository;
 import com.planner.domain.storage.model.ImagePurpose;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.repository.ImageUploadRepository;
 import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
+import com.planner.global.error.CustomException;
+import com.planner.global.error.GeneralErrorCode;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -51,6 +67,10 @@ public class GroupService {
     private static final String JOIN_REQUEST_PENDING = "PENDING";
     private static final String JOIN_REQUEST_APPROVED = "APPROVED";
     private static final String JOIN_REQUEST_REJECTED = "REJECTED";
+    private static final int INTRO_IMAGE_LIMIT = 10;
+    private static final int INTRO_NOTICE_LIMIT = 5;
+    private static final int INTRO_POST_PREVIEW_LIMIT = 5;
+    private static final int PUBLIC_GROUP_SEARCH_SCAN_PAGES = 5;
 
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
@@ -58,6 +78,8 @@ public class GroupService {
     private final CursorCodec cursorCodec;
     private final StorageService storageService;
     private final ScheduleRepository scheduleRepository;
+    private final ImageUploadRepository imageUploadRepository;
+    private final CommunityRepository communityRepository;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -107,26 +129,38 @@ public class GroupService {
     }
 
     public CursorPageResult<GroupResDTO> getPublicGroupsPaged(String userId, Integer limit, String cursorToken) {
+        return getPublicGroupsPaged(userId, limit, cursorToken, null);
+    }
+
+    public CursorPageResult<GroupResDTO> getPublicGroupsPaged(String userId, Integer limit, String cursorToken, String query) {
         int size = (limit != null && limit > 0) ? limit : 20;
         Cursor cursor = (cursorToken != null) ? cursorCodec.decode(cursorToken) : null;
-        CursorPageResult<Group> page = repository.findPublicGroupsPaged(size, cursor);
+        if (!StringUtils.hasText(query)) {
+            CursorPageResult<Group> page = repository.findPublicGroupsPaged(size, cursor);
+            return CursorPageResult.<GroupResDTO>builder()
+                    .items(toPublicGroupResponses(userId, page.getItems()))
+                    .nextCursor(page.getNextCursor())
+                    .build();
+        }
 
+        String normalizedQuery = query.trim().toLowerCase();
+        List<Group> matched = new ArrayList<>();
+        Cursor nextCursor = cursor;
+        int scannedPages = 0;
+        while (matched.size() < size && scannedPages < PUBLIC_GROUP_SEARCH_SCAN_PAGES) {
+            CursorPageResult<Group> page = repository.findPublicGroupsPaged(size, nextCursor);
+            page.getItems().stream()
+                    .filter(group -> matchesPublicGroupQuery(group, normalizedQuery))
+                    .forEach(matched::add);
+            nextCursor = page.getNextCursor();
+            scannedPages++;
+            if (nextCursor == null) {
+                break;
+            }
+        }
         return CursorPageResult.<GroupResDTO>builder()
-                .items(page.getItems().stream()
-                        .map(group -> {
-                            GroupMember membership = repository.findMember(group.getId(), userId).orElse(null);
-                            GroupJoinRequest joinRequest = membership == null
-                                    ? repository.findJoinRequest(group.getId(), userId).orElse(null)
-                                    : null;
-                            return GroupConverter.toPublicListResponse(
-                                    group,
-                                    membership,
-                                    joinRequest,
-                                    resolveMemberCount(group, group.getId())
-                            );
-                        })
-                        .collect(Collectors.toList()))
-                .nextCursor(page.getNextCursor())
+                .items(toPublicGroupResponses(userId, matched.stream().limit(size).toList()))
+                .nextCursor(nextCursor)
                 .build();
     }
 
@@ -154,6 +188,29 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    private List<GroupResDTO> toPublicGroupResponses(String userId, List<Group> groups) {
+        return groups.stream()
+                .map(group -> {
+                    GroupMember membership = repository.findMember(group.getId(), userId).orElse(null);
+                    GroupJoinRequest joinRequest = membership == null
+                            ? repository.findJoinRequest(group.getId(), userId).orElse(null)
+                            : null;
+                    return GroupConverter.toPublicListResponse(
+                            group,
+                            membership,
+                            joinRequest,
+                            resolveMemberCount(group, group.getId())
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    private boolean matchesPublicGroupQuery(Group group, String normalizedQuery) {
+        String name = group.getName() != null ? group.getName().toLowerCase() : "";
+        String description = group.getDescription() != null ? group.getDescription().toLowerCase() : "";
+        return name.contains(normalizedQuery) || description.contains(normalizedQuery);
+    }
+
     private Schedule findNextSchedule(String groupId) {
         return scheduleRepository.findNextByGroupId(groupId, Instant.now().toString()).orElse(null);
     }
@@ -163,6 +220,129 @@ public class GroupService {
         verifyMembership(groupId, userId);
         List<GroupMember> members = findMembersWithProfiles(groupId);
         return GroupConverter.toDetailResponse(group, members);
+    }
+
+    public GroupIntroResDTO getIntro(String userId, String groupId) {
+        Group group = findGroupOrThrow(groupId);
+        GroupMember membership = repository.findMember(groupId, userId).orElse(null);
+        if (membership == null && !VISIBILITY_PUBLIC.equals(resolveVisibility(group))) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        GroupJoinRequest joinRequest = membership == null
+                ? repository.findJoinRequest(groupId, userId).orElse(null)
+                : null;
+        GroupIntro intro = repository.findIntro(groupId).orElse(null);
+        List<GroupNotice> notices = repository.findNoticesByGroupId(groupId, INTRO_NOTICE_LIMIT);
+        CursorPageResult<CommunityPost> postPage = communityRepository.findGroupPostsPaged(groupId, INTRO_POST_PREVIEW_LIMIT, null);
+        boolean member = membership != null;
+
+        return GroupIntroResDTO.builder()
+                .id(group.getId())
+                .name(group.getName())
+                .description(group.getDescription())
+                .imageUrl(group.getImageUrl())
+                .imageId(group.getImageId())
+                .imageStatus(group.getImageStatus())
+                .visibility(resolveVisibility(group))
+                .memberCount(resolveMemberCount(group, groupId))
+                .myRole(membership != null ? membership.getRole() : null)
+                .joinRequestStatus(joinRequest != null ? joinRequest.getStatus() : null)
+                .introText(intro != null ? intro.getIntroText() : null)
+                .images(toIntroImages(intro))
+                .notices(notices.stream().map(this::toIntroNotice).toList())
+                .postPreviews(postPage.getItems().stream()
+                        .filter(post -> member || !Boolean.TRUE.equals(post.getMemberOnly()))
+                        .map(this::toPostPreview)
+                        .toList())
+                .member(member)
+                .canEditIntro(membership != null && "manager".equals(membership.getRole()))
+                .canWriteNotice(membership != null)
+                .build();
+    }
+
+    public GroupIntroResDTO updateIntro(String userId, String groupId, GroupIntroUpdateReqDTO req) {
+        verifyManager(groupId, userId);
+        Group group = findGroupOrThrow(groupId);
+        String now = Instant.now().toString();
+        GroupIntro intro = repository.findIntro(groupId).orElseGet(() -> GroupIntro.builder()
+                .pk("GROUP#" + groupId)
+                .sk("INTRO")
+                .groupId(groupId)
+                .createdAt(now)
+                .build());
+
+        if (req.getIntroText() != null) {
+            intro.setIntroText(req.getIntroText().trim());
+        }
+        if (req.getImageIds() != null) {
+            List<String> imageIds = req.getImageIds().stream()
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .distinct()
+                    .limit(INTRO_IMAGE_LIMIT)
+                    .toList();
+            imageIds.forEach(imageId -> attachOrVerifyIntroImage(userId, groupId, imageId));
+            intro.setImageIds(imageIds);
+        }
+
+        intro.setUpdatedBy(userId);
+        intro.setUpdatedAt(now);
+        repository.saveIntro(intro);
+        return getIntro(userId, group.getId());
+    }
+
+    public GroupIntroNoticeDTO createNotice(String userId, String groupId, GroupNoticeCreateReqDTO req) {
+        verifyMembership(groupId, userId);
+        String now = Instant.now().toString();
+        String id = UUID.randomUUID().toString();
+        Profile profile = profileRepository.findByUserId(userId).orElse(null);
+        GroupNotice notice = GroupNotice.builder()
+                .pk("GROUP#" + groupId)
+                .sk("NOTICE#" + now + "#" + id)
+                .id(id)
+                .groupId(groupId)
+                .title(req.getTitle().trim())
+                .content(req.getContent().trim())
+                .authorUserId(userId)
+                .authorNickname(resolveProfileNickname(profile))
+                .authorAvatarUrl(resolveProfileAvatarUrl(profile))
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        repository.saveNotice(notice);
+        return toIntroNotice(notice);
+    }
+
+    public List<GroupIntroNoticeDTO> getNotices(String userId, String groupId) {
+        Group group = findGroupOrThrow(groupId);
+        GroupMember membership = repository.findMember(groupId, userId).orElse(null);
+        if (membership == null && !VISIBILITY_PUBLIC.equals(resolveVisibility(group))) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MEMBER);
+        }
+        return repository.findNoticesByGroupId(groupId, INTRO_NOTICE_LIMIT).stream()
+                .map(this::toIntroNotice)
+                .toList();
+    }
+
+    public CursorPageResult<GroupIntroPostDTO> getIntroPosts(String userId, String groupId, Integer limit, String cursorToken) {
+        Group group = findGroupOrThrow(groupId);
+        GroupMember membership = repository.findMember(groupId, userId).orElse(null);
+        if (membership == null && !VISIBILITY_PUBLIC.equals(resolveVisibility(group))) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        int size = (limit != null && limit > 0) ? Math.min(limit, 20) : 3;
+        Cursor cursor = cursorToken != null ? cursorCodec.decode(cursorToken) : null;
+        CursorPageResult<CommunityPost> page = communityRepository.findGroupPostsPaged(groupId, size, cursor);
+        boolean member = membership != null;
+
+        return CursorPageResult.<GroupIntroPostDTO>builder()
+                .items(page.getItems().stream()
+                        .map(post -> toIntroPost(post, userId, member))
+                        .toList())
+                .nextCursor(page.getNextCursor())
+                .build();
     }
 
     public GroupDetailResDTO update(String userId, String groupId, GroupUpdateReqDTO req) {
@@ -360,6 +540,99 @@ public class GroupService {
         repository.updateGroupImageFields(group);
     }
 
+    private void attachOrVerifyIntroImage(String userId, String groupId, String imageId) {
+        ImageUpload upload = imageUploadRepository.findById(imageId)
+                .orElseThrow(() -> new CustomException(GeneralErrorCode.BAD_REQUEST, "이미지 업로드 정보를 찾을 수 없습니다"));
+        if (!ImagePurpose.GROUP_INTRO.name().equals(upload.getPurpose())) {
+            throw new CustomException(GeneralErrorCode.BAD_REQUEST, "모임 소개 이미지가 아닙니다");
+        }
+        if (groupId.equals(upload.getTargetId())) {
+            return;
+        }
+        if (!userId.equals(upload.getOwnerUserId())) {
+            throw new CustomException(GeneralErrorCode.FORBIDDEN, "이미지 업로드 권한이 없습니다");
+        }
+
+        String now = Instant.now().toString();
+        imageUploadRepository.attachTarget(imageId, groupId, now);
+        upload.setTargetId(groupId);
+        upload.setUpdatedAt(now);
+    }
+
+    private List<GroupIntroImageDTO> toIntroImages(GroupIntro intro) {
+        if (intro == null || intro.getImageIds() == null) {
+            return List.of();
+        }
+
+        return intro.getImageIds().stream()
+                .filter(StringUtils::hasText)
+                .map(imageUploadRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(upload -> GroupIntroImageDTO.builder()
+                        .imageId(upload.getImageId())
+                        .url(upload.getPublicUrl())
+                        .status(upload.getStatus())
+                        .build())
+                .toList();
+    }
+
+    private GroupIntroNoticeDTO toIntroNotice(GroupNotice notice) {
+        return GroupIntroNoticeDTO.builder()
+                .id(notice.getId())
+                .title(notice.getTitle())
+                .content(notice.getContent())
+                .authorUserId(notice.getAuthorUserId())
+                .authorNickname(notice.getAuthorNickname())
+                .authorAvatarUrl(notice.getAuthorAvatarUrl())
+                .createdAt(notice.getCreatedAt())
+                .updatedAt(notice.getUpdatedAt())
+                .build();
+    }
+
+    private GroupIntroPostPreviewDTO toPostPreview(CommunityPost post) {
+        return GroupIntroPostPreviewDTO.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .contentSnippet(toContentSnippet(post.getContent()))
+                .authorNickname(post.getAuthorNickname())
+                .createdAt(post.getCreatedAt())
+                .build();
+    }
+
+    private GroupIntroPostDTO toIntroPost(CommunityPost post, String userId, boolean member) {
+        boolean memberOnly = Boolean.TRUE.equals(post.getMemberOnly());
+        boolean locked = memberOnly && !member;
+        return GroupIntroPostDTO.builder()
+                .id(post.getId())
+                .title(locked ? null : post.getTitle())
+                .content(locked ? null : post.getContent())
+                .contentSnippet(locked ? null : toContentSnippet(post.getContent()))
+                .authorUserId(post.getAuthorUserId())
+                .authorNickname(post.getAuthorNickname())
+                .authorAvatarUrl(post.getAuthorAvatarUrl())
+                .likeCount(post.getLikeCount() != null ? post.getLikeCount() : 0)
+                .commentCount(post.getCommentCount() != null ? post.getCommentCount() : 0)
+                .likedByMe(member && communityRepository.isLikedBy(post.getId(), userId))
+                .mine(userId != null && userId.equals(post.getAuthorUserId()))
+                .memberOnly(memberOnly)
+                .locked(locked)
+                .imageUrl(locked ? null : post.getImageUrl())
+                .imageId(locked ? null : post.getImageId())
+                .imageStatus(locked ? null : post.getImageStatus())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build();
+    }
+
+    private String toContentSnippet(String content) {
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        String normalized = content.trim().replaceAll("\\s+", " ");
+        return normalized.length() <= 90 ? normalized : normalized.substring(0, 90) + "...";
+    }
+
     private void verifyMembership(String groupId, String userId) {
         repository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
@@ -414,6 +687,14 @@ public class GroupService {
                 .map(Profile::getAvatarUrl)
                 .filter(StringUtils::hasText)
                 .orElse(null);
+    }
+
+    private String resolveProfileNickname(Profile profile) {
+        return profile != null && StringUtils.hasText(profile.getNickname()) ? profile.getNickname() : "사용자";
+    }
+
+    private String resolveProfileAvatarUrl(Profile profile) {
+        return profile != null && StringUtils.hasText(profile.getAvatarUrl()) ? profile.getAvatarUrl() : "";
     }
 
     private String createUniqueInviteCode(String groupId, String now) {

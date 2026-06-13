@@ -1,6 +1,7 @@
 package com.planner.domain.schedule.repository;
 
 import com.planner.domain.schedule.model.Schedule;
+import com.planner.domain.schedule.model.GroupScheduleParticipant;
 import com.planner.global.config.AwsProperties;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorPageResult;
@@ -18,18 +19,35 @@ import java.util.stream.Collectors;
 public class ScheduleRepository {
 
     private final DynamoDbTable<Schedule> table;
+    private final DynamoDbTable<GroupScheduleParticipant> participantTable;
     private final DynamoDbIndex<Schedule> timeIndex;
     private final DynamoDbIndex<Schedule> groupTimeIndex;
 
     public ScheduleRepository(DynamoDbEnhancedClient client, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
         this.table = client.table(prefix + "main", TableSchema.fromBean(Schedule.class));
+        this.participantTable = client.table(prefix + "main", TableSchema.fromBean(GroupScheduleParticipant.class));
         this.timeIndex = table.index("GSI1");
         this.groupTimeIndex = table.index("GSI4");
     }
 
     public void save(Schedule schedule) {
         table.putItem(schedule);
+    }
+
+    public void saveParticipant(GroupScheduleParticipant participant) {
+        participantTable.putItem(participant);
+    }
+
+    public List<GroupScheduleParticipant> findParticipantsByGroupScheduleId(String groupScheduleId) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.sortBeginsWith(
+                        k -> k.partitionValue("GROUP_SCHEDULE#" + groupScheduleId).sortValue("PARTICIPANT#")
+                ))
+                .build();
+        return participantTable.query(request).stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
     }
 
     public Optional<Schedule> findByUserIdAndScheduleId(String userId, String scheduleId) {
@@ -124,6 +142,14 @@ public class ScheduleRepository {
                 .sortValue("SCHEDULE#" + scheduleId)
                 .build();
         table.deleteItem(key);
+    }
+
+    public void deleteParticipant(String groupScheduleId, String userId) {
+        var key = Key.builder()
+                .partitionValue("GROUP_SCHEDULE#" + groupScheduleId)
+                .sortValue("PARTICIPANT#" + userId)
+                .build();
+        participantTable.deleteItem(key);
     }
 
     // ── DynamoDB key ↔ Cursor 변환 ──

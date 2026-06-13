@@ -15,6 +15,10 @@ import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +49,7 @@ class CommunityServiceTest {
     @Mock private ProfileRepository profileRepository;
     @Mock private GroupRepository groupRepository;
     @Mock private CursorCodec cursorCodec;
+    @Mock private StorageService storageService;
     @InjectMocks private CommunityService service;
 
     @BeforeEach
@@ -188,6 +193,28 @@ class CommunityServiceTest {
 
         assertThatThrownBy(() -> service.updatePost("user1", "p1", req))
                 .isInstanceOf(CommunityException.class);
+    }
+
+    @Test
+    @DisplayName("updateGroupPost — 모임 글 이미지를 연결한다")
+    void updateGroupPost_attachesImage() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(groupPost("user1")));
+        when(storageService.attachImageToTarget("user1", "img1", ImagePurpose.GROUP_POST, "p1"))
+                .thenReturn(ImageUpload.builder()
+                        .imageId("img1")
+                        .status(ImageStatus.PROCESSING.name())
+                        .uploadKey("upload/group-post/user1/img1/original.webp")
+                        .build());
+
+        CommunityPostUpdateReqDTO req = new CommunityPostUpdateReqDTO();
+        req.setImageId("img1");
+
+        CommunityPostResDTO result = service.updateGroupPost("user1", "group1", "p1", req);
+
+        ArgumentCaptor<CommunityPost> captor = ArgumentCaptor.forClass(CommunityPost.class);
+        verify(repository).savePost(captor.capture());
+        assertThat(result.getImageId()).isEqualTo("img1");
+        assertThat(captor.getValue().getImageStatus()).isEqualTo("PROCESSING");
     }
 
     @Test

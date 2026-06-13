@@ -16,6 +16,9 @@ function mapResponse(r: ScheduleResponse): Schedule {
     isCompleted: r.isCompleted,
     hasAlarm: r.hasAlarm,
     groupId: r.groupId,
+    groupScheduleId: r.groupScheduleId,
+    groupScheduleCreatedBy: r.groupScheduleCreatedBy,
+    groupScheduleOwner: r.groupScheduleOwner,
     imageUrl: r.imageUrl,
     imageId: r.imageId,
     imageStatus: r.imageStatus,
@@ -69,6 +72,14 @@ export function useDeleteSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => scheduleApi.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
+  });
+}
+
+export function useLeaveGroupSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => scheduleApi.leaveParticipation(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
   });
 }

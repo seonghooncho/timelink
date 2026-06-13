@@ -3,6 +3,8 @@ package com.planner.domain.schedule.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class ScheduleCreateReqDTO {
     @NotBlank private String title;
@@ -13,6 +15,7 @@ public class ScheduleCreateReqDTO {
     private Double duration;
     private Boolean hasAlarm = false;
     private String groupId;
+    private List<String> participantUserIds;
     private String imageUrl;
     private String imageId;
 }

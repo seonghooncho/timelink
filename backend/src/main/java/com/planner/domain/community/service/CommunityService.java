@@ -17,6 +17,10 @@ import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
+import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
@@ -38,6 +42,7 @@ public class CommunityService {
     private final ProfileRepository profileRepository;
     private final GroupRepository groupRepository;
     private final CursorCodec cursorCodec;
+    private final StorageService storageService;
 
     public CursorPageResult<CommunityPostResDTO> getPosts(String userId, Integer limit, String cursorToken) {
         int size = resolveLimit(limit);
@@ -295,9 +300,36 @@ public class CommunityService {
             validateText(req.getContent());
             post.setContent(req.getContent().trim());
         }
+        applyPostImage(userId, post, req.getImageId());
         post.setUpdatedAt(Instant.now().toString());
         repository.savePost(post);
         return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId));
+    }
+
+    private void applyPostImage(String userId, CommunityPost post, String imageId) {
+        if (imageId == null) {
+            return;
+        }
+        if (!StringUtils.hasText(imageId)) {
+            post.setImageId(null);
+            post.setImageStatus(null);
+            post.setImageUploadKey(null);
+            post.setImageObjectKey(null);
+            post.setImageUrl(null);
+            return;
+        }
+        if (!StringUtils.hasText(post.getGroupId())) {
+            throw new CommunityException(CommunityErrorCode.INVALID_POST_IMAGE);
+        }
+
+        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, ImagePurpose.GROUP_POST, post.getId());
+        post.setImageId(upload.getImageId());
+        post.setImageStatus(upload.getStatus());
+        post.setImageUploadKey(upload.getUploadKey());
+        post.setImageObjectKey(upload.getPublicKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
+            post.setImageUrl(upload.getPublicUrl());
+        }
     }
 
     private void requirePostVisible(CommunityPost post, String userId) {

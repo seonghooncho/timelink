@@ -24,6 +24,8 @@ const PURPOSE_PREFIX = {
   MEMBER: 'member',
   GROUP: 'group',
   SCHEDULE: 'schedule',
+  GROUP_INTRO: 'group-intro',
+  GROUP_POST: 'group-post',
 };
 
 const ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -250,6 +252,12 @@ function getTargetKey(purpose, targetId, ownerUserId) {
     return {
       PK: { S: `USER#${ownerUserId}` },
       SK: { S: `SCHEDULE#${targetId}` },
+    };
+  }
+  if (purpose === 'GROUP_POST') {
+    return {
+      PK: { S: `POST#${targetId}` },
+      SK: { S: 'METADATA' },
     };
   }
   return null;

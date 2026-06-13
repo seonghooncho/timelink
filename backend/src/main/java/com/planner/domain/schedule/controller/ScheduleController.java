@@ -78,4 +78,11 @@ public class ScheduleController {
         service.delete(userId, id);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{id}/participation")
+    public ResponseEntity<Void> leaveParticipation(@PathVariable String id) {
+        String userId = AuthUtil.getCurrentUserId();
+        service.leaveGroupSchedule(userId, id);
+        return ResponseEntity.noContent().build();
+    }
 }

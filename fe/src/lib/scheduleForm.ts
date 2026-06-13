@@ -19,6 +19,7 @@ export interface ScheduleFormValues {
   duration: string;
   hasAlarm: boolean;
   groupId?: string;
+  participantUserIds?: string[];
 }
 
 export type ScheduleFormResult =
@@ -151,6 +152,7 @@ export const buildScheduleCreateRequest = (values: ScheduleFormValues): Schedule
       duration: parsedDuration.duration,
       hasAlarm: values.hasAlarm,
       groupId: values.category === 'group' ? values.groupId : undefined,
+      participantUserIds: values.category === 'group' ? values.participantUserIds : undefined,
     },
   };
 };

@@ -80,6 +80,22 @@ function renderPage() {
   );
 }
 
+function makeGroupSchedule(overrides: Record<string, unknown>) {
+  return {
+    id: 'schedule-1',
+    title: '모임 일정',
+    content: '',
+    category: 'group',
+    isImportant: false,
+    startTime: new Date(Date.now() + 86_400_000).toISOString(),
+    duration: 1,
+    isCompleted: false,
+    hasAlarm: false,
+    groupId: 'group-1',
+    ...overrides,
+  };
+}
+
 describe('GroupDetailPage group posts', () => {
   beforeEach(() => {
     mocks.setSelectedSchedule.mockReset();
@@ -142,31 +158,24 @@ describe('GroupDetailPage group posts', () => {
     mocks.getCoordinationPage.mockResolvedValue({ data: [], meta: { perPage: 10, nextCursor: null } });
   });
 
-  it('hides the meetup schedule section when no upcoming schedule exists', async () => {
+  it('shows compact empty schedule and coordination sections', async () => {
     renderPage();
 
-    expect(await screen.findByText('모임 게시판')).toBeInTheDocument();
+    expect(await screen.findByText('모임 글')).toBeInTheDocument();
     expect(screen.getByText('스터디')).toBeInTheDocument();
     expect(screen.getByText('주간 스터디')).toBeInTheDocument();
     expect(screen.queryByText('나의 모임')).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /확정 일정/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '일정(0개)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '시간 조율(0개)' })).toBeInTheDocument();
   });
 
   it('shows upcoming schedules and active coordinations as horizontal sections', async () => {
     const futureStart = new Date(Date.now() + 86_400_000).toISOString();
     mocks.useSchedules.mockReturnValue({
-      data: [{
-        id: 'schedule-1',
+      data: [makeGroupSchedule({
         title: '정기 스터디',
-        content: '',
-        category: 'group',
-        isImportant: false,
         startTime: futureStart,
-        duration: 1,
-        isCompleted: false,
-        hasAlarm: false,
-        groupId: 'group-1',
-      }],
+      })],
       fetchNextPage: vi.fn(),
       hasNextPage: false,
       isFetchingNextPage: false,
@@ -189,9 +198,89 @@ describe('GroupDetailPage group posts', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: /확정 일정/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /일정\(1개\)/ })).toBeInTheDocument();
     expect(screen.getByText('정기 스터디')).toBeInTheDocument();
     expect(await screen.findByText('회식 시간 조율')).toBeInTheDocument();
+  });
+
+  it('hides past group schedules by default and reveals them with the past toggle', async () => {
+    const pastStart = new Date(Date.now() - 86_400_000).toISOString();
+    const futureStart = new Date(Date.now() + 86_400_000).toISOString();
+    mocks.useSchedules.mockReturnValue({
+      data: [
+        makeGroupSchedule({ id: 'schedule-past', title: '지난 약속', startTime: pastStart }),
+        makeGroupSchedule({ id: 'schedule-future', title: '예정 약속', startTime: futureStart }),
+      ],
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: '일정(1개)' })).toBeInTheDocument();
+    expect(screen.getByText('예정 약속')).toBeInTheDocument();
+    expect(screen.queryByText('지난 약속')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '지난 약속 보기' }));
+
+    expect(screen.getByRole('heading', { name: '일정(2개)' })).toBeInTheDocument();
+    expect(screen.getByText('지난 약속')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지난 약속 숨기기' })).toBeInTheDocument();
+  });
+
+  it('loads closed coordinations only after the closed coordination toggle is selected', async () => {
+    mocks.getCoordinationPage.mockImplementation((_groupId: string, params?: { status?: string }) => {
+      if (params?.status === 'closed') {
+        return Promise.resolve({
+          data: [{
+            id: 'coord-closed',
+            title: '닫힌 조율',
+            mode: 'one_time',
+            dates: ['2026-06-14'],
+            startHour: 18,
+            endHour: 22,
+            status: 'closed',
+            responseCount: 4,
+            createdBy: 'user-1',
+            createdAt: '2026-06-13T00:00:00Z',
+          }],
+          meta: { perPage: 10, nextCursor: null },
+        });
+      }
+
+      return Promise.resolve({
+        data: [{
+          id: 'coord-active',
+          title: '진행 중 조율',
+          mode: 'one_time',
+          dates: ['2026-06-14'],
+          startHour: 18,
+          endHour: 22,
+          status: 'active',
+          responseCount: 2,
+          createdBy: 'user-1',
+          createdAt: '2026-06-13T00:00:00Z',
+        }],
+        meta: { perPage: 10, nextCursor: null },
+      });
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('진행 중 조율')).toBeInTheDocument();
+    expect(mocks.getCoordinationPage).toHaveBeenLastCalledWith(
+      'group-1',
+      expect.objectContaining({ status: 'active', limit: 10 }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '닫힌 조율 보기' }));
+
+    expect(await screen.findByText('닫힌 조율')).toBeInTheDocument();
+    expect(mocks.getCoordinationPage).toHaveBeenLastCalledWith(
+      'group-1',
+      expect.objectContaining({ status: 'closed', limit: 10 }),
+    );
   });
 
   it('creates a group post from the group detail page', async () => {
@@ -200,7 +289,7 @@ describe('GroupDetailPage group posts', () => {
 
     renderPage();
 
-    await screen.findByText('모임 게시판');
+    await screen.findByText('모임 글');
     fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
     fireEvent.change(screen.getByPlaceholderText('게시물 제목'), { target: { value: '내일 준비물' } });
     fireEvent.change(screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.'), { target: { value: '노트북 챙겨오세요.' } });
@@ -209,6 +298,27 @@ describe('GroupDetailPage group posts', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({
       title: '내일 준비물',
       content: '노트북 챙겨오세요.',
+      memberOnly: false,
+    }));
+  });
+
+  it('creates a member-only group post when the visibility toggle is selected', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: 'post-new' });
+    mocks.useCreateGroupPost.mockReturnValue({ mutateAsync, isPending: false });
+
+    renderPage();
+
+    await screen.findByText('모임 글');
+    fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
+    fireEvent.change(screen.getByPlaceholderText('게시물 제목'), { target: { value: '멤버 공지' } });
+    fireEvent.change(screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.'), { target: { value: '멤버에게만 공유합니다.' } });
+    fireEvent.click(screen.getByRole('button', { name: /모임에만 게시하기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '게시물 등록' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({
+      title: '멤버 공지',
+      content: '멤버에게만 공유합니다.',
+      memberOnly: true,
     }));
   });
 

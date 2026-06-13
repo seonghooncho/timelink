@@ -10,6 +10,7 @@ import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.error.ScheduleErrorCode;
 import com.planner.domain.schedule.error.ScheduleException;
+import com.planner.domain.schedule.model.GroupScheduleParticipant;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
 import com.planner.global.cursor.CursorPageResult;
@@ -28,6 +29,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class ScheduleServiceTest {
@@ -169,11 +172,60 @@ class ScheduleServiceTest {
                     .createGroupScheduleNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
                     .createGroupScheduleNotification(eq(USER_ID), any(Schedule.class));
-            then(repository).should().save(argThat(schedule ->
+            then(repository).should(atLeastOnce()).save(argThat(schedule ->
                     "GROUP#g1".equals(schedule.getGsi4pk())
                             && schedule.getGsi4sk() != null
                             && schedule.getGsi4sk().startsWith("START#2025-03-10T09:00:00Z#SCHEDULE#")
             ));
+        }
+
+        @Test
+        @DisplayName("그룹 일정 참여자를 선택하면 생성자는 자동 포함하고 선택 멤버에게만 알림을 보낸다")
+        void shouldCreateGroupScheduleForSelectedParticipantsAndCreator() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("선택 회의");
+            req.setCategory("group");
+            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setDuration(1.0);
+            req.setGroupId("g1");
+            req.setParticipantUserIds(List.of("member-2"));
+
+            given(groupRepository.findMembersByGroupId("g1")).willReturn(List.of(
+                    sampleMember("g1", USER_ID),
+                    sampleMember("g1", "member-2"),
+                    sampleMember("g1", "member-3")
+            ));
+
+            ScheduleResDTO result = service.create(USER_ID, req);
+
+            assertThat(result.getGroupScheduleId()).isNotBlank();
+            assertThat(result.getGroupScheduleOwner()).isTrue();
+            then(repository).should(times(2)).save(any(Schedule.class));
+            then(repository).should(times(2)).saveParticipant(any(GroupScheduleParticipant.class));
+            then(notificationService).should()
+                    .createGroupScheduleNotification(eq("member-2"), any(Schedule.class));
+            then(notificationService).should(never())
+                    .createGroupScheduleNotification(eq("member-3"), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("그룹 일정 참여자에 그룹 멤버가 아닌 사용자가 있으면 예외를 던진다")
+        void shouldRejectInvalidGroupScheduleParticipant() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("선택 회의");
+            req.setCategory("group");
+            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setDuration(1.0);
+            req.setGroupId("g1");
+            req.setParticipantUserIds(List.of("outsider"));
+
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            assertThatThrownBy(() -> service.create(USER_ID, req))
+                    .isInstanceOf(ScheduleException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ScheduleErrorCode.INVALID_GROUP_SCHEDULE_PARTICIPANT);
         }
     }
 
@@ -351,6 +403,25 @@ class ScheduleServiceTest {
         }
 
         @Test
+        @DisplayName("그룹 일정 참여자는 표시 정보를 수정할 수 없다")
+        void shouldRejectDisplayUpdateByNonOwnerGroupScheduleParticipant() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            schedule.setGroupScheduleId("group-schedule-1");
+            schedule.setGroupScheduleCreatedBy("owner-user");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setTitle("수정 시도");
+
+            assertThatThrownBy(() -> service.update(USER_ID, "s1", req))
+                    .isInstanceOf(ScheduleException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ScheduleErrorCode.NOT_GROUP_SCHEDULE_OWNER);
+        }
+
+        @Test
         @DisplayName("존재하지 않는 일정 업데이트 시 예외를 던진다")
         void shouldThrowWhenNotFound() {
             given(repository.findByUserIdAndScheduleId(USER_ID, "invalid"))
@@ -393,6 +464,25 @@ class ScheduleServiceTest {
                     .createGroupScheduleDeletedNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
                     .createGroupScheduleDeletedNotification(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("그룹 일정 참여자가 삭제하면 자기 캘린더에서만 빠진다")
+        void shouldLeaveGroupScheduleWhenParticipantDeletes() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            schedule.setGroupScheduleId("group-schedule-1");
+            schedule.setGroupScheduleCreatedBy("owner-user");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            service.delete(USER_ID, "s1");
+
+            then(reminderSchedulingService).should().deleteScheduleJobs(USER_ID, "s1");
+            then(repository).should().delete(USER_ID, "s1");
+            then(repository).should().deleteParticipant("group-schedule-1", USER_ID);
+            then(notificationService).should(never())
+                    .createGroupScheduleDeletedNotification(anyString(), any(Schedule.class));
         }
 
         @Test

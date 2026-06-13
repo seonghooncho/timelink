@@ -2,11 +2,16 @@ package com.planner.domain.group.controller;
 
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupIntroNoticeDTO;
+import com.planner.domain.group.dto.GroupIntroPostDTO;
+import com.planner.domain.group.dto.GroupIntroResDTO;
+import com.planner.domain.group.dto.GroupIntroUpdateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupJoinReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.service.GroupService;
@@ -44,10 +49,11 @@ public class GroupController {
     @GetMapping("/public")
     public ResponseEntity<CustomResponse<List<GroupResDTO>>> getPublicGroups(
             @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) String cursor) {
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String q) {
         String userId = AuthUtil.getCurrentUserId();
         int size = resolveLimit(limit);
-        CursorPageResult<GroupResDTO> page = service.getPublicGroupsPaged(userId, size, cursor);
+        CursorPageResult<GroupResDTO> page = service.getPublicGroupsPaged(userId, size, cursor, q);
         CustomResponse.PageMeta meta = service.toPageMeta(page, size);
         return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
     }
@@ -63,6 +69,46 @@ public class GroupController {
     public ResponseEntity<CustomResponse<GroupDetailResDTO>> getDetail(@PathVariable String id) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.getDetail(userId, id)));
+    }
+
+    @GetMapping("/{id}/intro")
+    public ResponseEntity<CustomResponse<GroupIntroResDTO>> getIntro(@PathVariable String id) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.getIntro(userId, id)));
+    }
+
+    @GetMapping("/{id}/intro/posts")
+    public ResponseEntity<CustomResponse<List<GroupIntroPostDTO>>> getIntroPosts(
+            @PathVariable String id,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String cursor) {
+        String userId = AuthUtil.getCurrentUserId();
+        int size = limit != null && limit > 0 ? Math.min(limit, 20) : 3;
+        CursorPageResult<GroupIntroPostDTO> page = service.getIntroPosts(userId, id, size, cursor);
+        return ResponseEntity.ok(CustomResponse.ok(page.getItems(), service.toPageMeta(page, size)));
+    }
+
+    @PatchMapping("/{id}/intro")
+    public ResponseEntity<CustomResponse<GroupIntroResDTO>> updateIntro(
+            @PathVariable String id,
+            @Valid @RequestBody GroupIntroUpdateReqDTO req) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.updateIntro(userId, id, req)));
+    }
+
+    @PostMapping("/{id}/notices")
+    public ResponseEntity<CustomResponse<GroupIntroNoticeDTO>> createNotice(
+            @PathVariable String id,
+            @Valid @RequestBody GroupNoticeCreateReqDTO req) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(CustomResponse.ok(service.createNotice(userId, id, req)));
+    }
+
+    @GetMapping("/{id}/notices")
+    public ResponseEntity<CustomResponse<List<GroupIntroNoticeDTO>>> getNotices(@PathVariable String id) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.getNotices(userId, id)));
     }
 
     @PostMapping

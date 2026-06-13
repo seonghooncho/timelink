@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, ImageIcon, MessageCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CommunityPostResponse } from '@/services/api';
 import { formatRelativeTime } from '@/lib/relativeTime';
@@ -40,11 +40,32 @@ const PostListItem: React.FC<PostListItemProps> = ({
                 내 글
               </span>
             ) : null}
+            {post.memberOnly ? (
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                모임 공개
+              </span>
+            ) : null}
           </div>
           <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-foreground">{post.title}</h3>
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{post.content}</p>
         </div>
       </div>
+
+      {post.imageUrl ? (
+        <div className="mt-3 pl-12">
+          <img
+            src={post.imageUrl}
+            alt=""
+            className="h-36 w-full max-w-full rounded-xl object-cover"
+            loading="lazy"
+          />
+        </div>
+      ) : post.imageStatus === 'PROCESSING' ? (
+        <div className="ml-12 mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-3 text-[11px] font-semibold text-muted-foreground">
+          <ImageIcon className="h-4 w-4 shrink-0 text-primary" />
+          이미지 처리 중입니다
+        </div>
+      ) : null}
 
       {actions ? (
         <div className="mt-3">{actions}</div>

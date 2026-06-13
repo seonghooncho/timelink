@@ -92,7 +92,7 @@ export function useCreateCommunityPost() {
 export function useCreateGroupPost(groupId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; content: string }) => groupPostApi.createPost(groupId, data),
+    mutationFn: (data: { title: string; content: string; memberOnly?: boolean }) => groupPostApi.createPost(groupId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] });
     },
@@ -102,10 +102,22 @@ export function useCreateGroupPost(groupId: string) {
 export function useUpdateCommunityPost(postId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title?: string; content?: string }) => communityApi.updatePost(postId, data),
+    mutationFn: (data: { title?: string; content?: string; imageId?: string }) => communityApi.updatePost(postId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['community', 'posts'] });
       qc.invalidateQueries({ queryKey: ['community', 'posts', postId] });
+    },
+  });
+}
+
+export function useUpdateGroupPost(groupId: string, postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title?: string; content?: string; imageId?: string }) =>
+      groupPostApi.updatePost(groupId, postId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId] });
     },
   });
 }

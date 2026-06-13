@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, X } from 'lucide-react';
+import { LogOut, Trash2, X } from 'lucide-react';
 import { Schedule } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import DurationSelect from '@/components/common/DurationSelect';
@@ -15,9 +15,10 @@ interface ScheduleDetailModalProps {
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Schedule>) => void;
   onDelete?: (schedule: Schedule) => void;
+  onLeaveGroupSchedule?: (schedule: Schedule) => void;
 }
 
-const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, open, onClose, onUpdate, onDelete }) => {
+const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, open, onClose, onUpdate, onDelete, onLeaveGroupSchedule }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -30,6 +31,7 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
   }, [open, schedule?.id]);
 
   if (!schedule) return null;
+  const canEditSchedule = !schedule.groupScheduleId || schedule.groupScheduleOwner !== false;
 
   const handleEdit = () => {
     setEditTitle(schedule.title);
@@ -74,6 +76,10 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
 
   const handleDelete = () => {
     onDelete?.(schedule);
+  };
+
+  const handleLeaveGroupSchedule = () => {
+    onLeaveGroupSchedule?.(schedule);
   };
 
   return (
@@ -137,7 +143,18 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                 )}
 
                 <div className="mt-5 flex items-center gap-2">
-                  {onDelete ? (
+                  {!canEditSchedule ? (
+                    <button
+                      type="button"
+                      onClick={handleLeaveGroupSchedule}
+                      className="h-11 flex-1 rounded-2xl border border-destructive/20 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 pressable"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <LogOut className="h-3.5 w-3.5" />
+                        약속 빠지기
+                      </span>
+                    </button>
+                  ) : onDelete ? (
                     <button
                       type="button"
                       onClick={handleDelete}
@@ -147,13 +164,15 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                       일정 삭제
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={handleEdit}
-                    className="h-11 flex-1 rounded-2xl bg-muted text-sm font-semibold text-foreground transition-colors hover:bg-accent pressable"
-                  >
-                    수정하기
-                  </button>
+                  {canEditSchedule ? (
+                    <button
+                      type="button"
+                      onClick={handleEdit}
+                      className="h-11 flex-1 rounded-2xl bg-muted text-sm font-semibold text-foreground transition-colors hover:bg-accent pressable"
+                    >
+                      수정하기
+                    </button>
+                  ) : null}
                 </div>
               </>
             )}

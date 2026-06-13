@@ -3,6 +3,7 @@ package com.planner.domain.group.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupIntroResDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
@@ -113,13 +114,28 @@ class GroupControllerTest {
         GroupResDTO dto = GroupResDTO.builder()
                 .id("g1").name("Open Study").visibility("PUBLIC").memberCount(3).build();
         CursorPageResult<GroupResDTO> page = CursorPageResult.<GroupResDTO>builder().items(List.of(dto)).build();
-        when(service.getPublicGroupsPaged("user1", 20, null)).thenReturn(page);
+        when(service.getPublicGroupsPaged("user1", 20, null, null)).thenReturn(page);
         when(service.toPageMeta(page, 20))
                 .thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
 
         mockMvc.perform(get(BASE + "/public"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].visibility").value("PUBLIC"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/public — 검색어를 서비스로 전달한다")
+    void getPublicGroups_passesQuery() throws Exception {
+        CursorPageResult<GroupResDTO> page = CursorPageResult.<GroupResDTO>builder().items(List.of()).build();
+        when(service.getPublicGroupsPaged("user1", 20, null, "study")).thenReturn(page);
+        when(service.toPageMeta(page, 20))
+                .thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
+
+        mockMvc.perform(get(BASE + "/public").param("q", "study"))
+                .andExpect(status().isOk());
+
+        verify(service).getPublicGroupsPaged("user1", 20, null, "study");
     }
 
     @Test
@@ -144,6 +160,23 @@ class GroupControllerTest {
 
         mockMvc.perform(get(BASE + "/g1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/{id}/intro — 소개 조회 200")
+    void getIntro_returns200() throws Exception {
+        GroupIntroResDTO dto = GroupIntroResDTO.builder()
+                .id("g1")
+                .name("Open Study")
+                .memberCount(3)
+                .member(false)
+                .build();
+        when(service.getIntro("user1", "g1")).thenReturn(dto);
+
+        mockMvc.perform(get(BASE + "/g1/intro"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Open Study"));
     }
 
     @Test

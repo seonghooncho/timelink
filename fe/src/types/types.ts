@@ -13,6 +13,9 @@ export interface Schedule {
   isCompleted: boolean;
   hasAlarm: boolean;
   groupId?: string;
+  groupScheduleId?: string;
+  groupScheduleCreatedBy?: string;
+  groupScheduleOwner?: boolean;
   imageUrl?: string;
   imageId?: string;
   imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';

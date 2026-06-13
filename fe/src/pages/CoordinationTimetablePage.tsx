@@ -236,6 +236,8 @@ const CoordinationTimetablePage: React.FC = () => {
     navigate('/schedule/new', {
       state: {
         groupId,
+        coordinationId: coordId,
+        returnTo: `/groups/${groupId}`,
         title,
         content: '시간 조율 결과에서 생성한 그룹 일정입니다.',
         startDate: slot.date,

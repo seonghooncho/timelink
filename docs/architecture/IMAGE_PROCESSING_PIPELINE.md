@@ -12,14 +12,14 @@
 
 이미지 업로드는 프론트에서 crop을 완료한 뒤 S3 `upload/` prefix로 직접 올리고, S3 이벤트가 Lambda를 호출해 WebP 변환과 DB 상태 갱신을 수행하는 비동기 구조입니다.
 
-1. 사용자가 프로필, 그룹, 일정 이미지 파일을 선택합니다.
+1. 사용자가 프로필, 그룹, 일정, 모임 소개, 모임 글 이미지 파일을 선택합니다.
 2. 프론트가 15MB 이하와 허용 확장자 `jpg`, `jpeg`, `png`, `webp`를 먼저 검증합니다.
 3. 프론트가 crop/position 조정 UI에서 최종 업로드 이미지를 만듭니다.
 4. 백엔드가 이미지 목적과 크기, 타입을 검증하고 presigned PUT URL을 발급합니다.
 5. 프론트가 결과 이미지를 S3 `upload/{purpose}/{userId}/{imageId}/original.{ext}`에 직접 업로드합니다.
 6. 백엔드는 이미지 레코드를 `PROCESSING` 상태로 저장하고 대상 엔티티에 `imageId`, `imageStatus`를 연결합니다.
 7. S3 `upload/` object-created 이벤트가 image processor Lambda를 실행합니다.
-8. Lambda가 원본을 읽어 WebP로 변환하고 `public/member/`, `public/group/`, `public/schedule/` 중 목적에 맞는 prefix에 저장합니다.
+8. Lambda가 원본을 읽어 WebP로 변환하고 `public/member/`, `public/group/`, `public/schedule/`, `public/group-intro/`, `public/group-post/` 중 목적에 맞는 prefix에 저장합니다.
 9. Lambda가 DynamoDB 이미지 레코드와 대상 엔티티를 `COMPLETED` 상태, 최종 WebP URL/key로 갱신합니다.
 10. 변환 전 UI는 처리 중 placeholder를 보여주고, 변환 완료 후 최종 WebP 이미지를 표시합니다.
 
@@ -66,7 +66,7 @@ Timelink는 업로드 후 화면을 막지 않는 흐름이 더 중요하므로 
 
 - API Lambda가 큰 파일을 직접 받지 않아 일반 API 응답 안정성이 높습니다.
 - 최종 공개 이미지를 WebP로 통일해 전송량과 로딩 비용을 줄일 수 있습니다.
-- `member`, `group`, `schedule` 목적별 prefix가 분리되어 운영 조회와 정리가 쉽습니다.
+- `member`, `group`, `schedule`, `group-intro`, `group-post` 목적별 prefix가 분리되어 운영 조회와 정리가 쉽습니다.
 - `upload/` 원본은 lifecycle로 자동 정리되어 임시 파일이 계속 쌓이는 문제를 줄입니다.
 - 처리 상태를 DB에 남기므로 UI에서 처리 중, 실패, 완료 상태를 명확히 표현할 수 있습니다.
 

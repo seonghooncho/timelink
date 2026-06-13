@@ -8,7 +8,9 @@ import java.util.Locale;
 public enum ImagePurpose {
     MEMBER("member"),
     GROUP("group"),
-    SCHEDULE("schedule");
+    SCHEDULE("schedule"),
+    GROUP_INTRO("group-intro"),
+    GROUP_POST("group-post");
 
     private final String prefix;
 

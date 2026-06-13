@@ -10,4 +10,6 @@ public class CommunityPostUpdateReqDTO {
 
     @Size(max = 2000)
     private String content;
+
+    private String imageId;
 }
