@@ -163,9 +163,9 @@ describe('GroupDetailPage group posts', () => {
 
     expect(await screen.findByText('모임 글')).toBeInTheDocument();
     expect(screen.getByText('스터디')).toBeInTheDocument();
-    expect(screen.getByText('주간 스터디')).toBeInTheDocument();
+    expect(screen.queryByText('주간 스터디')).not.toBeInTheDocument();
     expect(screen.queryByText('나의 모임')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '일정(0개)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '약속(0개)' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '시간 조율(0개)' })).toBeInTheDocument();
   });
 
@@ -198,7 +198,7 @@ describe('GroupDetailPage group posts', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: /일정\(1개\)/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /약속\(1개\)/ })).toBeInTheDocument();
     expect(screen.getByText('정기 스터디')).toBeInTheDocument();
     expect(await screen.findByText('회식 시간 조율')).toBeInTheDocument();
   });
@@ -218,15 +218,31 @@ describe('GroupDetailPage group posts', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: '일정(1개)' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '약속(1개)' })).toBeInTheDocument();
     expect(screen.getByText('예정 약속')).toBeInTheDocument();
     expect(screen.queryByText('지난 약속')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '지난 약속 보기' }));
 
-    expect(screen.getByRole('heading', { name: '일정(2개)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '약속(2개)' })).toBeInTheDocument();
     expect(screen.getByText('지난 약속')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지난 약속 숨기기' })).toBeInTheDocument();
+  });
+
+  it('opens the role based member panel from the header member count', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /멤버 관리 열기, 1명/ }));
+
+    expect(screen.getByText('멤버 관리')).toBeInTheDocument();
+  });
+
+  it('shows the meetup intro action in the header menu', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '모임 메뉴 열기' }));
+
+    expect(screen.getByRole('button', { name: '모임 소개' })).toBeInTheDocument();
   });
 
   it('loads closed coordinations only after the closed coordination toggle is selected', async () => {

@@ -100,6 +100,7 @@ describe('ScheduleFormPage coordination flow', () => {
     renderPage();
 
     expect(await screen.findByText('민지')).toBeInTheDocument();
+    expect(screen.getAllByText('모임').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: '등록하기' }));
 
     await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
@@ -118,5 +119,20 @@ describe('ScheduleFormPage coordination flow', () => {
       { status: 'closed' },
     ));
     expect(await screen.findByText('모임 상세')).toBeInTheDocument();
+  });
+
+  it('toggles all participants off before submitting a meetup schedule', async () => {
+    renderPage();
+
+    expect(await screen.findByText('민지')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '전체해제' }));
+    expect(screen.getByText('0명 선택')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '등록하기' }));
+
+    await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
+      category: 'group',
+      groupId: 'group-1',
+      participantUserIds: [],
+    })));
   });
 });

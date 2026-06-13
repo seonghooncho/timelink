@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, CalendarClock, ChevronRight, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { Bell, CalendarClock, ChevronRight, Clock3, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import GroupAvatar from '@/components/common/GroupAvatar';
@@ -173,12 +173,12 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
   }
 
   return (
-    <div className="mt-4 space-y-2.5">
+    <div className="mt-4 border-y border-border/60">
       {groups.map(group => (
         <button
           key={group.id}
           onClick={() => onOpen(group.id)}
-          className="w-full rounded-2xl bg-card p-4 text-left shadow-soft transition-all pressable hover:shadow-card"
+          className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
         >
           <div className="flex items-center gap-4">
             <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
@@ -197,13 +197,35 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
           </div>
 
           {group.nextSchedule ? (
-            <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5">
-              <CalendarClock className="h-4 w-4 shrink-0 text-primary" />
+            <div className="relative ml-[3.75rem] mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5">
+              {(group.upcomingScheduleCount ?? 0) > 1 ? (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-category-group text-[10px] font-black leading-none text-white shadow-sm">
+                  +
+                </span>
+              ) : null}
+              <CalendarClock className="h-4 w-4 shrink-0 text-category-group" />
               <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
                 {group.nextSchedule.title}
               </p>
-              <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-primary">
+              <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-category-group">
                 {formatDday(group.nextSchedule.startTime)}
+              </span>
+            </div>
+          ) : group.activeCoordination ? (
+            <div className="ml-[3.75rem] mt-3 flex items-center gap-2 rounded-xl bg-coord-green/5 px-3 py-2.5">
+              <Clock3 className="h-4 w-4 shrink-0 text-coord-green" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {group.activeCoordination.title}
+                </p>
+                {group.activeCoordination.description ? (
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                    {group.activeCoordination.description}
+                  </p>
+                ) : null}
+              </div>
+              <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-coord-green">
+                조율 중
               </span>
             </div>
           ) : null}
@@ -215,7 +237,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
           type="button"
           onClick={onLoadMore}
           disabled={isFetchingNextPage}
-          className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="w-full border-t border-border/60 py-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           {isFetchingNextPage ? '불러오는 중...' : '모임 더보기'}
         </button>
@@ -223,7 +245,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
         <button
           type="button"
           onClick={onDiscover}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
+          className="flex w-full items-center justify-center gap-2 border-t border-dashed border-primary/35 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
         >
           더 둘러보기
           <ChevronRight className="h-4 w-4" />
@@ -261,9 +283,9 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
   onQueryChange,
 }) => (
   <div className="mt-4">
-    <section className="rounded-2xl border border-border bg-card p-4">
+    <section className="border-b border-border/60 pb-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center text-primary">
           <Search className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -272,7 +294,7 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
             <button
               type="button"
               onClick={onToggleSearch}
-              className="shrink-0 rounded-xl border border-border bg-background p-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="shrink-0 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={showSearch ? '모임 검색 닫기' : '모임 검색 열기'}
             >
               {showSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
@@ -297,13 +319,13 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
       </div>
     </section>
 
-    <div className="mt-4 space-y-2.5">
+    <div className="mt-4">
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border px-5 py-14 text-center">
+        <div className="flex flex-col items-center justify-center px-5 py-14 text-center">
           <Users className="h-8 w-8 text-muted-foreground" />
           <h3 className="mt-4 text-sm font-bold text-foreground">
             {query.trim() ? '검색된 모임이 없습니다' : '아직 공개 모임이 없습니다'}
@@ -322,33 +344,37 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
           ) : null}
         </div>
       ) : (
-        groups.map((group) => (
-          <article key={group.id} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-            <div className="flex items-start gap-3">
-              <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-sm font-bold text-foreground">{group.name}</h3>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">멤버 {group.memberCount ?? 0}명</p>
-                  </div>
-                </div>
-                {group.description ? (
-                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{group.description}</p>
-                ) : null}
-              </div>
-            </div>
-
+        <div className="border-y border-border/60">
+          {groups.map((group) => (
             <button
+              key={group.id}
               type="button"
               onClick={() => onAction(group)}
-              className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border border-border bg-background py-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+              className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
             >
-              {getDiscoverActionLabel(group)}
-              <ChevronRight className="h-3.5 w-3.5" />
+              <div className="flex items-start gap-3">
+                <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-bold text-foreground">{group.name}</h3>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">멤버 {group.memberCount ?? 0}명</p>
+                    </div>
+                    {group.joinRequestStatus === 'PENDING' ? (
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        요청 완료
+                      </span>
+                    ) : null}
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" />
+                  </div>
+                  {group.description ? (
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{group.description}</p>
+                  ) : null}
+                </div>
+              </div>
             </button>
-          </article>
-        ))
+          ))}
+        </div>
       )}
 
       {!isLoading && hasNextPage ? (
@@ -356,7 +382,7 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
           type="button"
           onClick={onLoadMore}
           disabled={isFetchingNextPage}
-          className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="w-full border-b border-border/60 py-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           {isFetchingNextPage ? '불러오는 중...' : '공개 모임 더보기'}
         </button>
@@ -364,11 +390,6 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
     </div>
   </div>
 );
-
-const getDiscoverActionLabel = (group: Group) => {
-  if (group.joinRequestStatus === 'PENDING') return '요청 완료';
-  return '소개 보기';
-};
 
 const formatDday = (startTime: string) => {
   const target = new Date(startTime);

@@ -48,10 +48,13 @@ public class CoordinationService {
         validateCreateRequest(req);
 
         String coordId = UUID.randomUUID().toString();
+        String description = StringUtils.hasText(req.getDescription()) ? req.getDescription().trim() : null;
         Coordination coord = Coordination.builder()
                 .pk("GROUP#" + groupId).sk("COORD#" + coordId)
                 .id(coordId).groupId(groupId).createdBy(userId)
-                .title(req.getTitle()).mode(req.getMode())
+                .title(req.getTitle().trim())
+                .description(description)
+                .mode(req.getMode())
                 .dates(req.getDates()).startHour(req.getStartHour()).endHour(req.getEndHour())
                 .responseCount(0)
                 .status("active").createdAt(Instant.now().toString())

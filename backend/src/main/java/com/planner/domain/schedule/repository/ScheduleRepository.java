@@ -121,19 +121,23 @@ public class ScheduleRepository {
     }
 
     public Optional<Schedule> findNextByGroupId(String groupId, String fromStartTime) {
+        return findUpcomingByGroupId(groupId, fromStartTime, 1).stream().findFirst();
+    }
+
+    public List<Schedule> findUpcomingByGroupId(String groupId, String fromStartTime, int limit) {
         var request = QueryEnhancedRequest.builder()
                 .queryConditional(QueryConditional.sortGreaterThanOrEqualTo(
                         k -> k.partitionValue("GROUP#" + groupId).sortValue("START#" + fromStartTime)
                 ))
                 .scanIndexForward(true)
-                .limit(1)
+                .limit(Math.max(1, limit))
                 .build();
 
         Iterator<Page<Schedule>> pages = groupTimeIndex.query(request).iterator();
         if (!pages.hasNext()) {
-            return Optional.empty();
+            return List.of();
         }
-        return pages.next().items().stream().findFirst();
+        return pages.next().items();
     }
 
     public void delete(String userId, String scheduleId) {

@@ -80,7 +80,7 @@ describe('getCategoryLabel', () => {
   it('returns correct Korean labels', () => {
     expect(getCategoryLabel('task')).toBe('과제');
     expect(getCategoryLabel('appointment')).toBe('약속');
-    expect(getCategoryLabel('group')).toBe('그룹');
+    expect(getCategoryLabel('group')).toBe('모임');
     expect(getCategoryLabel('important')).toBe('중요');
     expect(getCategoryLabel('repeat')).toBe('반복');
   });

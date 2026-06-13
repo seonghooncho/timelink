@@ -1,14 +1,15 @@
 package com.planner.domain.schedule.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
 public class ScheduleCreateReqDTO {
-    @NotBlank private String title;
-    private String content;
+    @NotBlank @Size(max = 80) private String title;
+    @Size(max = 1000) private String content;
     @NotBlank private String category;
     private Boolean isImportant = false;
     @NotBlank private String startTime;

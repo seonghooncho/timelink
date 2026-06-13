@@ -209,6 +209,30 @@ class ScheduleServiceTest {
         }
 
         @Test
+        @DisplayName("그룹 일정 참여자 목록이 비어 있으면 생성자만 자동 포함한다")
+        void shouldCreateGroupScheduleOnlyForCreatorWhenParticipantListEmpty() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("나만 참석");
+            req.setCategory("group");
+            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setDuration(1.0);
+            req.setGroupId("g1");
+            req.setParticipantUserIds(List.of());
+
+            given(groupRepository.findMembersByGroupId("g1")).willReturn(List.of(
+                    sampleMember("g1", USER_ID),
+                    sampleMember("g1", "member-2")
+            ));
+
+            service.create(USER_ID, req);
+
+            then(repository).should(times(1)).save(any(Schedule.class));
+            then(repository).should(times(1)).saveParticipant(any(GroupScheduleParticipant.class));
+            then(notificationService).should(never())
+                    .createGroupScheduleNotification(eq("member-2"), any(Schedule.class));
+        }
+
+        @Test
         @DisplayName("그룹 일정 참여자에 그룹 멤버가 아닌 사용자가 있으면 예외를 던진다")
         void shouldRejectInvalidGroupScheduleParticipant() {
             ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();

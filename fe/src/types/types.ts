@@ -39,5 +39,18 @@ export interface Group {
     startTime: string;
     duration?: number;
   } | null;
+  upcomingScheduleCount?: number;
+  activeCoordination?: {
+    id: string;
+    title: string;
+    description?: string;
+    mode: string;
+    dates: string[];
+    startHour: number;
+    endHour: number;
+    status: string;
+    responseCount: number;
+    createdAt: string;
+  } | null;
   schedules: Schedule[];
 }

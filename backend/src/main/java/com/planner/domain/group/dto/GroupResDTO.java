@@ -18,5 +18,7 @@ public class GroupResDTO {
     private String myRole;
     private String joinRequestStatus;
     private GroupScheduleSummaryDTO nextSchedule;
+    private int upcomingScheduleCount;
+    private GroupCoordinationSummaryDTO activeCoordination;
     private String createdAt;
 }

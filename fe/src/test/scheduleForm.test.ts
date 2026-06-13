@@ -5,6 +5,8 @@ import {
   HALF_HOUR_TIME_OPTIONS,
   isHalfHourTime,
   normalizeTimeToHalfHour,
+  SCHEDULE_CONTENT_MAX_LENGTH,
+  SCHEDULE_TITLE_MAX_LENGTH,
   SCHEDULE_TIME_STEP_SECONDS,
   ScheduleFormValues,
 } from '@/lib/scheduleForm';
@@ -56,6 +58,17 @@ describe('Schedule form logic', () => {
     expect(buildScheduleCreateRequest(makeValues({ startTime: '' }))).toMatchObject({
       ok: false,
       message: '시작 시간을 선택해주세요',
+    });
+  });
+
+  it('rejects overly long title and content', () => {
+    expect(buildScheduleCreateRequest(makeValues({ title: '가'.repeat(SCHEDULE_TITLE_MAX_LENGTH + 1) }))).toMatchObject({
+      ok: false,
+      message: '제목이 너무 깁니다',
+    });
+    expect(buildScheduleCreateRequest(makeValues({ content: '나'.repeat(SCHEDULE_CONTENT_MAX_LENGTH + 1) }))).toMatchObject({
+      ok: false,
+      message: '내용이 너무 깁니다',
     });
   });
 

@@ -2,11 +2,14 @@ package com.planner.domain.group.service;
 
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
+import com.planner.domain.coordination.model.Coordination;
+import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupIntroResDTO;
+import com.planner.domain.group.dto.GroupIntroUpdateReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
@@ -51,6 +54,7 @@ class GroupServiceTest {
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ImageUploadRepository imageUploadRepository;
     @Mock private CommunityRepository communityRepository;
+    @Mock private CoordinationRepository coordinationRepository;
     @InjectMocks private GroupService service;
 
     @BeforeEach
@@ -58,7 +62,9 @@ class GroupServiceTest {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
         lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
         lenient().when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(true);
-        lenient().when(scheduleRepository.findNextByGroupId(anyString(), anyString())).thenReturn(Optional.empty());
+        lenient().when(scheduleRepository.findUpcomingByGroupId(anyString(), anyString(), anyInt())).thenReturn(List.of());
+        lenient().when(coordinationRepository.findByGroupIdPaged(anyString(), anyInt(), isNull()))
+                .thenReturn(CursorPageResult.<Coordination>builder().items(List.of()).build());
     }
 
     private Group sampleGroup(String groupId, String createdBy) {
@@ -190,12 +196,67 @@ class GroupServiceTest {
                 .build();
         when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
         when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
-        when(scheduleRepository.findNextByGroupId(eq("g1"), anyString())).thenReturn(Optional.of(schedule));
+        when(scheduleRepository.findUpcomingByGroupId(eq("g1"), anyString(), anyInt())).thenReturn(List.of(schedule));
 
         List<GroupResDTO> result = service.getMyGroups("user1");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNextSchedule().getTitle()).isEqualTo("주말 회고");
+        assertThat(result.get(0).getUpcomingScheduleCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("getMyGroups — 예정 일정이 여러 개면 요약 개수를 반환한다")
+    void getMyGroups_returnsUpcomingScheduleCount() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        Schedule first = Schedule.builder()
+                .id("s1")
+                .title("첫 일정")
+                .startTime("2026-06-20T10:00:00")
+                .duration(1.0)
+                .build();
+        Schedule second = Schedule.builder()
+                .id("s2")
+                .title("다음 일정")
+                .startTime("2026-06-21T10:00:00")
+                .duration(1.0)
+                .build();
+        when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
+        when(scheduleRepository.findUpcomingByGroupId(eq("g1"), anyString(), anyInt())).thenReturn(List.of(first, second));
+
+        List<GroupResDTO> result = service.getMyGroups("user1");
+
+        assertThat(result.get(0).getNextSchedule().getTitle()).isEqualTo("첫 일정");
+        assertThat(result.get(0).getUpcomingScheduleCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("getMyGroups — 예정 일정이 없으면 진행 중인 시간 조율을 요약한다")
+    void getMyGroups_returnsActiveCoordinationWhenNoSchedule() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        Coordination coordination = Coordination.builder()
+                .id("c1")
+                .title("이번 주 모임 시간")
+                .description("가능한 시간을 남겨주세요")
+                .mode("once")
+                .dates(List.of("2026-06-20"))
+                .startHour(9)
+                .endHour(18)
+                .status("active")
+                .responseCount(3)
+                .createdAt("2026-06-13T00:00:00Z")
+                .build();
+        when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
+        when(coordinationRepository.findByGroupIdPaged(eq("g1"), anyInt(), isNull()))
+                .thenReturn(CursorPageResult.<Coordination>builder().items(List.of(coordination)).build());
+
+        List<GroupResDTO> result = service.getMyGroups("user1");
+
+        assertThat(result.get(0).getNextSchedule()).isNull();
+        assertThat(result.get(0).getActiveCoordination().getTitle()).isEqualTo("이번 주 모임 시간");
+        assertThat(result.get(0).getActiveCoordination().getDescription()).isEqualTo("가능한 시간을 남겨주세요");
     }
 
     @Test
@@ -260,6 +321,7 @@ class GroupServiceTest {
     @DisplayName("getIntro — 공개 모임은 미가입자에게 소개와 글 미리보기를 반환한다")
     void getIntro_publicGroup_returnsPreviewForNonMember() {
         Group group = samplePublicGroup("g1", "manager");
+        group.setDescription("천천히 함께 달립니다.");
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
         when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
         when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.of(sampleJoinRequest("g1", "user1")));
@@ -267,7 +329,7 @@ class GroupServiceTest {
                 .pk("GROUP#g1")
                 .sk("INTRO")
                 .groupId("g1")
-                .introText("천천히 함께 달립니다.")
+                .introText("예전 별도 소개글")
                 .imageIds(List.of())
                 .build()));
         when(repository.findNoticesByGroupId("g1", 5)).thenReturn(List.of());
@@ -304,6 +366,36 @@ class GroupServiceTest {
         assertThat(result.getPostPreviews().get(0).getLocked()).isTrue();
         assertThat(result.getPostPreviews().get(1).getTitle()).isEqualTo("지난주 후기");
         assertThat(result.getPostPreviews().get(1).getLocked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("updateIntro — 소개글은 모임 설명과 같은 값으로 저장한다")
+    void updateIntro_syncsGroupDescription() {
+        Group group = samplePublicGroup("g1", "manager");
+        group.setDescription("이전 소개");
+        GroupIntro intro = GroupIntro.builder()
+                .pk("GROUP#g1")
+                .sk("INTRO")
+                .groupId("g1")
+                .introText("이전 소개")
+                .imageIds(List.of())
+                .build();
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "manager")).thenReturn(Optional.of(sampleMember("g1", "manager", "manager")));
+        when(repository.findIntro("g1")).thenReturn(Optional.of(intro));
+        when(repository.findNoticesByGroupId("g1", 5)).thenReturn(List.of());
+        when(communityRepository.findGroupPostsPaged("g1", 5, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of()).build());
+
+        GroupIntroUpdateReqDTO req = new GroupIntroUpdateReqDTO();
+        req.setIntroText("새 모임 소개");
+
+        GroupIntroResDTO result = service.updateIntro("manager", "g1", req);
+
+        assertThat(result.getDescription()).isEqualTo("새 모임 소개");
+        assertThat(result.getIntroText()).isEqualTo("새 모임 소개");
+        verify(repository).saveGroup(argThat(saved -> "새 모임 소개".equals(saved.getDescription())));
+        verify(repository).saveIntro(argThat(saved -> "새 모임 소개".equals(saved.getIntroText())));
     }
 
     @Test

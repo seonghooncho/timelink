@@ -140,4 +140,31 @@ describe('GroupIntroPage', () => {
 
     expect(screen.getByText('가입 후 글 전체와 댓글을 볼 수 있어요.')).toBeInTheDocument();
   });
+
+  it('uses the meetup description as the intro edit value when introText is empty', async () => {
+    mocks.getIntro.mockResolvedValue({
+      id: 'group-1',
+      name: '주말 러닝',
+      description: '한강 러닝',
+      imageUrl: '',
+      imageStatus: undefined,
+      visibility: 'PUBLIC',
+      memberCount: 12,
+      myRole: 'manager',
+      joinRequestStatus: null,
+      introText: '',
+      images: [],
+      notices: [],
+      postPreviews: [],
+      member: true,
+      canEditIntro: true,
+      canWriteNotice: true,
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '소개 편집' }));
+
+    expect(screen.getByDisplayValue('한강 러닝')).toBeInTheDocument();
+  });
 });

@@ -93,7 +93,7 @@ const GroupIntroPage: React.FC = () => {
     if (!intro) return;
     setActiveImageIndex(0);
     if (!showEditIntro) {
-      setEditIntroText(intro.introText || '');
+      setEditIntroText(intro.introText || intro.description || '');
       setEditImages(intro.images || []);
     }
   }, [intro, showEditIntro]);
@@ -270,7 +270,7 @@ const GroupIntroPage: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setEditIntroText(intro.introText || '');
+                setEditIntroText(intro.introText || intro.description || '');
                 setEditImages(intro.images || []);
                 setShowEditIntro(true);
               }}

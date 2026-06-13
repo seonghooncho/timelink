@@ -61,6 +61,7 @@ public class ScheduleService {
     }
 
     private ScheduleResDTO createGroupSchedule(String userId, ScheduleCreateReqDTO req) {
+        req.setCategory("group");
         List<GroupMember> members = groupRepository.findMembersByGroupId(req.getGroupId());
         if (members.stream().noneMatch(member -> userId.equals(member.getUserId()))) {
             throw new ScheduleException(ScheduleErrorCode.INVALID_GROUP_SCHEDULE_PARTICIPANT);
@@ -203,7 +204,7 @@ public class ScheduleService {
 
     private Set<String> resolveParticipantUserIds(String userId, ScheduleCreateReqDTO req, Set<String> memberUserIds) {
         Set<String> selected = new LinkedHashSet<>();
-        if (req.getParticipantUserIds() == null || req.getParticipantUserIds().isEmpty()) {
+        if (req.getParticipantUserIds() == null) {
             selected.addAll(memberUserIds);
         } else {
             selected.addAll(req.getParticipantUserIds().stream()

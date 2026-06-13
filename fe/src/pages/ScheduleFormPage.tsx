@@ -13,6 +13,8 @@ import { appToast, getErrorMessage } from '@/lib/appToast';
 import {
   buildScheduleCreateRequest,
   normalizeTimeToHalfHour,
+  SCHEDULE_CONTENT_MAX_LENGTH,
+  SCHEDULE_TITLE_MAX_LENGTH,
 } from '@/lib/scheduleForm';
 import { SCHEDULE_DURATION_OPTIONS } from '@/lib/scheduleTime';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
@@ -24,7 +26,7 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할 일' },
   { value: 'appointment', label: '약속' },
   { value: 'repeat', label: '반복' },
-  { value: 'group', label: '그룹' },
+  { value: 'group', label: '모임' },
 ];
 
 interface ScheduleFormLocationState {
@@ -64,6 +66,7 @@ const ScheduleFormPage: React.FC = () => {
   const location = useLocation();
   const createMutation = useCreateSchedule();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const participantsInitializedRef = useRef(false);
 
   const initialContext = useMemo(() => {
     const state = location.state as ScheduleFormLocationState | null;
@@ -102,11 +105,29 @@ const ScheduleFormPage: React.FC = () => {
     queryFn: () => groupApi.getMembers(initialContext.groupId as string),
     enabled: Boolean(initialContext.groupId),
   });
+  const isGroupSchedule = Boolean(initialContext.groupId);
+  const allParticipantUserIds = useMemo(
+    () => groupMembers.map(member => member.userId),
+    [groupMembers],
+  );
+  const allParticipantsSelected = allParticipantUserIds.length > 0
+    && allParticipantUserIds.every(userId => participantUserIds.includes(userId));
 
   React.useEffect(() => {
-    if (!initialContext.groupId || groupMembers.length === 0 || participantUserIds.length > 0) return;
-    setParticipantUserIds(groupMembers.map(member => member.userId));
-  }, [groupMembers, initialContext.groupId, participantUserIds.length]);
+    if (!initialContext.groupId || groupMembers.length === 0 || participantsInitializedRef.current) return;
+    participantsInitializedRef.current = true;
+    setParticipantUserIds(allParticipantUserIds);
+  }, [allParticipantUserIds, groupMembers.length, initialContext.groupId]);
+
+  React.useEffect(() => {
+    if (!isGroupSchedule || category === 'group') return;
+    setCategory('group');
+  }, [category, isGroupSchedule]);
+
+  React.useEffect(() => {
+    setTitle(prev => prev.slice(0, SCHEDULE_TITLE_MAX_LENGTH));
+    setContent(prev => prev.slice(0, SCHEDULE_CONTENT_MAX_LENGTH));
+  }, []);
 
   const filteredGroupMembers = useMemo(() => {
     const query = memberSearchQuery.trim().toLowerCase();
@@ -125,7 +146,7 @@ const ScheduleFormPage: React.FC = () => {
   };
 
   const selectAllParticipants = () => {
-    setParticipantUserIds(groupMembers.map(member => member.userId));
+    setParticipantUserIds(allParticipantsSelected ? [] : allParticipantUserIds);
   };
 
   const navigateAfterCoordinationSchedule = () => {
@@ -179,9 +200,11 @@ const ScheduleFormPage: React.FC = () => {
       const base64 = event.target?.result as string;
       try {
         const data = await aiApi.extractSchedule(base64);
-        if (data.title) setTitle(data.title);
-        if (data.content) setContent(data.content);
-        if (data.category && categories.some(c => c.value === data.category)) setCategory(data.category as ScheduleCategory);
+        if (data.title) setTitle(data.title.slice(0, SCHEDULE_TITLE_MAX_LENGTH));
+        if (data.content) setContent(data.content.slice(0, SCHEDULE_CONTENT_MAX_LENGTH));
+        if (!isGroupSchedule && data.category && categories.some(c => c.value === data.category)) {
+          setCategory(data.category as ScheduleCategory);
+        }
         if (data.startDate) setStartDate(data.startDate);
         if (data.startTime) setStartTime(normalizeTimeToHalfHour(data.startTime));
         const extractedDuration = getExtractedDuration(data);
@@ -202,14 +225,14 @@ const ScheduleFormPage: React.FC = () => {
     const result = buildScheduleCreateRequest({
       title,
       content,
-      category,
+      category: isGroupSchedule ? 'group' : category,
       isImportant,
       startDate,
       startTime,
       duration,
       hasAlarm,
       groupId: initialContext.groupId,
-      participantUserIds: initialContext.groupId ? participantUserIds : undefined,
+      participantUserIds: isGroupSchedule ? participantUserIds : undefined,
     });
 
     if (!result.ok) {
@@ -219,8 +242,8 @@ const ScheduleFormPage: React.FC = () => {
 
     try {
       trackEvent('schedule_create_start', {
-        category,
-        has_group: Boolean(initialContext.groupId),
+        category: isGroupSchedule ? 'group' : category,
+        has_group: isGroupSchedule,
         has_alarm: hasAlarm,
         is_important: isImportant,
         source: initialContext.sourceLabel ? 'coordination' : 'manual',
@@ -289,14 +312,20 @@ const ScheduleFormPage: React.FC = () => {
         {/* Category */}
         <div>
           <label className="text-xs font-semibold text-muted-foreground mb-2 block">카테고리</label>
-          <div className="flex gap-2">
-            {categories.map(c => (
-              <button key={c.value} type="button" onClick={() => setCategory(c.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${category === c.value ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:border-muted-foreground'}`}>
-                {c.label}
-              </button>
-            ))}
-          </div>
+          {isGroupSchedule ? (
+            <div className="inline-flex rounded-lg border border-category-group/25 bg-category-group-light px-3 py-1.5 text-xs font-bold text-category-group-strong">
+              모임
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              {categories.map(c => (
+                <button key={c.value} type="button" onClick={() => setCategory(c.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${category === c.value ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:border-muted-foreground'}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
           {initialContext.groupId ? (
             <p className="text-[11px] text-muted-foreground mt-2">
               현재 그룹: {initialContext.groupName || '선택된 그룹'}
@@ -319,7 +348,7 @@ const ScheduleFormPage: React.FC = () => {
                   onClick={selectAllParticipants}
                   className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-bold text-foreground"
                 >
-                  전체선택
+                  {allParticipantsSelected ? '전체해제' : '전체선택'}
                 </button>
                 <button
                   type="button"
@@ -383,15 +412,17 @@ const ScheduleFormPage: React.FC = () => {
         {/* Title */}
         <div>
           <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">제목</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="일정 제목을 입력하세요"
+          <input value={title} onChange={e => setTitle(e.target.value)} maxLength={SCHEDULE_TITLE_MAX_LENGTH} placeholder="일정 제목을 입력하세요"
             className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50" />
+          <p className="mt-1 text-right text-[10px] text-muted-foreground">{title.length}/{SCHEDULE_TITLE_MAX_LENGTH}</p>
         </div>
 
         {/* Content */}
         <div>
           <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">내용</label>
-          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="일정 내용을 입력하세요" rows={3}
+          <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={SCHEDULE_CONTENT_MAX_LENGTH} placeholder="일정 내용을 입력하세요" rows={3}
             className="w-full px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-ring resize-none placeholder:text-muted-foreground/50" />
+          <p className="mt-1 text-right text-[10px] text-muted-foreground">{content.length}/{SCHEDULE_CONTENT_MAX_LENGTH}</p>
         </div>
 
         {/* Date & Time */}

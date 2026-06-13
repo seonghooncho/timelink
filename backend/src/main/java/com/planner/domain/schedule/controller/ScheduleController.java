@@ -67,7 +67,7 @@ public class ScheduleController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<CustomResponse<ScheduleResDTO>> update(
-            @PathVariable String id, @RequestBody ScheduleUpdateReqDTO req) {
+            @PathVariable String id, @Valid @RequestBody ScheduleUpdateReqDTO req) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.update(userId, id, req)));
     }

@@ -1,6 +1,7 @@
 package com.planner.domain.group.converter;
 
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupCoordinationSummaryDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
@@ -8,6 +9,7 @@ import com.planner.domain.group.dto.GroupScheduleSummaryDTO;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.coordination.model.Coordination;
 import com.planner.domain.schedule.model.Schedule;
 
 import java.util.List;
@@ -18,10 +20,20 @@ public final class GroupConverter {
     private GroupConverter() {}
 
     public static GroupResDTO toListResponse(Group group, GroupMember membership, int memberCount) {
-        return toListResponse(group, membership, memberCount, null);
+        return toListResponse(group, membership, memberCount, null, 0, null);
     }
 
     public static GroupResDTO toListResponse(Group group, GroupMember membership, int memberCount, Schedule nextSchedule) {
+        return toListResponse(group, membership, memberCount, nextSchedule, nextSchedule != null ? 1 : 0, null);
+    }
+
+    public static GroupResDTO toListResponse(
+            Group group,
+            GroupMember membership,
+            int memberCount,
+            Schedule nextSchedule,
+            int upcomingScheduleCount,
+            Coordination activeCoordination) {
         return GroupResDTO.builder()
                 .id(group.getId())
                 .name(group.getName())
@@ -34,6 +46,8 @@ public final class GroupConverter {
                 .memberCount(memberCount)
                 .myRole(membership.getRole())
                 .nextSchedule(toScheduleSummary(nextSchedule))
+                .upcomingScheduleCount(upcomingScheduleCount)
+                .activeCoordination(toCoordinationSummary(activeCoordination))
                 .createdAt(group.getCreatedAt())
                 .build();
     }
@@ -50,6 +64,7 @@ public final class GroupConverter {
                 .memberCount(memberCount)
                 .myRole(membership != null ? membership.getRole() : null)
                 .joinRequestStatus(joinRequest != null ? joinRequest.getStatus() : null)
+                .upcomingScheduleCount(0)
                 .createdAt(group.getCreatedAt())
                 .build();
     }
@@ -108,6 +123,24 @@ public final class GroupConverter {
                 .title(schedule.getTitle())
                 .startTime(schedule.getStartTime())
                 .duration(schedule.getDuration())
+                .build();
+    }
+
+    private static GroupCoordinationSummaryDTO toCoordinationSummary(Coordination coordination) {
+        if (coordination == null) {
+            return null;
+        }
+        return GroupCoordinationSummaryDTO.builder()
+                .id(coordination.getId())
+                .title(coordination.getTitle())
+                .description(coordination.getDescription())
+                .mode(coordination.getMode())
+                .dates(coordination.getDates())
+                .startHour(coordination.getStartHour())
+                .endHour(coordination.getEndHour())
+                .status(coordination.getStatus())
+                .responseCount(coordination.getResponseCount() != null ? coordination.getResponseCount() : 0)
+                .createdAt(coordination.getCreatedAt())
                 .build();
     }
 

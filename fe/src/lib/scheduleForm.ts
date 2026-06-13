@@ -6,6 +6,8 @@ import {
 } from '@/lib/scheduleTime';
 
 export const SCHEDULE_TIME_STEP_SECONDS = 30 * 60;
+export const SCHEDULE_TITLE_MAX_LENGTH = 80;
+export const SCHEDULE_CONTENT_MAX_LENGTH = 1000;
 const HALF_HOUR_MINUTES = 30;
 const MIN_DURATION_HOURS = SCHEDULE_DURATION_STEP_HOURS;
 
@@ -109,6 +111,23 @@ export const buildScheduleCreateRequest = (values: ScheduleFormValues): Schedule
     return { ok: false, message: '제목을 입력해주세요' };
   }
 
+  if (title.length > SCHEDULE_TITLE_MAX_LENGTH) {
+    return {
+      ok: false,
+      message: '제목이 너무 깁니다',
+      description: `제목은 ${SCHEDULE_TITLE_MAX_LENGTH}자 이하로 입력해주세요.`,
+    };
+  }
+
+  const content = values.content.trim();
+  if (content.length > SCHEDULE_CONTENT_MAX_LENGTH) {
+    return {
+      ok: false,
+      message: '내용이 너무 깁니다',
+      description: `내용은 ${SCHEDULE_CONTENT_MAX_LENGTH}자 이하로 입력해주세요.`,
+    };
+  }
+
   if (!values.startDate) {
     return { ok: false, message: '시작 날짜를 선택해주세요' };
   }
@@ -145,7 +164,7 @@ export const buildScheduleCreateRequest = (values: ScheduleFormValues): Schedule
     ok: true,
     data: {
       title,
-      content: values.content.trim(),
+      content,
       category: values.category,
       isImportant: values.isImportant,
       startTime: formatLocalDateTime(values.startDate, values.startTime),

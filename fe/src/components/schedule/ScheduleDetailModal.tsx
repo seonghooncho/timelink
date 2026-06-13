@@ -6,7 +6,12 @@ import CategoryBadge from '@/components/common/CategoryBadge';
 import DurationSelect from '@/components/common/DurationSelect';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
 import { appToast } from '@/lib/appToast';
-import { buildScheduleCreateRequest, normalizeTimeToHalfHour } from '@/lib/scheduleForm';
+import {
+  buildScheduleCreateRequest,
+  normalizeTimeToHalfHour,
+  SCHEDULE_CONTENT_MAX_LENGTH,
+  SCHEDULE_TITLE_MAX_LENGTH,
+} from '@/lib/scheduleForm';
 import { DEFAULT_SCHEDULE_DURATION_HOURS, formatDurationLabel, formatScheduleDateClock } from '@/lib/scheduleTime';
 
 interface ScheduleDetailModalProps {
@@ -229,8 +234,10 @@ function ScheduleEditForm({
           aria-label="일정 제목"
           value={title}
           onChange={e => onTitleChange(e.target.value)}
+          maxLength={SCHEDULE_TITLE_MAX_LENGTH}
           className="w-full rounded-xl bg-muted px-4 py-3 text-lg font-bold text-foreground outline-none focus:ring-2 focus:ring-ring"
         />
+        <p className="mt-1 text-right text-[10px] text-muted-foreground">{title.length}/{SCHEDULE_TITLE_MAX_LENGTH}</p>
       </div>
 
       <div>
@@ -239,9 +246,11 @@ function ScheduleEditForm({
           aria-label="일정 내용"
           value={content}
           onChange={e => onContentChange(e.target.value)}
+          maxLength={SCHEDULE_CONTENT_MAX_LENGTH}
           rows={3}
           className="w-full resize-none rounded-xl bg-muted px-4 py-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
         />
+        <p className="mt-1 text-right text-[10px] text-muted-foreground">{content.length}/{SCHEDULE_CONTENT_MAX_LENGTH}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

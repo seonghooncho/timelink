@@ -34,6 +34,7 @@ const CoordinationTimetablePage: React.FC = () => {
   const [hasShownRecommendationModal, setHasShownRecommendationModal] = useState(false);
   const [dateWindowStart, setDateWindowStart] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   // 드래그 시작 시 선택/해제 모드를 고정해 지나간 슬롯에 같은 동작을 적용한다.
   const dragSelectionRef = useRef<{
     pointerId: number;
@@ -48,6 +49,7 @@ const CoordinationTimetablePage: React.FC = () => {
     setShowRecommendationModal(false);
     setHasShownRecommendationModal(false);
     setDateWindowStart(0);
+    setIsDescriptionExpanded(false);
     coordinationApi.getById(groupId, coordId).then(data => {
       setCoordination(data);
       if (data.myResponses) {
@@ -68,6 +70,8 @@ const CoordinationTimetablePage: React.FC = () => {
   const startHour = coordination?.startHour ?? 9;
   const endHour = coordination?.endHour ?? 18;
   const title = coordination?.title || '시간 조율';
+  const description = coordination?.description?.trim();
+  const hasLongDescription = Boolean(description && description.length > 90);
 
   const hours = useMemo(() => { const h: number[] = []; for (let i = startHour; i < endHour; i++) h.push(i); return h; }, [startHour, endHour]);
 
@@ -317,6 +321,24 @@ const CoordinationTimetablePage: React.FC = () => {
   return (
     <MobileLayout>
       <PageHeader title={title} showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} />
+      {description ? (
+        <div className="px-4 pt-3">
+          <div className="rounded-xl border border-coord-green/15 bg-coord-green/5 px-3 py-2.5">
+            <p className={`text-xs leading-5 text-foreground/85 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
+              {description}
+            </p>
+            {hasLongDescription ? (
+              <button
+                type="button"
+                onClick={() => setIsDescriptionExpanded(prev => !prev)}
+                className="mt-1 text-[11px] font-bold text-coord-green"
+              >
+                {isDescriptionExpanded ? '접기' : '더보기'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="flex gap-2 px-4 py-3">
         <button onClick={() => setViewMode('select')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'select' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>내가 가능한 시간</button>
         <button onClick={() => setViewMode('result')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'result' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>모두 가능한 시간</button>

@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Copy, Heart, ImageIcon, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Heart, ImageIcon, Info, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import PostListItem from '@/components/community/PostListItem';
@@ -41,6 +40,7 @@ import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
+import { getScheduleEndDate } from '@/lib/scheduleTime';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -175,16 +175,13 @@ const GroupDetailPage: React.FC = () => {
   const sortedGroupSchedules = useMemo(() => {
     return [...groupSchedules].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [groupSchedules]);
-  const todayStartTime = useMemo(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  }, []);
+  const nowTime = useMemo(() => Date.now(), []);
   const pastGroupSchedules = useMemo(() => {
-    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() < todayStartTime);
-  }, [sortedGroupSchedules, todayStartTime]);
+    return sortedGroupSchedules.filter((schedule) => getScheduleEndDate(schedule).getTime() < nowTime);
+  }, [nowTime, sortedGroupSchedules]);
   const upcomingGroupSchedules = useMemo(() => {
-    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() >= todayStartTime);
-  }, [sortedGroupSchedules, todayStartTime]);
+    return sortedGroupSchedules.filter((schedule) => getScheduleEndDate(schedule).getTime() >= nowTime);
+  }, [nowTime, sortedGroupSchedules]);
   const visibleGroupSchedules = showPastSchedules ? sortedGroupSchedules : upcomingGroupSchedules;
   const groupedVisibleSchedules = useGroupedSchedules(visibleGroupSchedules);
   const firstUpcomingScheduleId = upcomingGroupSchedules[0]?.id;
@@ -284,6 +281,14 @@ const GroupDetailPage: React.FC = () => {
   const openManageMembersModal = (tab: 'members' | 'joinRequests' = 'members') => {
     setManageMembersTab(tab);
     setShowManageMembersModal(true);
+  };
+
+  const openRoleBasedMemberPanel = () => {
+    if (isManager) {
+      openManageMembersModal('members');
+      return;
+    }
+    setShowMembersModal(true);
   };
 
   const handleUpdateGroup = async () => {
@@ -473,27 +478,24 @@ const GroupDetailPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate(`/groups/${id}/intro`)}
-            className="flex min-w-0 items-center gap-2 text-left"
+            className="flex min-w-0 items-center gap-1.5 text-left"
             aria-label="모임 소개 보기"
           >
-            <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <p className="min-w-0 truncate text-sm font-bold leading-5 text-foreground">{group.name}</p>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
-                  {memberCountLabel}
-                </span>
-              </div>
-              <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                {group.description || '모임 소개'}
-              </p>
-            </div>
+            <span className="min-w-0 truncate text-sm font-bold leading-5 text-foreground">{group.name}</span>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
         }
         rightElement={
-          <div ref={menuRef} className="relative">
+          <div ref={menuRef} className="relative flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={openRoleBasedMemberPanel}
+              className="inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={isManager ? `멤버 관리 열기, ${memberCountLabel}명` : `멤버 목록 열기, ${memberCountLabel}명`}
+            >
+              <Users className="h-4 w-4" />
+              {memberCountLabel}
+            </button>
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
@@ -504,6 +506,15 @@ const GroupDetailPage: React.FC = () => {
             </button>
             {showMenu && (
               <div className="absolute right-0 top-[calc(100%+0.5rem)] app-layer-popover w-48 rounded-xl border border-border bg-card py-1 shadow-lg animate-fade-in">
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  onClick={() => {
+                    setShowMenu(false);
+                    navigate(`/groups/${id}/intro`);
+                  }}
+                >
+                  <Info className="w-4 h-4" /> 모임 소개
+                </button>
                 <button
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                   onClick={() => {
@@ -570,7 +581,7 @@ const GroupDetailPage: React.FC = () => {
       <section className="border-t border-border/50 pt-3">
         <div className="mb-2 flex items-end justify-between gap-3 px-5">
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-foreground">일정({groupScheduleCountLabel})</h2>
+            <h2 className="text-sm font-bold text-foreground">약속({groupScheduleCountLabel})</h2>
           </div>
           {pastGroupSchedules.length > 0 ? (
             <button
@@ -612,7 +623,7 @@ const GroupDetailPage: React.FC = () => {
               disabled={isFetchingNextSchedulePage}
               className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
             >
-              {isFetchingNextSchedulePage ? '불러오는 중...' : '일정 더보기'}
+              {isFetchingNextSchedulePage ? '불러오는 중...' : '약속 더보기'}
             </button>
           </div>
         ) : null}
@@ -1106,7 +1117,7 @@ const GroupDetailPage: React.FC = () => {
               onClick={() => navigate('/schedule/new', { state: { groupId: id, groupName: group.name } })}
               className="w-full rounded-xl bg-category-group py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
             >
-              모임 일정 생성
+              약속 만들기
             </button>
             <button
               onClick={() => navigate(`/groups/${id}/coordination`)}

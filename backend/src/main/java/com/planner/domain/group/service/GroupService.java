@@ -2,6 +2,8 @@ package com.planner.domain.group.service;
 
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
+import com.planner.domain.coordination.model.Coordination;
+import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.converter.GroupConverter;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
@@ -71,6 +73,8 @@ public class GroupService {
     private static final int INTRO_NOTICE_LIMIT = 5;
     private static final int INTRO_POST_PREVIEW_LIMIT = 5;
     private static final int PUBLIC_GROUP_SEARCH_SCAN_PAGES = 5;
+    private static final int GROUP_CARD_SCHEDULE_PREVIEW_LIMIT = 2;
+    private static final int GROUP_CARD_COORDINATION_SCAN_LIMIT = 10;
 
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
@@ -80,6 +84,7 @@ public class GroupService {
     private final ScheduleRepository scheduleRepository;
     private final ImageUploadRepository imageUploadRepository;
     private final CommunityRepository communityRepository;
+    private final CoordinationRepository coordinationRepository;
 
     public GroupDetailResDTO create(String userId, GroupCreateReqDTO req) {
         String groupId = UUID.randomUUID().toString();
@@ -176,12 +181,20 @@ public class GroupService {
                 .map(m -> {
                     String groupId = m.getGsi2sk().replace("GROUP#", "");
                     return repository.findGroupById(groupId)
-                            .map(group -> GroupConverter.toListResponse(
-                                    group,
-                                    m,
-                                    resolveMemberCount(group, groupId),
-                                    findNextSchedule(groupId)
-                            ))
+                            .map(group -> {
+                                UpcomingScheduleSummary scheduleSummary = findUpcomingScheduleSummary(groupId);
+                                Coordination activeCoordination = scheduleSummary.nextSchedule == null
+                                        ? findActiveCoordination(groupId)
+                                        : null;
+                                return GroupConverter.toListResponse(
+                                        group,
+                                        m,
+                                        resolveMemberCount(group, groupId),
+                                        scheduleSummary.nextSchedule,
+                                        scheduleSummary.upcomingScheduleCount,
+                                        activeCoordination
+                                );
+                            })
                             .orElse(null);
                 })
                 .filter(Objects::nonNull)
@@ -211,8 +224,34 @@ public class GroupService {
         return name.contains(normalizedQuery) || description.contains(normalizedQuery);
     }
 
-    private Schedule findNextSchedule(String groupId) {
-        return scheduleRepository.findNextByGroupId(groupId, Instant.now().toString()).orElse(null);
+    private UpcomingScheduleSummary findUpcomingScheduleSummary(String groupId) {
+        List<Schedule> schedules = scheduleRepository.findUpcomingByGroupId(
+                groupId,
+                Instant.now().toString(),
+                GROUP_CARD_SCHEDULE_PREVIEW_LIMIT
+        );
+        return new UpcomingScheduleSummary(
+                schedules.isEmpty() ? null : schedules.get(0),
+                schedules.size()
+        );
+    }
+
+    private Coordination findActiveCoordination(String groupId) {
+        return coordinationRepository.findByGroupIdPaged(groupId, GROUP_CARD_COORDINATION_SCAN_LIMIT, null)
+                .getItems().stream()
+                .filter(coordination -> "active".equals(coordination.getStatus()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static class UpcomingScheduleSummary {
+        private final Schedule nextSchedule;
+        private final int upcomingScheduleCount;
+
+        private UpcomingScheduleSummary(Schedule nextSchedule, int upcomingScheduleCount) {
+            this.nextSchedule = nextSchedule;
+            this.upcomingScheduleCount = upcomingScheduleCount;
+        }
     }
 
     public GroupDetailResDTO getDetail(String userId, String groupId) {
@@ -248,7 +287,7 @@ public class GroupService {
                 .memberCount(resolveMemberCount(group, groupId))
                 .myRole(membership != null ? membership.getRole() : null)
                 .joinRequestStatus(joinRequest != null ? joinRequest.getStatus() : null)
-                .introText(intro != null ? intro.getIntroText() : null)
+                .introText(group.getDescription())
                 .images(toIntroImages(intro))
                 .notices(notices.stream().map(this::toIntroNotice).toList())
                 .postPreviews(postPage.getItems().stream()
@@ -272,7 +311,11 @@ public class GroupService {
                 .build());
 
         if (req.getIntroText() != null) {
-            intro.setIntroText(req.getIntroText().trim());
+            String introText = req.getIntroText().trim();
+            group.setDescription(introText);
+            group.setUpdatedAt(now);
+            repository.saveGroup(group);
+            intro.setIntroText(introText);
         }
         if (req.getImageIds() != null) {
             List<String> imageIds = req.getImageIds().stream()
