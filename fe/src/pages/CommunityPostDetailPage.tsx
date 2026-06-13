@@ -203,7 +203,7 @@ const CommunityPostDetailPage: React.FC = () => {
       } />
 
       <div className="px-5 py-4">
-        <article className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <article className="border-b border-border/60 pb-5">
           {isEditingPost ? (
             <div className="space-y-3">
               <input
@@ -278,7 +278,7 @@ const CommunityPostDetailPage: React.FC = () => {
           )}
         </article>
 
-        <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <section className="mt-5">
           <h2 className="text-sm font-bold text-foreground">댓글</h2>
           <div className="mt-3 flex gap-2">
             <Textarea
@@ -306,7 +306,7 @@ const CommunityPostDetailPage: React.FC = () => {
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             ) : comments.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+              <p className="border-y border-dashed border-border/70 px-4 py-6 text-center text-xs text-muted-foreground">
                 아직 댓글이 없습니다.
               </p>
             ) : (
@@ -337,7 +337,7 @@ const CommunityPostDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="w-full rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-muted-foreground disabled:opacity-50"
+                className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground disabled:opacity-50"
               >
                 {isFetchingNextPage ? '불러오는 중...' : '댓글 더보기'}
               </button>
@@ -389,7 +389,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   onSaveEdit,
   onDelete,
 }) => (
-  <div className="rounded-xl bg-background px-3.5 py-3">
+  <div className="border-b border-border/60 py-3 last:border-b-0">
     <div className="flex items-start gap-3">
       <Avatar className="h-8 w-8 border border-border/70">
         <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />

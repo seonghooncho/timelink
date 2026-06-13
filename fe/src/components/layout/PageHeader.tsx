@@ -8,9 +8,10 @@ interface PageHeaderProps {
   showBack?: boolean;
   backTo?: To;
   rightElement?: React.ReactNode;
+  titleElement?: React.ReactNode;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ title, showBack = false, backTo = '/', rightElement }) => {
+const PageHeader: React.FC<PageHeaderProps> = ({ title, showBack = false, backTo = '/', rightElement, titleElement }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,8 +29,8 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, showBack = false, backTo
 
   return (
     <header className="sticky top-0 app-layer-header glass bg-card/80 border-b border-border/40">
-      <div className="flex items-center justify-between h-14 px-5">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between h-14 gap-3 px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {showBack && (
             <button
               type="button"
@@ -40,9 +41,16 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, showBack = false, backTo
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
-          <h1 className="text-[17px] font-bold text-foreground tracking-tight">{title}</h1>
+          {titleElement ? (
+            <div className="min-w-0 flex-1">
+              <span className="sr-only">{title}</span>
+              {titleElement}
+            </div>
+          ) : (
+            <h1 className="text-[17px] font-bold text-foreground tracking-tight">{title}</h1>
+          )}
         </div>
-        {rightElement && <div>{rightElement}</div>}
+        {rightElement && <div className="shrink-0">{rightElement}</div>}
       </div>
     </header>
   );
