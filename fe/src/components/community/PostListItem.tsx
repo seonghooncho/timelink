@@ -25,36 +25,46 @@ const PostListItem: React.FC<PostListItemProps> = ({
   const authorName = post.authorNickname || '사용자';
   const canOpenAuthor = Boolean(onAuthorClick && !post.anonymous && post.authorUserId);
 
-  const authorNode = (
-    <div className="flex min-w-0 items-start gap-3">
-      <Avatar className="h-9 w-9 shrink-0 border border-border/60">
-        <AvatarImage src={post.authorAvatarUrl} alt={authorName} />
-        <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-          {authorName.slice(0, 1)}
-        </AvatarFallback>
-      </Avatar>
+  const avatarNode = (
+    <Avatar className="h-9 w-9 border border-border/60">
+      <AvatarImage src={post.authorAvatarUrl} alt={authorName} />
+      <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+        {authorName.slice(0, 1)}
+      </AvatarFallback>
+    </Avatar>
+  );
 
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-xs font-bold text-foreground">{authorName}</p>
-          {post.anonymous ? (
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-              익명
-            </span>
-          ) : null}
-          {post.mine ? (
-            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-              내 글
-            </span>
-          ) : null}
-          {post.memberOnly ? (
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-              모임 공개
-            </span>
-          ) : null}
-        </div>
-      </div>
-    </div>
+  const authorNameNode = canOpenAuthor ? (
+    <button
+      type="button"
+      onClick={onAuthorClick}
+      className="min-w-0 truncate text-xs font-bold text-foreground"
+      aria-label={`${authorName} 프로필 보기`}
+    >
+      {authorName}
+    </button>
+  ) : (
+    <p className="min-w-0 truncate text-xs font-bold text-foreground">{authorName}</p>
+  );
+
+  const badgeNode = (
+    <>
+      {post.anonymous ? (
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+          익명
+        </span>
+      ) : null}
+      {post.mine ? (
+        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          내 글
+        </span>
+      ) : null}
+      {post.memberOnly ? (
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+          모임 공개
+        </span>
+      ) : null}
+    </>
   );
 
   const contentNode = (
@@ -87,49 +97,58 @@ const PostListItem: React.FC<PostListItemProps> = ({
           <button
             type="button"
             onClick={onAuthorClick}
-            className="min-w-0 flex-1 text-left"
+            className="shrink-0"
             aria-label={`${authorName} 프로필 보기`}
           >
-            {authorNode}
+            {avatarNode}
           </button>
         ) : (
-          <div className="min-w-0 flex-1">{authorNode}</div>
+          <div className="shrink-0">{avatarNode}</div>
         )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            {authorNameNode}
+            {badgeNode}
+          </div>
+
+          {onClick ? (
+            <button type="button" onClick={onClick} className="mt-0.5 w-full text-left">
+              {contentNode}
+            </button>
+          ) : (
+            <div className="mt-0.5">{contentNode}</div>
+          )}
+
+          {actions ? (
+            <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
+              <div className="min-w-0 flex items-center gap-2">{actions}</div>
+              <span className="shrink-0">{formatRelativeTime(post.createdAt)}</span>
+            </div>
+          ) : (
+            <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-4">
+                <span className="flex items-center gap-1">
+                  <Heart className={cn('h-3.5 w-3.5', post.likedByMe && 'fill-primary text-primary')} />
+                  {post.likeCount ?? 0}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  {post.commentCount ?? 0}
+                </span>
+              </div>
+              <span className="shrink-0">{formatRelativeTime(post.createdAt)}</span>
+            </div>
+          )}
+        </div>
       </div>
-
-      {onClick ? (
-        <button type="button" onClick={onClick} className="mt-1 w-full pl-12 text-left">
-          {contentNode}
-        </button>
-      ) : (
-        <div className="mt-1 pl-12">{contentNode}</div>
-      )}
-
-      {actions ? (
-        <div className="mt-3 flex items-center gap-3 pl-12 text-[11px] font-medium text-muted-foreground">
-          <span className="shrink-0">{formatRelativeTime(post.createdAt)}</span>
-          <div className="min-w-0 flex items-center gap-2">{actions}</div>
-        </div>
-      ) : (
-        <div className="mt-3 flex items-center gap-4 pl-12 text-[11px] font-medium text-muted-foreground">
-          <span>{formatRelativeTime(post.createdAt)}</span>
-          <span className="flex items-center gap-1">
-            <Heart className={cn('h-3.5 w-3.5', post.likedByMe && 'fill-primary text-primary')} />
-            {post.likeCount ?? 0}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageCircle className="h-3.5 w-3.5" />
-            {post.commentCount ?? 0}
-          </span>
-        </div>
-      )}
 
       {children}
     </>
   );
 
   const rootClassName = cn(
-    'w-full border-b border-border/60 px-5 py-4 text-left transition-colors',
+    'w-full border-b border-border/60 px-5 py-3.5 text-left transition-colors',
     onClick && 'hover:bg-muted/25',
     className,
   );

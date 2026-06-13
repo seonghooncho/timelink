@@ -8,9 +8,10 @@ interface FABProps {
   icon?: React.ReactNode;
   variant?: 'default' | 'group' | 'community';
   ariaLabel?: string;
+  className?: string;
 }
 
-const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default', ariaLabel }) => {
+const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default', ariaLabel, className = '' }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -28,7 +29,7 @@ const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default', ariaL
     <button
       onClick={handleClick}
       aria-label={ariaLabel}
-      className={`fixed app-floating-action right-5 app-layer-floating w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable ${colorClassName}`}
+      className={`fixed app-floating-action right-5 app-layer-floating w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable ${colorClassName} ${className}`}
     >
       {icon || <Plus className="w-6 h-6" strokeWidth={2.2} />}
     </button>

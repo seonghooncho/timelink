@@ -825,19 +825,21 @@ const IntroPostList: React.FC<{
               {post.imageUrl ? (
                 <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
               ) : null}
-              <div className="mt-3 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
-                <span className="font-medium">{formatRelativeTime(post.createdAt)}</span>
-                <span className="inline-flex items-center gap-1">
-                  <Heart className="h-3.5 w-3.5" />
-                  {post.likeCount}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  {post.commentCount}
-                </span>
-                {!member ? (
-                  <span className="ml-auto text-primary">가입 후 참여 가능</span>
-                ) : null}
+              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold text-muted-foreground">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Heart className="h-3.5 w-3.5" />
+                    {post.likeCount}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {post.commentCount}
+                  </span>
+                  {!member ? (
+                    <span className="truncate text-primary">가입 후 참여 가능</span>
+                  ) : null}
+                </div>
+                <span className="shrink-0 font-medium">{formatRelativeTime(post.createdAt)}</span>
               </div>
             </>
           )}

@@ -1,26 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bell, MessageCircle, X } from 'lucide-react';
+import { Bell, MessageCircle } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import PostListItem from '@/components/community/PostListItem';
-import PostImageAttachment from '@/components/community/PostImageAttachment';
+import PostComposerModal from '@/components/community/PostComposerModal';
 import CommunityProfileSheet from '@/components/community/CommunityProfileSheet';
 import FAB from '@/components/common/FAB';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ListSkeleton } from '@/components/common/LoadingStates';
-import { Textarea } from '@/components/ui/textarea';
 import { useCommunityPosts, useCreateCommunityPost } from '@/hooks/useCommunity';
 import { communityApi, CommunityPublicProfileResponse } from '@/services/api';
 import { appToast } from '@/lib/appToast';
-import { COMMUNITY_POST_TITLE_MAX_LENGTH } from '@/lib/textLimits';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const CommunityPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const {
     data: posts = [],
     isLoading,
@@ -51,6 +48,9 @@ const CommunityPage: React.FC = () => {
   }, [imagePreview]);
 
   const resetImage = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     setImageFile(null);
     setImageCropFile(null);
@@ -200,87 +200,22 @@ const CommunityPage: React.FC = () => {
         icon={<MessageCircle className="h-6 w-6" />}
       />
 
-      {showCreateModal ? (
-        <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={closeCreateModal}>
-          <div
-            className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h3 className="text-base font-bold text-foreground">게시물 작성</h3>
-              <button
-                type="button"
-                onClick={closeCreateModal}
-                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="닫기"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 px-5 py-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">제목</label>
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  maxLength={COMMUNITY_POST_TITLE_MAX_LENGTH}
-                  className="w-full rounded-xl border border-border bg-muted px-3 py-3 text-base outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="제목을 입력해주세요"
-                />
-                <p className="text-right text-[10px] text-muted-foreground">{title.length}/{COMMUNITY_POST_TITLE_MAX_LENGTH}</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">본문</label>
-                <Textarea
-                  value={content}
-                  onChange={(event) => setContent(event.target.value)}
-                  maxLength={2000}
-                  rows={7}
-                  className="resize-none rounded-xl bg-muted text-base"
-                  placeholder="나누고 싶은 이야기를 적어주세요."
-                />
-                <p className="text-right text-[10px] text-muted-foreground">{content.length}/2000</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setAnonymous((prev) => !prev)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-colors ${anonymous ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-muted-foreground'}`}
-              >
-                <span className="text-xs font-bold">익명으로 작성하기</span>
-                <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${anonymous ? 'bg-primary' : 'bg-muted-foreground/25'}`}>
-                  <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${anonymous ? 'translate-x-4' : ''}`} />
-                </span>
-              </button>
-
-              <PostImageAttachment
-                previewUrl={imagePreview}
-                isUploading={isImageUploading}
-                onSelect={() => imageInputRef.current?.click()}
-                onRemove={resetImage}
-              />
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={createPost.isPending || isImageUploading}
-                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
-              >
-                {createPost.isPending || isImageUploading ? '등록 중...' : '등록하기'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PostComposerModal
+        open={showCreateModal}
+        title={title}
+        content={content}
+        onTitleChange={setTitle}
+        onContentChange={setContent}
+        onClose={closeCreateModal}
+        onSubmit={handleCreate}
+        isSubmitting={createPost.isPending || isImageUploading}
+        imagePreview={imagePreview}
+        isImageUploading={isImageUploading}
+        onImageSelect={handleImageSelect}
+        onImageRemove={resetImage}
+        anonymous={anonymous}
+        onAnonymousChange={setAnonymous}
+      />
 
       {imageCropFile ? (
         <ImageCropModal

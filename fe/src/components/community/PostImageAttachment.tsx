@@ -6,6 +6,7 @@ interface PostImageAttachmentProps {
   isUploading?: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  compact?: boolean;
 }
 
 const PostImageAttachment: React.FC<PostImageAttachmentProps> = ({
@@ -13,10 +14,11 @@ const PostImageAttachment: React.FC<PostImageAttachmentProps> = ({
   isUploading = false,
   onSelect,
   onRemove,
+  compact = false,
 }) => {
   if (previewUrl) {
     return (
-      <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-muted">
+      <div className={`${compact ? 'h-24 w-24' : 'aspect-square w-full'} relative overflow-hidden rounded-xl border border-border bg-muted`}>
         <img src={previewUrl} alt="첨부 이미지 미리보기" className="h-full w-full object-cover" />
         <button
           type="button"
@@ -35,7 +37,7 @@ const PostImageAttachment: React.FC<PostImageAttachmentProps> = ({
       type="button"
       onClick={onSelect}
       disabled={isUploading}
-      className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+      className={`${compact ? 'h-24 w-24' : 'aspect-square w-full'} flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50`}
     >
       {isUploading ? (
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />

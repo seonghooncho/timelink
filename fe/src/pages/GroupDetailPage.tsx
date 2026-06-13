@@ -5,17 +5,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import FAB from '@/components/common/FAB';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import PostListItem from '@/components/community/PostListItem';
-import PostImageAttachment from '@/components/community/PostImageAttachment';
+import PostComposerModal from '@/components/community/PostComposerModal';
 import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import CoordinationStrip from '@/components/coordination/CoordinationStrip';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import { ListSkeleton, ScheduleStripSkeleton } from '@/components/common/LoadingStates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
@@ -46,7 +46,6 @@ import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { getScheduleEndDate } from '@/lib/scheduleTime';
-import { COMMUNITY_POST_TITLE_MAX_LENGTH } from '@/lib/textLimits';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -59,7 +58,6 @@ const GroupDetailPage: React.FC = () => {
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [], isPending: isGroupsPending, isLoading: isGroupsLoading } = useGroups();
   const menuRef = useRef<HTMLDivElement>(null);
-  const postImageInputRef = useRef<HTMLInputElement>(null);
   const groupScheduleRange = useMemo(() => {
     const today = new Date();
     return {
@@ -398,9 +396,6 @@ const GroupDetailPage: React.FC = () => {
     setPostImagePreview(null);
     setPostImageFile(null);
     setPostCropFile(null);
-    if (postImageInputRef.current) {
-      postImageInputRef.current.value = '';
-    }
   };
 
   const handlePostImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,6 +409,7 @@ const GroupDetailPage: React.FC = () => {
       return;
     }
     setPostCropFile(file);
+    event.target.value = '';
   };
 
   const handlePostImageCropConfirm = (file: File, previewUrl: string) => {
@@ -692,70 +688,7 @@ const GroupDetailPage: React.FC = () => {
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-foreground">모임 글</h2>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPostComposer((prev) => !prev)}
-            className="shrink-0 text-xs font-bold text-primary"
-          >
-            {showPostComposer ? '닫기' : '글쓰기'}
-          </button>
         </div>
-
-        {showPostComposer ? (
-          <div className="border-y border-border/60 px-5 py-3">
-            <div className="space-y-2">
-              <Input
-                value={postTitle}
-                onChange={(event) => setPostTitle(event.target.value)}
-                maxLength={COMMUNITY_POST_TITLE_MAX_LENGTH}
-                className="rounded-xl bg-muted text-base"
-                placeholder="게시물 제목"
-              />
-              <Textarea
-                value={postContent}
-                onChange={(event) => setPostContent(event.target.value)}
-                maxLength={2000}
-                rows={4}
-                className="resize-none rounded-xl bg-muted text-base"
-                placeholder="멤버들에게 공유할 내용을 적어주세요."
-              />
-              <button
-                type="button"
-                onClick={() => setPostMemberOnly((prev) => !prev)}
-                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-colors ${postMemberOnly ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-muted-foreground'}`}
-              >
-                <span className="text-xs font-bold">모임에만 게시하기</span>
-                <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${postMemberOnly ? 'bg-primary' : 'bg-muted-foreground/25'}`}>
-                  <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${postMemberOnly ? 'translate-x-4' : ''}`} />
-                </span>
-              </button>
-              <p className="text-[10px] leading-4 text-muted-foreground">
-                꺼두면 미가입자도 소개 페이지에서 글을 읽을 수 있습니다.
-              </p>
-              <PostImageAttachment
-                previewUrl={postImagePreview}
-                isUploading={isPostImageUploading}
-                onSelect={() => postImageInputRef.current?.click()}
-                onRemove={resetPostImage}
-              />
-              <input
-                ref={postImageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handlePostImageSelect}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={handleCreateGroupPost}
-                disabled={createGroupPost.isPending || isPostImageUploading}
-                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
-              >
-                {createGroupPost.isPending || isPostImageUploading ? '등록 중...' : '게시물 등록'}
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         {isGroupPostsLoading ? (
           <div className="px-5">
@@ -785,6 +718,33 @@ const GroupDetailPage: React.FC = () => {
           </p>
         )}
       </section>
+
+      <FAB
+        onClick={() => setShowPostComposer(true)}
+        variant="group"
+        ariaLabel="글쓰기"
+        icon={<MessageCircle className="h-6 w-6" />}
+        className="bottom-[calc(var(--app-floating-bottom-space)+4.75rem)]"
+      />
+
+      <PostComposerModal
+        open={showPostComposer}
+        title={postTitle}
+        content={postContent}
+        onTitleChange={setPostTitle}
+        onContentChange={setPostContent}
+        onClose={() => setShowPostComposer(false)}
+        onSubmit={handleCreateGroupPost}
+        isSubmitting={createGroupPost.isPending || isPostImageUploading}
+        imagePreview={postImagePreview}
+        isImageUploading={isPostImageUploading}
+        onImageSelect={handlePostImageSelect}
+        onImageRemove={resetPostImage}
+        memberOnly={postMemberOnly}
+        onMemberOnlyChange={setPostMemberOnly}
+        contentPlaceholder="멤버들에게 공유할 내용을 적어주세요."
+        submitLabel="게시물 등록"
+      />
 
       {postCropFile ? (
         <ImageCropModal
