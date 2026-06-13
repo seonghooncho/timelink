@@ -109,6 +109,7 @@ describe('GroupsPage', () => {
             startTime: new Date().toISOString(),
             duration: 1,
           },
+          upcomingScheduleCount: 2,
           schedules: [],
         },
       ],
@@ -122,6 +123,43 @@ describe('GroupsPage', () => {
 
     expect(screen.getByText('주말 회고')).toBeInTheDocument();
     expect(screen.getByText('D-Day')).toBeInTheDocument();
+    expect(screen.getByText('+')).toBeInTheDocument();
+  });
+
+  it('shows active coordination summary when no upcoming schedule exists', () => {
+    mocks.useGroupPages.mockReturnValue({
+      data: [
+        {
+          id: 'group-1',
+          name: '스터디',
+          description: '',
+          memberCount: 3,
+          activeCoordination: {
+            id: 'coord-1',
+            title: '이번 주 모임 시간',
+            description: '가능한 시간을 남겨주세요',
+            mode: 'once',
+            dates: ['2026-06-20'],
+            startHour: 9,
+            endHour: 18,
+            status: 'active',
+            responseCount: 0,
+            createdAt: '2026-06-13T00:00:00Z',
+          },
+          schedules: [],
+        },
+      ],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('이번 주 모임 시간')).toBeInTheDocument();
+    expect(screen.getByText('가능한 시간을 남겨주세요')).toBeInTheDocument();
+    expect(screen.getByText('조율 중')).toBeInTheDocument();
   });
 
   it('does not show an empty next schedule placeholder on my meetup card', () => {
@@ -166,7 +204,8 @@ describe('GroupsPage', () => {
     renderPage(['/groups?tab=discover']);
 
     expect(screen.getByText('공개 모임 찾아보기')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /소개 보기/ }));
+    expect(screen.queryByRole('button', { name: /소개 보기/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /주말 러닝/ }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/groups/group-2/intro');
   });

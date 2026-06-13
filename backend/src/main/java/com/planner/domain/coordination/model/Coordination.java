@@ -21,6 +21,7 @@ public class Coordination {
     private String groupId;
     private String createdBy;
     private String title;
+    private String description;
     private String mode;
     private List<String> dates;
     private Integer startHour;

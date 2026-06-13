@@ -10,6 +10,7 @@ import java.util.List;
 public class CoordinationResDTO {
     private String id;
     private String title;
+    private String description;
     private String mode;
     private List<String> dates;
     private Integer startHour;

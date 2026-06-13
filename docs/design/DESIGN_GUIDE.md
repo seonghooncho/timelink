@@ -39,7 +39,7 @@
 | `task` (과제) | 파랑 220° | 밝은 파랑 | 진한 파랑 |
 | `appointment` (약속) | 초록 160° | 밝은 초록 | 진한 초록 |
 | `important` (중요) | 빨강 0° | 밝은 빨강 | 진한 빨강 |
-| `group` (그룹) | 보라 260° | 밝은 보라 | 진한 보라 |
+| `group` (모임 일정) | 보라 260° | 밝은 보라 | 진한 보라 |
 | `repeat` (반복) | 주황 30° | 밝은 주황 | 진한 주황 |
 
 ### 1.4 간격 & 라운딩
@@ -202,14 +202,18 @@
 ### `CoordinationOneTime`
 > 일회성 시간 조율 폼 (캘린더 날짜 선택)
 - 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
+- 제목은 80자, 설명은 300자로 제한한다.
 
 ### `CoordinationRepeat`
 > 반복 시간 조율 폼 (요일 선택)
 - 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
+- 제목은 80자, 설명은 300자로 제한한다.
 
 ### `CoordinationStrip`
 > 조율 중인 일정용 수평 스크롤 카드 목록
 - 모임 상세에서 사용하며, 확정 일정 카드보다 낮은 전용 카드로 표시한다.
+- 시간 조율 아이콘은 초록색 계열(`coord-green`), 모임 일정 아이콘은 보라색 계열(`category-group`)을 사용한다.
+- 설명은 한두 줄만 노출하고 긴 설명은 더보기로 펼친다.
 
 ---
 
@@ -251,7 +255,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | 함수 | 파일 | 설명 |
 |------|------|------|
 | `getCategoryColor(category, variant)` | `category.ts` | 카테고리별 Tailwind 클래스 반환 |
-| `getCategoryLabel(category)` | `category.ts` | 카테고리 한글 라벨 (과제/약속/그룹/중요/반복) |
+| `getCategoryLabel(category)` | `category.ts` | 카테고리 한글 라벨 (과제/약속/모임/중요/반복) |
 | `formatTime(iso)` | `category.ts` | `HH:MM` 형태 시간 포맷 |
 | `formatDate(iso)` | `category.ts` | `M/D` 형태 날짜 포맷 |
 | `getDayLabel(iso)` | `category.ts` | 요일 라벨 (일/월/화/수/목/금/토) |
@@ -269,7 +273,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/community` | CommunityPage | PostListItem, 글쓰기 바텀시트 |
 | `/community/posts/:postId` | CommunityPostDetailPage | 플랫 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
 | `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
-| `/groups/:id` | GroupDetailPage | 헤더 그룹 요약, ScheduleStrip, CoordinationStrip, PostListItem, 멤버/멤버관리 모달 |
+| `/groups/:id` | GroupDetailPage | 헤더 모임명/멤버 수 액션, ScheduleStrip, CoordinationStrip, PostListItem, 멤버/멤버관리 모달 |
 | `/groups/:id/intro` | GroupIntroPage | 소개 이미지 슬라이더, 소개글, 전체/공지 필터, 모임 글 목록, 역할 기반 가입/편집 액션 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |

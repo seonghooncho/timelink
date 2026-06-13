@@ -121,7 +121,7 @@ public class GroupController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<CustomResponse<GroupDetailResDTO>> update(
-            @PathVariable String id, @RequestBody GroupUpdateReqDTO req) {
+            @PathVariable String id, @Valid @RequestBody GroupUpdateReqDTO req) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.update(userId, id, req)));
     }

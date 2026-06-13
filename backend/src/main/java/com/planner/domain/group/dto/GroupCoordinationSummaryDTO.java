@@ -1,4 +1,4 @@
-package com.planner.domain.coordination.dto.res;
+package com.planner.domain.group.dto;
 
 import lombok.Builder;
 import lombok.Data;
@@ -7,7 +7,7 @@ import java.util.List;
 
 @Data
 @Builder
-public class CoordinationDetailResDTO {
+public class GroupCoordinationSummaryDTO {
     private String id;
     private String title;
     private String description;
@@ -16,6 +16,6 @@ public class CoordinationDetailResDTO {
     private Integer startHour;
     private Integer endHour;
     private String status;
-    private List<HeatmapEntryDTO> heatmap;
-    private List<SlotEntryDTO> myResponses;
+    private Integer responseCount;
+    private String createdAt;
 }

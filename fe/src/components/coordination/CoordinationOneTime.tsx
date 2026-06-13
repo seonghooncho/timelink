@@ -5,6 +5,11 @@ import { coordinationApi } from '@/services/api';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
 import { trackEvent } from '@/lib/analytics';
+import {
+  COORDINATION_DESCRIPTION_MAX_LENGTH,
+  COORDINATION_TITLE_MAX_LENGTH,
+  trimCoordinationDescription,
+} from '@/lib/coordinationForm';
 
 interface CoordinationOneTimeProps {
   groupId?: string;
@@ -24,6 +29,7 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [visibleMonth, setVisibleMonth] = useState(() => getMonthStart(new Date()));
   const [startHour, setStartHour] = useState(9);
@@ -106,6 +112,7 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
       });
       const result = await coordinationApi.create(groupId, {
         title: title.trim(),
+        description: trimCoordinationDescription(description),
         mode: 'once',
         dates,
         startHour,
@@ -121,8 +128,21 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
 
   return (
     <div className="px-4 pt-5">
-      <input type="text" placeholder="제목" value={title} onChange={e => setTitle(e.target.value)}
+      <input type="text" placeholder="제목" value={title} onChange={e => setTitle(e.target.value)} maxLength={COORDINATION_TITLE_MAX_LENGTH}
         className="w-full px-4 py-3 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+      <p className="mt-1 text-right text-[10px] text-muted-foreground">{title.length}/{COORDINATION_TITLE_MAX_LENGTH}</p>
+
+      <div className="mt-3">
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          maxLength={COORDINATION_DESCRIPTION_MAX_LENGTH}
+          rows={2}
+          className="w-full resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="설명 (선택)"
+        />
+        <p className="mt-1 text-right text-[10px] text-muted-foreground">{description.length}/{COORDINATION_DESCRIPTION_MAX_LENGTH}</p>
+      </div>
 
       <div className="mt-5 rounded-xl border border-border bg-card px-4 py-3">
         <p className="text-[11px] font-semibold text-muted-foreground">대상</p>

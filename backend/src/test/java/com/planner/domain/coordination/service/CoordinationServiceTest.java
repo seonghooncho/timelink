@@ -87,7 +87,8 @@ class CoordinationServiceTest {
             willDoNothing().given(repository).saveCoordination(any());
 
             CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
-            req.setTitle("조율");
+            req.setTitle(" 조율 ");
+            req.setDescription(" 가능한 시간을 남겨주세요 ");
             req.setMode("once");
             req.setDates(List.of("2025-03-15"));
             req.setStartHour(9);
@@ -96,6 +97,7 @@ class CoordinationServiceTest {
             CoordinationResDTO result = service.create(USER_ID, GROUP_ID, req);
 
             assertThat(result.getTitle()).isEqualTo("조율");
+            assertThat(result.getDescription()).isEqualTo("가능한 시간을 남겨주세요");
             assertThat(result.getStatus()).isEqualTo("active");
             then(notificationService).should()
                     .createGroupNotification(eq("user-2"), eq("새 시간 조율이 시작되었습니다"), contains("조율에 참여해 주세요"));

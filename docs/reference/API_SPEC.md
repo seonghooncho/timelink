@@ -181,8 +181,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|------|
 | `id` | `uuid` PK | 자동 생성 |
 | `user_id` | `string` | 백엔드 JWT subject (`userId`) |
-| `title` | `text` NOT NULL | 일정 제목 |
-| `content` | `text` | 일정 내용/메모 |
+| `title` | `text` NOT NULL | 일정 제목. 최대 80자 |
+| `content` | `text` | 일정 내용/메모. 최대 1000자 |
 | `category` | `schedule_category` | enum: task, appointment, group, important, repeat |
 | `is_important` | `boolean` | 중요 여부 (기본: false) |
 | `start_time` | `timestamptz` NOT NULL | 시작 시간 |
@@ -273,7 +273,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-`group_id`가 있으면 모임 일정으로 생성한다. `participant_user_ids`를 생략하면 모임 전체 멤버를 대상으로 생성하고, 값을 전달하면 선택된 모임 멤버와 생성자를 대상으로 각자의 캘린더에 일정 사본을 만든다. 생성자는 요청에 없어도 자동 포함된다.
+`group_id`가 있으면 모임 일정으로 생성하며 서버가 `category=group`으로 고정한다. `participant_user_ids`를 생략하면 모임 전체 멤버를 대상으로 생성하고, 값을 전달하면 선택된 모임 멤버와 생성자를 대상으로 각자의 캘린더에 일정 사본을 만든다. 빈 배열을 전달하면 생성자만 자동 포함된다.
 
 **Response** `201 Created`
 ```json
@@ -389,6 +389,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
         "startTime": "2026-03-03T19:00:00",
         "duration": 1.5
       },
+      "upcomingScheduleCount": 2,
+      "activeCoordination": null,
       "createdAt": "2026-03-01T00:00:00Z"
     }
   ],
@@ -398,6 +400,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   }
 }
 ```
+
+`upcomingScheduleCount`는 카드 요약용 값이며 현재 구현은 다음 예정 일정이 2개 이상인지 판단할 수 있도록 최대 2개까지만 조회한다. `activeCoordination`은 다음 예정 일정이 없을 때 진행 중인 시간 조율을 간략히 보여주기 위한 요약이다.
 
 ---
 
@@ -480,6 +484,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 모임 소개 페이지 데이터. 공개 모임은 미가입자도 조회 가능하며, 비공개 모임은 멤버만 조회 가능.
 `postPreviews`의 `memberOnly=true` 글은 미가입자에게 `locked=true`와 함께 제목/본문 없이 반환한다.
 화면 노출 범위는 진입 경로가 아니라 조회 사용자의 역할(`member`, `myRole`, `canEditIntro`, `canWriteNotice`)로 결정한다.
+`introText`는 모임 설명(`description`)과 같은 소개글 값으로 반환한다.
 
 **Response** `200 OK`
 ```json
@@ -487,7 +492,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": {
     "id": "group-uuid",
     "name": "주말 러닝 모임",
-    "description": "한강에서 가볍게 달립니다",
+    "description": "매주 토요일 아침에 천천히 달리는 모임입니다.",
     "imageUrl": "https://...",
     "imageStatus": "COMPLETED",
     "visibility": "PUBLIC",
@@ -530,6 +535,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `PATCH` /api/planner/v1/groups/:id/intro
 
 모임 소개글과 소개 이미지 목록 수정. **manager만** 수행 가능.
+`introText`를 수정하면 모임 설명(`description`)도 같은 값으로 갱신된다.
 
 **Request Body**
 ```json
@@ -1156,7 +1162,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `id` | `uuid` PK | 자동 생성 |
 | `group_id` | `uuid` FK | `groups.id` (CASCADE) |
 | `created_by` | `uuid` FK | 생성자 |
-| `title` | `text` NOT NULL | 조율 제목 |
+| `title` | `text` NOT NULL | 조율 제목. 최대 80자 |
+| `description` | `text` nullable | 조율 설명. 최대 300자 |
 | `mode` | `coordination_mode` | enum: once, repeat |
 | `dates` | `text[]` | 후보 날짜 배열 |
 | `start_hour` | `integer` | 시작 시간 (0-23) |
@@ -1195,6 +1202,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     {
       "id": "uuid",
       "title": "요구사항 명세서 회의",
+      "description": "가능한 시간을 남겨주세요.",
       "mode": "once",
       "dates": ["2026-03-10", "2026-03-11"],
       "start_hour": 9,
@@ -1220,6 +1228,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": {
     "id": "uuid",
     "title": "요구사항 명세서 회의",
+    "description": "가능한 시간을 남겨주세요.",
     "mode": "once",
     "dates": ["2026-03-10", "2026-03-11"],
     "start_hour": 9,
@@ -1247,6 +1256,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ```json
 {
   "title": "요구사항 명세서 회의",
+  "description": "가능한 시간을 남겨주세요.",
   "mode": "once",
   "dates": ["2026-03-10", "2026-03-11", "2026-03-12"],
   "start_hour": 9,

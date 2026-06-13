@@ -79,7 +79,7 @@ export const getCategoryLabel = (category: ScheduleCategory) => {
   const labels: Record<ScheduleCategory, string> = {
     task: '과제',
     appointment: '약속',
-    group: '그룹',
+    group: '모임',
     important: '중요',
     repeat: '반복',
   };

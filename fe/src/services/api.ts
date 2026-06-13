@@ -259,6 +259,21 @@ export interface GroupListResponse {
     startTime: string;
     duration?: number;
   } | null;
+  upcomingScheduleCount?: number;
+  activeCoordination?: GroupCoordinationSummaryResponse | null;
+  createdAt: string;
+}
+
+export interface GroupCoordinationSummaryResponse {
+  id: string;
+  title: string;
+  description?: string;
+  mode: string;
+  dates: string[];
+  startHour: number;
+  endHour: number;
+  status: string;
+  responseCount: number;
   createdAt: string;
 }
 
@@ -492,6 +507,7 @@ export const groupPostApi = {
 export interface CoordinationResponse {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -517,6 +533,7 @@ export interface SlotEntry {
 export interface CoordinationDetailResponse {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -535,7 +552,7 @@ export const coordinationApi = {
   },
   getById: (groupId: string, coordId: string) =>
     request<CoordinationDetailResponse>('GET', `/groups/${groupId}/coordinations/${coordId}`),
-  create: (groupId: string, data: { title: string; mode: string; dates: string[]; startHour: number; endHour: number }) =>
+  create: (groupId: string, data: { title: string; description?: string; mode: string; dates: string[]; startHour: number; endHour: number }) =>
     request<CoordinationResponse>('POST', `/groups/${groupId}/coordinations`, data),
   update: (groupId: string, coordId: string, data: { status: string }) =>
     request<CoordinationResponse>('PATCH', `/groups/${groupId}/coordinations/${coordId}`, data),

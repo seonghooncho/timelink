@@ -1,10 +1,13 @@
 package com.planner.domain.schedule.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
 public class ScheduleUpdateReqDTO {
+    @Size(max = 80)
     private String title;
+    @Size(max = 1000)
     private String content;
     private String category;
     private Boolean isImportant;
