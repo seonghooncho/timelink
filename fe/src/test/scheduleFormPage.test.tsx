@@ -139,6 +139,29 @@ describe('ScheduleFormPage coordination flow', () => {
     })));
   });
 
+  it('hides the meetup category in regular schedule creation', async () => {
+    renderPage({
+      groupId: undefined,
+      groupName: undefined,
+      coordinationId: undefined,
+      returnTo: undefined,
+      sourceLabel: undefined,
+    });
+
+    expect(screen.getByRole('button', { name: '할일' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '약속' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '반복' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '모임' })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
+
+    await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
+      category: 'task',
+      groupId: undefined,
+      participantUserIds: undefined,
+    })));
+  });
+
   it('confirms before creating a past schedule', async () => {
     renderPage({ startDate: '2020-06-14', coordinationId: undefined });
 

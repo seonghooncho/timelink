@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell,
   CalendarDays,
-  CalendarPlus,
+  CalendarClock,
+  ChevronRight,
   Clock,
   Heart,
   LogIn,
@@ -18,16 +18,18 @@ import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import Timetable from '@/components/schedule/Timetable';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
 import { getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { createDemoCoordination, createDemoSchedules, demoMembers } from '@/lib/demoData';
 import type { DemoCoordinationSlot } from '@/lib/demoData';
 import type { Schedule } from '@/types/types';
+import { getScheduleColorStyle } from '@/utils';
 import { trackEvent } from '@/lib/analytics';
 
-type DemoTab = 'home' | 'group' | 'community' | 'coordination';
+type DemoTab = 'home' | 'coordination' | 'group' | 'community' | 'calendar';
+type CoordinationDemoStage = 'mine' | 'all';
 
 interface LoginPrompt {
   title: string;
@@ -37,10 +39,13 @@ interface LoginPrompt {
 
 const tabs = [
   { key: 'home', label: '홈' },
+  { key: 'coordination', label: '시간 조율' },
   { key: 'group', label: '모임' },
   { key: 'community', label: '커뮤니티' },
-  { key: 'coordination', label: '시간 조율' },
+  { key: 'calendar', label: '캘린더' },
 ];
+
+const demoTabOrder: DemoTab[] = ['home', 'coordination', 'group', 'community', 'calendar'];
 
 const demoCommunityPosts = [
   {
@@ -69,61 +74,69 @@ const demoCommunityPosts = [
   },
 ];
 
+const demoMyGroups = [
+  {
+    id: 'demo-group',
+    name: '주말 약속방',
+    visibility: '공개',
+    members: demoMembers.length,
+    nextTitle: '주말 장소 확정',
+    nextLabel: 'D-2',
+  },
+  {
+    id: 'demo-book',
+    name: '퇴근 후 독서모임',
+    visibility: '비공개',
+    members: 8,
+    nextTitle: '6월 책 나눔',
+    nextLabel: 'D-5',
+  },
+];
+
+const demoDiscoverGroups = [
+  {
+    id: 'discover-running',
+    name: '러닝 초보 모임',
+    members: 12,
+    description: '가볍게 뛰고 주말 코스를 함께 정하는 공개 모임',
+  },
+  {
+    id: 'discover-cafe',
+    name: '동네 카페 작업실',
+    members: 24,
+    description: '집중할 시간과 장소를 함께 맞추는 느슨한 모임',
+  },
+];
+
 const formatDateLabel = (dateKey: string) => {
   const [year, month, day] = dateKey.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
+const toLocalDateKey = (value: Date | string) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 const getMemberInitial = (name: string) => name.slice(0, 1);
+const calendarDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
 const DemoPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DemoTab>('home');
   const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
   const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  const [coordinationStage, setCoordinationStage] = useState<CoordinationDemoStage>('mine');
   const schedules = useMemo(() => createDemoSchedules(), []);
   const coordination = useMemo(() => createDemoCoordination(), []);
   const groupedSchedules = useGroupedSchedules(schedules);
   const [selectedSlotKey, setSelectedSlotKey] = useState(() => `${coordination.recommended.date}-${coordination.recommended.hour}`);
 
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === 'demo-group');
+  const groupedGroupSchedules = useGroupedSchedules(groupSchedules);
   const selectedSlot = coordination.slots.find((slot) => `${slot.date}-${slot.hour}` === selectedSlotKey) ?? coordination.recommended;
-  const primaryPrompt = useMemo(() => {
-    if (activeTab === 'group') {
-      return {
-        label: '내 모임으로 시작하기',
-        title: '모임을 만들려면 로그인이 필요합니다',
-        description: '모임 멤버와 초대 링크는 계정 기준으로 안전하게 관리됩니다.',
-        redirect: '/groups/new',
-      };
-    }
-
-    if (activeTab === 'coordination') {
-      return {
-        label: '시간 조율 시작하기',
-        title: '시간을 조율하려면 로그인이 필요합니다',
-        description: '조율 응답과 모임 일정은 로그인한 멤버 기준으로 저장됩니다.',
-        redirect: '/groups',
-      };
-    }
-
-    if (activeTab === 'community') {
-      return {
-        label: '커뮤니티 참여하기',
-        title: '글을 쓰거나 반응하려면 로그인이 필요합니다',
-        description: '게시글, 댓글, 좋아요는 계정 기준으로 안전하게 저장됩니다.',
-        redirect: '/community',
-      };
-    }
-
-    return {
-      label: '내 일정으로 시작하기',
-      title: '일정을 저장하려면 로그인이 필요합니다',
-      description: '내 일정과 알림은 계정에 연결되어야 안전하게 유지됩니다.',
-      redirect: '/schedule/new',
-    };
-  }, [activeTab]);
 
   useEffect(() => {
     trackEvent('demo_view', { tab: activeTab });
@@ -144,6 +157,13 @@ const DemoPage: React.FC = () => {
     openLoginPrompt({ title, description, redirect });
   };
 
+  const handleNextFeature = () => {
+    const currentIndex = demoTabOrder.indexOf(activeTab);
+    const nextTab = demoTabOrder[(currentIndex + 1) % demoTabOrder.length];
+    trackEvent('demo_next_feature_click', { from_tab: activeTab, to_tab: nextTab });
+    setActiveTab(nextTab);
+  };
+
   const handlePrevDays = () => {
     const prev = new Date(timetableStart);
     prev.setDate(prev.getDate() - 3);
@@ -158,10 +178,15 @@ const DemoPage: React.FC = () => {
 
   const handleScheduleAction = (schedule: Schedule) => {
     requireLoginFor(
-      '내 일정으로 관리하려면 로그인이 필요합니다',
-      `${schedule.title} 같은 일정을 저장하고 알림을 받으려면 카카오 또는 Google로 시작해주세요.`,
+      '일정 상세를 보려면 로그인이 필요합니다',
+      `${schedule.title} 상세와 알림은 가입 후 내 계정에 저장해 확인할 수 있습니다.`,
       '/schedule/new',
     );
+  };
+
+  const handleTimetableBlockClick = (schedule: Schedule) => {
+    setSelectedScheduleId(schedule.id);
+    trackEvent('demo_timetable_block_click', { schedule_id: schedule.id });
   };
 
   return (
@@ -188,17 +213,13 @@ const DemoPage: React.FC = () => {
       </header>
 
       <main className="space-y-5 px-5 py-4 pb-8">
-        <section className="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">샘플 데이터로 먼저 확인해보세요</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            저장, 그룹 참여, 알림 설정은 로그인 후 사용할 수 있습니다.
-          </p>
+        <section>
           <button
             type="button"
-            onClick={() => requireLoginFor(primaryPrompt.title, primaryPrompt.description, primaryPrompt.redirect)}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors active:scale-[0.98]"
+            onClick={handleNextFeature}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-transform active:scale-[0.98]"
           >
-            {primaryPrompt.label}
+            다음 기능 둘러보기 &gt;&gt;
           </button>
         </section>
 
@@ -210,13 +231,16 @@ const DemoPage: React.FC = () => {
             onPrevDays={handlePrevDays}
             onNextDays={handleNextDays}
             onScheduleAction={handleScheduleAction}
-            onRequireLogin={requireLoginFor}
+            onTimetableBlockClick={handleTimetableBlockClick}
+            onEmptyTimetableClick={() => setSelectedScheduleId(null)}
+            selectedScheduleId={selectedScheduleId}
           />
         ) : null}
 
         {activeTab === 'group' ? (
           <GroupDemo
             groupSchedules={groupSchedules}
+            groupedGroupSchedules={groupedGroupSchedules}
             onRequireLogin={requireLoginFor}
           />
         ) : null}
@@ -229,12 +253,21 @@ const DemoPage: React.FC = () => {
             selectedSlot={selectedSlot}
             selectedSlotKey={selectedSlotKey}
             onSelectSlot={setSelectedSlotKey}
+            stage={coordinationStage}
+            onStageChange={setCoordinationStage}
             onRequireLogin={requireLoginFor}
           />
         ) : null}
 
         {activeTab === 'community' ? (
           <CommunityDemo onRequireLogin={requireLoginFor} />
+        ) : null}
+
+        {activeTab === 'calendar' ? (
+          <CalendarDemo
+            schedules={schedules}
+            onRequireLogin={requireLoginFor}
+          />
         ) : null}
       </main>
 
@@ -273,7 +306,9 @@ interface HomeDemoProps {
   onPrevDays: () => void;
   onNextDays: () => void;
   onScheduleAction: (schedule: Schedule) => void;
-  onRequireLogin: (title: string, description: string, redirect: string) => void;
+  onTimetableBlockClick: (schedule: Schedule) => void;
+  onEmptyTimetableClick: () => void;
+  selectedScheduleId: string | null;
 }
 
 const HomeDemo: React.FC<HomeDemoProps> = ({
@@ -283,7 +318,9 @@ const HomeDemo: React.FC<HomeDemoProps> = ({
   onPrevDays,
   onNextDays,
   onScheduleAction,
-  onRequireLogin,
+  onTimetableBlockClick,
+  onEmptyTimetableClick,
+  selectedScheduleId,
 }) => (
   <>
     <section className="-mx-5">
@@ -298,6 +335,7 @@ const HomeDemo: React.FC<HomeDemoProps> = ({
         groups={groupedSchedules}
         onScheduleClick={onScheduleAction}
         onComplete={onScheduleAction}
+        selectedScheduleId={selectedScheduleId}
       />
     </section>
 
@@ -310,112 +348,119 @@ const HomeDemo: React.FC<HomeDemoProps> = ({
         schedules={schedules}
         startDate={timetableStart}
         days={4}
-        onBlockClick={onScheduleAction}
+        onBlockClick={onTimetableBlockClick}
+        onEmptyBlockClick={onEmptyTimetableClick}
         onPrev={onPrevDays}
         onNext={onNextDays}
+        selectedScheduleId={selectedScheduleId}
       />
     </section>
-
-    <div className="grid grid-cols-2 gap-2">
-      <button
-        type="button"
-        onClick={() => onRequireLogin('일정을 저장하려면 로그인이 필요합니다', '내 일정과 알림은 계정에 연결되어야 안전하게 유지됩니다.', '/schedule/new')}
-        className="rounded-2xl bg-foreground px-4 py-3 text-left text-sm font-semibold text-background"
-      >
-        <CalendarPlus className="mb-2 h-4 w-4" />
-        내 일정 만들기
-      </button>
-      <button
-        type="button"
-        onClick={() => onRequireLogin('알림을 켜려면 로그인이 필요합니다', '일정 알림과 그룹 알림은 로그인한 사용자에게만 전달됩니다.', '/mypage')}
-        className="rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm font-semibold text-foreground"
-      >
-        <Bell className="mb-2 h-4 w-4" />
-        알림 설정 보기
-      </button>
-    </div>
   </>
 );
 
 interface GroupDemoProps {
   groupSchedules: Schedule[];
+  groupedGroupSchedules: ReturnType<typeof useGroupedSchedules>;
   onRequireLogin: (title: string, description: string, redirect: string) => void;
 }
 
-const GroupDemo: React.FC<GroupDemoProps> = ({ groupSchedules, onRequireLogin }) => (
+const GroupDemo: React.FC<GroupDemoProps> = ({ groupSchedules, groupedGroupSchedules, onRequireLogin }) => (
   <>
-    <section className="border-y border-border/60">
-      <button
-        type="button"
-        onClick={() => onRequireLogin('모임을 열려면 로그인이 필요합니다', '모임 멤버, 초대, 가입요청은 계정 기준으로 관리됩니다.', '/groups')}
-        className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors hover:bg-muted/25"
-      >
-        <div className="flex items-center gap-4">
-          <GroupAvatar name="주말 약속방" size="sm" />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-sm font-bold text-foreground">주말 약속방</p>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">공개</span>
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">멤버 {demoMembers.length}명</p>
-          </div>
-        </div>
-        <div className="ml-[3.75rem] mt-3 flex items-center gap-2 rounded-xl bg-category-group-light px-3 py-2.5">
-          <CalendarClock className="h-4 w-4 shrink-0 text-category-group" />
-          <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">주말 장소 확정</p>
-          <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-category-group">D-2</span>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={() => onRequireLogin('공개 모임에 가입하려면 로그인이 필요합니다', '프로필과 인삿말을 보낸 뒤 관리자의 승인을 받을 수 있습니다.', '/groups?tab=discover')}
-        className="w-full px-1 py-4 text-left transition-colors hover:bg-muted/25"
-      >
-        <div className="flex items-start gap-3">
-          <GroupAvatar name="러닝 초보 모임" size="sm" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="truncate text-sm font-bold text-foreground">러닝 초보 모임</h3>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">멤버 12명</p>
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-base font-bold text-foreground">내 모임</h2>
+        <span className="text-xs font-semibold text-muted-foreground">{demoMyGroups.length}개</span>
+      </div>
+      <div className="border-y border-border/60">
+        {demoMyGroups.map((group) => (
+          <button
+            key={group.id}
+            type="button"
+            onClick={() => onRequireLogin('모임을 열려면 로그인이 필요합니다', '모임 멤버, 초대, 가입요청은 계정 기준으로 관리됩니다.', '/groups')}
+            className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
+          >
+            <div className="flex items-center gap-3">
+              <GroupAvatar name={group.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm font-bold text-foreground">{group.name}</p>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{group.visibility}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">멤버 {group.members}명</p>
               </div>
-              <UserPlus className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </div>
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-              공개 모임은 둘러보기에서 소개를 보고 가입요청을 보낼 수 있습니다.
-            </p>
-          </div>
-        </div>
-      </button>
+            <div className="ml-[3.25rem] mt-2 flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 shrink-0 text-category-group" />
+              <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">{group.nextTitle}</p>
+              <span className="shrink-0 text-[10px] font-bold text-category-group">{group.nextLabel}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <section className="-mx-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="px-5 text-sm font-bold text-foreground">일정({groupSchedules.length}개)</h3>
+      </div>
+      <ScheduleStrip
+        groups={groupedGroupSchedules}
+        onScheduleClick={() => onRequireLogin('모임 일정 상세를 보려면 로그인이 필요합니다', '선택된 멤버의 캘린더에도 모임 일정이 저장됩니다.', '/groups')}
+        emptyMessage="예정된 모임 일정이 없습니다"
+      />
     </section>
 
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-foreground">약속({groupSchedules.length}개)</h3>
-        <span className="text-xs font-semibold text-muted-foreground">시간 조율(1개)</span>
+        <h3 className="text-sm font-bold text-foreground">시간 조율(1개)</h3>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {groupSchedules.map((schedule) => (
-          <button
-            key={schedule.id}
-            type="button"
-            onClick={() => onRequireLogin('모임 일정을 관리하려면 로그인이 필요합니다', '선택된 멤버의 캘린더에도 모임 일정이 저장됩니다.', '/groups')}
-            className="flex h-[112px] w-[168px] shrink-0 flex-col justify-between rounded-xl bg-category-group px-3 py-3 text-left text-primary-foreground shadow-soft"
-          >
-            <p className="line-clamp-2 text-sm font-bold">{schedule.title}</p>
-            <p className="text-[11px] opacity-90">
-              {formatScheduleClock(schedule.startTime)} · {formatDurationLabel(schedule.duration)}
-            </p>
-          </button>
-        ))}
+      <div className="border-y border-border/60">
         <button
           type="button"
           onClick={() => onRequireLogin('시간 조율을 시작하려면 로그인이 필요합니다', '멤버들이 가능한 시간을 선택하면 모두 가능한 시간을 추천합니다.', '/groups')}
-          className="flex h-[92px] w-[154px] shrink-0 flex-col justify-between rounded-xl border border-coord-green/25 bg-coord-green/5 px-3 py-3 text-left"
+          className="flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:bg-muted/25"
         >
-          <Clock className="h-4 w-4 text-coord-green" />
-          <p className="line-clamp-2 text-xs font-bold text-foreground">주말 모임 시간 정하기</p>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-coord-green/10">
+            <Clock className="h-4 w-4 text-coord-green" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-foreground">주말 모임 시간 정하기</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">5명이 겹친 후보 시간이 있어요</p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
+      </div>
+    </section>
+
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-foreground">모임 둘러보기</h3>
+        <UserPlus className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="border-y border-border/60">
+        {demoDiscoverGroups.map((group) => (
+          <button
+            key={group.id}
+            type="button"
+            onClick={() => onRequireLogin('공개 모임에 가입하려면 로그인이 필요합니다', '프로필과 인삿말을 보낸 뒤 관리자의 승인을 받을 수 있습니다.', '/groups?tab=discover')}
+            className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
+          >
+            <div className="flex items-start gap-3">
+              <GroupAvatar name={group.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-bold text-foreground">{group.name}</h3>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">멤버 {group.members}명</p>
+                  </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                </div>
+                <p className="mt-2 line-clamp-1 text-xs leading-5 text-muted-foreground">{group.description}</p>
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
     </section>
 
@@ -430,13 +475,6 @@ const GroupDemo: React.FC<GroupDemoProps> = ({ groupSchedules, onRequireLogin })
       />
     </section>
 
-    <button
-      type="button"
-      onClick={() => onRequireLogin('모임을 만들려면 로그인이 필요합니다', '모임 멤버와 초대 링크는 계정 기준으로 관리됩니다.', '/groups/new')}
-      className="w-full rounded-2xl bg-category-group py-3.5 text-sm font-bold text-primary-foreground"
-    >
-      모임 만들기
-    </button>
   </>
 );
 
@@ -508,6 +546,8 @@ interface CoordinationDemoProps {
   selectedSlot: DemoCoordinationSlot;
   selectedSlotKey: string;
   onSelectSlot: (key: string) => void;
+  stage: CoordinationDemoStage;
+  onStageChange: (stage: CoordinationDemoStage) => void;
   onRequireLogin: (title: string, description: string, redirect: string) => void;
 }
 
@@ -518,22 +558,134 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
   selectedSlot,
   selectedSlotKey,
   onSelectSlot,
+  stage,
+  onStageChange,
   onRequireLogin,
 }) => {
   const memberMap = useMemo(() => new Map(demoMembers.map((member) => [member.id, member])), []);
-  const maxVotes = demoMembers.length;
+  const [mySlotKeys, setMySlotKeys] = useState(() => new Set([
+    `${dates[0]}-19`,
+    `${dates[1]}-19`,
+    `${dates[1]}-20`,
+    `${dates[2]}-19`,
+  ]));
+  const maxVotes = Math.max(...slots.map((slot) => slot.voterIds.length), 1);
+  const existingScheduleKeys = useMemo(() => new Map([
+    [`${dates[0]}-18`, '저녁 약속'],
+    [`${dates[1]}-20`, '운동'],
+  ]), [dates]);
 
   const findSlot = (date: string, hour: number) => slots.find((slot) => slot.date === date && slot.hour === hour);
+  const toggleMySlot = (key: string) => {
+    setMySlotKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  const getSlotStyle = (votes: number, isSelected: boolean): React.CSSProperties => {
+    if (votes === 0) {
+      return { backgroundColor: 'hsl(var(--muted) / 0.45)' };
+    }
+
+    const ratio = votes / maxVotes;
+    const lightness = 92 - ratio * 48;
+    const foreground = ratio >= 0.72 ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))';
+
+    return {
+      backgroundColor: `hsl(160 55% ${lightness}%)`,
+      color: foreground,
+      boxShadow: isSelected ? 'inset 0 0 0 2px hsl(var(--foreground) / 0.28)' : undefined,
+    };
+  };
 
   return (
     <>
-      <section className="rounded-2xl bg-card p-5 shadow-soft">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">모두 가능한 시간</p>
-        <h2 className="mt-1 text-xl font-bold text-foreground">추천 시간을 먼저 보여줘요</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          타임슬롯을 선택하면 투표 인원을 확인할 수 있어요.
-        </p>
+      <section className="grid grid-cols-2 rounded-2xl bg-muted p-1">
+        <button
+          type="button"
+          onClick={() => onStageChange('mine')}
+          className={`rounded-xl py-2.5 text-xs font-bold transition-colors ${stage === 'mine' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
+        >
+          내 가능 시간
+        </button>
+        <button
+          type="button"
+          onClick={() => onStageChange('all')}
+          className={`rounded-xl py-2.5 text-xs font-bold transition-colors ${stage === 'all' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
+        >
+          모두 가능한 시간
+        </button>
       </section>
+
+      {stage === 'mine' ? (
+        <>
+          <section className="border-b border-border/60 pb-3">
+            <p className="text-xs font-semibold text-primary">내 가능 시간 투표</p>
+            <h2 className="mt-1 text-base font-bold text-foreground">내 일정을 보면서 빈 시간을 고릅니다</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              반투명 블록은 이미 잡힌 일정이고, 초록색은 내가 가능하다고 선택한 시간입니다.
+            </p>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="grid border-b border-border bg-muted/40" style={{ gridTemplateColumns: `3.25rem repeat(${dates.length}, minmax(0, 1fr))` }}>
+              <div />
+              {dates.map((date) => (
+                <div key={date} className="py-2 text-center text-xs font-bold text-foreground">
+                  {formatDateLabel(date)}
+                </div>
+              ))}
+            </div>
+            {hours.map((hour) => (
+              <div key={hour} className="grid border-b border-border last:border-b-0" style={{ gridTemplateColumns: `3.25rem repeat(${dates.length}, minmax(0, 1fr))` }}>
+                <div className="flex items-center justify-center border-r border-border text-xs font-semibold text-muted-foreground">
+                  {hour}:00
+                </div>
+                {dates.map((date) => {
+                  const key = `${date}-${hour}`;
+                  const existingTitle = existingScheduleKeys.get(key);
+                  const selected = mySlotKeys.has(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleMySlot(key)}
+                      className="relative min-h-[64px] overflow-hidden border-r border-border px-1.5 py-2 text-left transition-transform last:border-r-0 active:scale-[0.97]"
+                    >
+                      {existingTitle ? (
+                        <div className="absolute inset-1 rounded-lg bg-category-group/25 px-1.5 py-1">
+                          <p className="truncate text-[10px] font-bold text-category-group-strong">{existingTitle}</p>
+                        </div>
+                      ) : null}
+                      {selected ? (
+                        <div className="absolute inset-1 rounded-lg bg-coord-green/70 shadow-sm" />
+                      ) : null}
+                      <span className={`relative z-10 text-[10px] font-bold ${selected ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                        {selected ? '가능' : existingTitle ? '겹침' : '선택'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </section>
+
+          <button
+            type="button"
+            onClick={() => onStageChange('all')}
+            className="w-full rounded-2xl bg-coord-green py-3 text-sm font-bold text-primary-foreground"
+          >
+            모두 가능한 시간 보기
+          </button>
+        </>
+      ) : (
+        <>
+          <section className="border-b border-border/60 pb-3">
+            <p className="text-xs font-semibold text-primary">모두 가능한 시간</p>
+            <h2 className="mt-1 text-base font-bold text-foreground">겹치는 시간이 진하게 표시됩니다</h2>
+          </section>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="grid border-b border-border bg-muted/40" style={{ gridTemplateColumns: `3.25rem repeat(${dates.length}, minmax(0, 1fr))` }}>
@@ -553,18 +705,18 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
               const slot = findSlot(date, hour);
               const key = `${date}-${hour}`;
               const votes = slot?.voterIds.length ?? 0;
-              const opacity = 0.1 + (votes / maxVotes) * 0.55;
               const isSelected = selectedSlotKey === key;
+              const strong = votes / maxVotes >= 0.72;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onSelectSlot(key)}
-                  className={`min-h-[58px] border-r border-border px-1 py-2 text-center transition-colors last:border-r-0 ${isSelected ? 'ring-2 ring-inset ring-primary' : ''}`}
-                  style={{ backgroundColor: `rgba(27, 127, 245, ${opacity})` }}
+                  className="min-h-[58px] border-r border-border px-1 py-2 text-center transition-transform last:border-r-0 active:scale-[0.97]"
+                  style={getSlotStyle(votes, isSelected)}
                 >
-                  <span className="font-num text-sm font-bold text-foreground">{votes}</span>
-                  <span className="ml-0.5 text-[10px] text-muted-foreground">명</span>
+                  <span className="font-num text-sm font-bold">{votes}</span>
+                  <span className={`ml-0.5 text-[10px] ${strong ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>명</span>
                 </button>
               );
             })}
@@ -582,16 +734,17 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
           </div>
           <Users className="h-5 w-5 text-muted-foreground" />
         </div>
-        <ScrollableFadeList maxHeightClassName="max-h-[220px]" contentClassName="grid grid-cols-3 gap-2 space-y-0" viewportClassName="pr-1">
+        <ScrollableFadeList maxHeightClassName="max-h-[128px]" contentClassName="grid grid-cols-5 gap-x-2 gap-y-3 space-y-0" viewportClassName="pr-1">
           {selectedSlot.voterIds.map((memberId) => {
             const member = memberMap.get(memberId);
             if (!member) return null;
             return (
-              <div key={member.id} className="flex flex-col items-center rounded-xl bg-muted/60 px-2 py-3">
-                <Avatar className="h-10 w-10">
+              <div key={member.id} className="flex min-w-0 flex-col items-center">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={member.avatarUrl} alt={member.name} className="object-cover" />
                   <AvatarFallback className="text-xs font-bold text-foreground">{getMemberInitial(member.name)}</AvatarFallback>
                 </Avatar>
-                <span className="mt-1 max-w-full truncate text-[11px] font-semibold text-foreground">{member.name}</span>
+                <span className="mt-1 max-w-full truncate text-[10px] font-semibold text-foreground">{member.name}</span>
               </div>
             );
           })}
@@ -605,6 +758,112 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
       >
         추천 시간으로 모임 일정 만들기
       </button>
+        </>
+      )}
+    </>
+  );
+};
+
+interface CalendarDemoProps {
+  schedules: Schedule[];
+  onRequireLogin: (title: string, description: string, redirect: string) => void;
+}
+
+const CalendarDemo: React.FC<CalendarDemoProps> = ({ schedules, onRequireLogin }) => {
+  const today = new Date();
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const calendarDays = [
+    ...Array.from({ length: firstDay }, () => null as number | null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+
+  const getSchedulesForDay = (day: number) => {
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return schedules.filter((schedule) => toLocalDateKey(schedule.startTime) === dateKey);
+  };
+
+  const selectedSchedules = getSchedulesForDay(selectedDay);
+
+  return (
+    <>
+      <section className="border-b border-border/60 pb-3">
+        <p className="text-xs font-semibold text-primary">캘린더</p>
+        <h2 className="mt-1 text-base font-bold text-foreground">월간 흐름에서 일정을 확인합니다</h2>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-3 shadow-soft">
+        <div className="mb-3 flex items-center justify-center">
+          <h3 className="text-sm font-bold text-foreground">{year}년 {month + 1}월</h3>
+        </div>
+        <div className="grid grid-cols-7">
+          {calendarDayLabels.map((label) => (
+            <div key={label} className="py-1 text-center text-[10px] font-semibold text-muted-foreground">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-y-0.5">
+          {calendarDays.map((day, index) => {
+            if (day === null) return <div key={`blank-${index}`} className="min-h-[52px]" />;
+            const daySchedules = getSchedulesForDay(day);
+            const isToday = day === today.getDate();
+            const isSelected = day === selectedDay;
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setSelectedDay(day)}
+                className={`flex min-h-[52px] flex-col items-center rounded-lg px-1 py-1.5 transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}`}
+              >
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>
+                  {day}
+                </span>
+                <div className="mt-1 flex w-full flex-col gap-0.5">
+                  {daySchedules.slice(0, 2).map((schedule) => (
+                    <span key={schedule.id} className="h-1 rounded-full" style={getScheduleColorStyle(schedule, 'line')} />
+                  ))}
+                  {daySchedules.length > 2 ? (
+                    <span className="text-center text-[8px] font-semibold text-muted-foreground">+{daySchedules.length - 2}</span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="mb-2 text-sm font-bold text-foreground">{month + 1}월 {selectedDay}일 일정</h3>
+        {selectedSchedules.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
+            이 날은 샘플 일정이 없습니다.
+          </p>
+        ) : (
+          <div className="border-y border-border/60">
+            {selectedSchedules.map((schedule) => (
+              <button
+                key={schedule.id}
+                type="button"
+                onClick={() => onRequireLogin('캘린더 일정 상세를 보려면 로그인이 필요합니다', '월간 캘린더에서 일정 수정과 알림 관리를 이어가려면 로그인해주세요.', '/calendar')}
+                className="flex w-full items-center gap-3 border-b border-border/60 px-1 py-3.5 text-left transition-colors last:border-b-0 hover:bg-muted/25"
+              >
+                <span className="h-9 w-1 shrink-0 rounded-full" style={getScheduleColorStyle(schedule, 'line')} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-foreground">{schedule.title}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {formatScheduleClock(schedule.startTime)} · {formatDurationLabel(schedule.duration)}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     </>
   );
 };

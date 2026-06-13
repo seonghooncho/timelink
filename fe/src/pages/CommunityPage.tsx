@@ -9,6 +9,7 @@ import PostImageAttachment from '@/components/community/PostImageAttachment';
 import CommunityProfileSheet from '@/components/community/CommunityProfileSheet';
 import FAB from '@/components/common/FAB';
 import ImageCropModal from '@/components/common/ImageCropModal';
+import { ListSkeleton } from '@/components/common/LoadingStates';
 import { Textarea } from '@/components/ui/textarea';
 import { useCommunityPosts, useCreateCommunityPost } from '@/hooks/useCommunity';
 import { communityApi, CommunityPublicProfileResponse } from '@/services/api';
@@ -23,6 +24,7 @@ const CommunityPage: React.FC = () => {
   const {
     data: posts = [],
     isLoading,
+    isPending,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -155,9 +157,9 @@ const CommunityPage: React.FC = () => {
         </section>
 
         <div className="mt-3">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          {isLoading || isPending ? (
+            <div className="px-5">
+              <ListSkeleton count={4} showAvatar={false} itemClassName="px-0" />
             </div>
           ) : posts.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border px-5 py-14 text-center">
@@ -191,7 +193,12 @@ const CommunityPage: React.FC = () => {
         </div>
       </div>
 
-      <FAB onClick={() => setShowCreateModal(true)} variant="community" ariaLabel="글쓰기" />
+      <FAB
+        onClick={() => setShowCreateModal(true)}
+        variant="community"
+        ariaLabel="글쓰기"
+        icon={<MessageCircle className="h-6 w-6" />}
+      />
 
       {showCreateModal ? (
         <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={closeCreateModal}>

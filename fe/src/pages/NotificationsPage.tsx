@@ -4,6 +4,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import TabBar from '@/components/common/TabBar';
 import CategoryBadge from '@/components/common/CategoryBadge';
+import { ListSkeleton } from '@/components/common/LoadingStates';
 import { notificationApi, NotificationResponse } from '@/services/api';
 import { ScheduleCategory } from '@/types/types';
 import { appToast } from '@/lib/appToast';
@@ -90,9 +91,7 @@ const NotificationsPage: React.FC = () => {
 
       <div className="px-5 py-3 space-y-2.5">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          <ListSkeleton count={4} showAvatar={false} className="border-none" itemClassName="rounded-2xl border border-border bg-card px-4" />
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-muted-foreground">알림이 없습니다</p>

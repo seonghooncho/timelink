@@ -6,6 +6,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
+import { ListSkeleton } from '@/components/common/LoadingStates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -781,8 +782,8 @@ const IntroPostList: React.FC<{
 }> = ({ posts, member, isLoading, hasNextPage, isFetchingNextPage, onLoadMore, onPostClick }) => {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="px-5">
+        <ListSkeleton count={3} showAvatar={false} itemClassName="px-0" />
       </div>
     );
   }

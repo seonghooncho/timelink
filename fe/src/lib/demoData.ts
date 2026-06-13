@@ -4,6 +4,7 @@ export interface DemoMember {
   id: string;
   name: string;
   role: string;
+  avatarUrl: string;
 }
 
 export interface DemoCoordinationSlot {
@@ -27,74 +28,91 @@ const makeLocalDate = (base: Date, dayOffset: number, hour: number, minute = 0) 
   return date;
 };
 
-export const createDemoSchedules = (now = new Date()): Schedule[] => [
-  {
-    id: 'demo-past-retro',
-    title: '지난 팀 회고',
-    content: '지난 일정도 옆으로 넘겨 확인할 수 있습니다.',
-    category: 'group',
-    isImportant: false,
-    startTime: makeLocalDate(now, -1, 19).toISOString(),
-    duration: 1,
-    isCompleted: true,
-    hasAlarm: false,
-    groupId: 'demo-group',
-  },
-  {
-    id: 'demo-focus-doc',
-    title: '기획안 마감',
-    content: '중요 일정은 카드와 알림에서 더 눈에 띄게 관리합니다.',
-    category: 'task',
-    isImportant: true,
-    startTime: makeLocalDate(now, 0, 13).toISOString(),
-    duration: 1.5,
-    isCompleted: false,
-    hasAlarm: true,
-  },
-  {
-    id: 'demo-team-sync',
-    title: '팀 싱크 미팅',
-    content: '겹치는 일정도 타임테이블에서 블록으로 구분됩니다.',
-    category: 'group',
-    isImportant: false,
-    startTime: makeLocalDate(now, 0, 15).toISOString(),
-    duration: 1,
-    isCompleted: false,
-    hasAlarm: true,
-    groupId: 'demo-group',
-  },
-  {
-    id: 'demo-dinner',
-    title: '저녁 약속',
-    content: '개인 일정과 그룹 일정을 한 화면에서 같이 봅니다.',
-    category: 'appointment',
-    isImportant: false,
-    startTime: makeLocalDate(now, 0, 19).toISOString(),
-    duration: 2,
-    isCompleted: false,
-    hasAlarm: false,
-  },
-  {
-    id: 'demo-weekend-plan',
-    title: '주말 장소 확정',
-    content: '조율 결과를 그룹 일정으로 확정하는 흐름을 보여줍니다.',
-    category: 'group',
-    isImportant: false,
-    startTime: makeLocalDate(now, 2, 14).toISOString(),
-    duration: 1,
-    isCompleted: false,
-    hasAlarm: true,
-    groupId: 'demo-group',
-  },
-];
+const getDemoHourLayout = (now: Date) => {
+  const anchorHour = Math.min(20, Math.max(1, Math.floor(now.getHours())));
+  return {
+    focus: anchorHour,
+    sync: Math.min(22, anchorHour + 1),
+    overlap: Math.min(22, anchorHour + 1),
+    dinner: Math.min(23, anchorHour + 3),
+  };
+};
+
+const demoStartTime = (now: Date, dayOffset: number, hour: number, minute = 0) =>
+  makeLocalDate(now, dayOffset, hour, minute).toISOString();
+
+export const createDemoSchedules = (now = new Date()): Schedule[] => {
+  const hours = getDemoHourLayout(now);
+
+  return [
+    {
+      id: 'demo-past-retro',
+      title: '지난 팀 회고',
+      content: '지난 일정도 옆으로 넘겨 확인할 수 있습니다.',
+      category: 'group',
+      isImportant: false,
+      startTime: demoStartTime(now, -1, 19),
+      duration: 1,
+      isCompleted: true,
+      hasAlarm: false,
+      groupId: 'demo-group',
+    },
+    {
+      id: 'demo-focus-doc',
+      title: '기획안 마감',
+      content: '중요 일정은 카드와 알림에서 더 눈에 띄게 관리합니다.',
+      category: 'task',
+      isImportant: true,
+      startTime: demoStartTime(now, 0, hours.focus),
+      duration: 1.5,
+      isCompleted: false,
+      hasAlarm: true,
+    },
+    {
+      id: 'demo-team-sync',
+      title: '팀 싱크 미팅',
+      content: '겹치는 일정도 타임테이블에서 블록으로 구분됩니다.',
+      category: 'group',
+      isImportant: false,
+      startTime: demoStartTime(now, 0, hours.sync, 30),
+      duration: 1,
+      isCompleted: false,
+      hasAlarm: true,
+      groupId: 'demo-group',
+    },
+    {
+      id: 'demo-dinner',
+      title: '저녁 약속',
+      content: '개인 일정과 모임 일정을 한 화면에서 같이 봅니다.',
+      category: 'appointment',
+      isImportant: false,
+      startTime: demoStartTime(now, 0, hours.dinner),
+      duration: 1.5,
+      isCompleted: false,
+      hasAlarm: false,
+    },
+    {
+      id: 'demo-weekend-plan',
+      title: '주말 장소 확정',
+      content: '조율 결과를 모임 일정으로 확정하는 흐름을 보여줍니다.',
+      category: 'group',
+      isImportant: false,
+      startTime: demoStartTime(now, 2, 14),
+      duration: 1,
+      isCompleted: false,
+      hasAlarm: true,
+      groupId: 'demo-group',
+    },
+  ];
+};
 
 export const demoMembers: DemoMember[] = [
-  { id: 'demo-member-1', name: '민지', role: '관리자' },
-  { id: 'demo-member-2', name: '준호', role: '멤버' },
-  { id: 'demo-member-3', name: '서연', role: '멤버' },
-  { id: 'demo-member-4', name: '도윤', role: '멤버' },
-  { id: 'demo-member-5', name: '하린', role: '멤버' },
-  { id: 'demo-member-6', name: '지우', role: '멤버' },
+  { id: 'demo-member-1', name: '민지', role: '관리자', avatarUrl: 'https://i.pravatar.cc/96?img=47' },
+  { id: 'demo-member-2', name: '준호', role: '멤버', avatarUrl: 'https://i.pravatar.cc/96?img=12' },
+  { id: 'demo-member-3', name: '서연', role: '멤버', avatarUrl: 'https://i.pravatar.cc/96?img=32' },
+  { id: 'demo-member-4', name: '도윤', role: '멤버', avatarUrl: 'https://i.pravatar.cc/96?img=15' },
+  { id: 'demo-member-5', name: '하린', role: '멤버', avatarUrl: 'https://i.pravatar.cc/96?img=44' },
+  { id: 'demo-member-6', name: '지우', role: '멤버', avatarUrl: 'https://i.pravatar.cc/96?img=5' },
 ];
 
 export const createDemoCoordination = (now = new Date()) => {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '@/components/common/BrandMark';
 import MobileLayout from '@/components/layout/MobileLayout';
@@ -8,6 +8,7 @@ import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import Timetable from '@/components/schedule/Timetable';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import FAB from '@/components/common/FAB';
+import { ScheduleStripSkeleton, TimetableSkeleton } from '@/components/common/LoadingStates';
 import { useApp } from '@/context/AppContext';
 import { Schedule } from '@/types/types';
 import { getDayLabel } from '@/utils';
@@ -46,6 +47,7 @@ const MainPage: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isPending: isSchedulesPending,
   } = useSchedules(scheduleRange);
 
   const groupedSchedules = useGroupedSchedules(schedules);
@@ -158,7 +160,9 @@ const MainPage: React.FC = () => {
       </header>
 
       <section className="pt-3">
-        {groupedSchedules.length === 0 ? (
+        {isSchedulesPending ? (
+          <ScheduleStripSkeleton />
+        ) : groupedSchedules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-6">
             <BrandMark size="md" className="justify-center mb-4" />
             <p className="text-sm font-medium text-foreground mb-1">일정이 없어요</p>
@@ -188,19 +192,23 @@ const MainPage: React.FC = () => {
       </section>
 
       <section className="mt-2">
-        <Timetable
-          schedules={schedules}
-          startDate={timetableStart}
-          days={4}
-          onBlockClick={handleBlockClick}
-          onEmptyBlockClick={handleEmptyTimetableClick}
-          onPrev={handlePrevDays}
-          onNext={handleNextDays}
-          selectedScheduleId={activeScheduleId}
-        />
+        {isSchedulesPending ? (
+          <TimetableSkeleton />
+        ) : (
+          <Timetable
+            schedules={schedules}
+            startDate={timetableStart}
+            days={4}
+            onBlockClick={handleBlockClick}
+            onEmptyBlockClick={handleEmptyTimetableClick}
+            onPrev={handlePrevDays}
+            onNext={handleNextDays}
+            selectedScheduleId={activeScheduleId}
+          />
+        )}
       </section>
 
-      <FAB to="/schedule/new" />
+      <FAB to="/schedule/new" ariaLabel="일정 생성" icon={<CalendarClock className="h-6 w-6" />} />
 
       <ScheduleDetailModal
         schedule={selectedSchedule}

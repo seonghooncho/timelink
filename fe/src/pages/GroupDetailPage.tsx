@@ -13,6 +13,7 @@ import PostImageAttachment from '@/components/community/PostImageAttachment';
 import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import CoordinationStrip from '@/components/coordination/CoordinationStrip';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
+import { ListSkeleton, ScheduleStripSkeleton } from '@/components/common/LoadingStates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,7 +57,7 @@ const GroupDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { userId } = useAuth();
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
-  const { data: groups = [] } = useGroups();
+  const { data: groups = [], isPending: isGroupsPending, isLoading: isGroupsLoading } = useGroups();
   const menuRef = useRef<HTMLDivElement>(null);
   const postImageInputRef = useRef<HTMLInputElement>(null);
   const groupScheduleRange = useMemo(() => {
@@ -72,6 +73,7 @@ const GroupDetailPage: React.FC = () => {
     fetchNextPage: fetchNextSchedulePage,
     hasNextPage: hasNextSchedulePage,
     isFetchingNextPage: isFetchingNextSchedulePage,
+    isPending: isSchedulesPending,
   } = useSchedules(groupScheduleRange);
   const [showMenu, setShowMenu] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -87,7 +89,7 @@ const GroupDetailPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [coordinations, setCoordinations] = useState<CoordResp[]>([]);
   const [coordinationNextCursor, setCoordinationNextCursor] = useState<string | null>(null);
-  const [isCoordinationLoading, setIsCoordinationLoading] = useState(false);
+  const [isCoordinationLoading, setIsCoordinationLoading] = useState(true);
   const [isFetchingMoreCoordinations, setIsFetchingMoreCoordinations] = useState(false);
   const [showClosedCoordinations, setShowClosedCoordinations] = useState(false);
   const [showPastSchedules, setShowPastSchedules] = useState(false);
@@ -477,6 +479,17 @@ const GroupDetailPage: React.FC = () => {
     }
   };
 
+  if (isGroupsPending || isGroupsLoading) {
+    return (
+      <MobileLayout>
+        <PageHeader title="모임" showBack backTo="/groups" />
+        <div className="px-5 py-4">
+          <ListSkeleton count={3} />
+        </div>
+      </MobileLayout>
+    );
+  }
+
   if (!group) {
     return (
       <MobileLayout>
@@ -614,7 +627,9 @@ const GroupDetailPage: React.FC = () => {
             </button>
           ) : null}
         </div>
-        {groupedVisibleSchedules.length > 0 ? (
+        {isSchedulesPending ? (
+          <ScheduleStripSkeleton />
+        ) : groupedVisibleSchedules.length > 0 ? (
           <ScheduleStrip
             groups={groupedVisibleSchedules}
             onScheduleClick={handleScheduleClick}
@@ -743,8 +758,8 @@ const GroupDetailPage: React.FC = () => {
         ) : null}
 
         {isGroupPostsLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="px-5">
+            <ListSkeleton count={3} showAvatar={false} itemClassName="px-0" />
           </div>
         ) : groupPosts.length > 0 ? (
           <div>
