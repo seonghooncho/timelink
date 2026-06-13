@@ -125,7 +125,7 @@
 - Props: `to` (네비게이션), `onClick`, `variant` (default/group)
 - default: 검정 배경, group: 보라 배경
 
-### `TabBar` ✨ NEW
+### `TabBar`
 > 재사용 가능한 탭 바
 - Props: `tabs` (key/label 배열), `activeKey`, `onChange`
 
@@ -137,12 +137,12 @@
 />
 ```
 
-### `ToggleSwitch` ✨ NEW
+### `ToggleSwitch`
 > ON/OFF 토글 스위치
 - Props: `checked`, `onChange`
 - 활성: primary 색상, 비활성: muted 색상
 
-### `GroupAvatar` ✨ NEW
+### `GroupAvatar`
 > 그룹 아바타 (이미지 또는 기본 아이콘)
 - Props: `image?`, `name`, `size` (sm/md/lg)
 - 이미지가 없으면 보라색 그룹 아이콘 표시
@@ -151,7 +151,7 @@
 <GroupAvatar image={group.image} name={group.name} size="md" />
 ```
 
-### `TimeChip` ✨ NEW
+### `TimeChip`
 > 시간 표시 칩
 - Props: `label`, `active`
 - 시간 조율 페이지에서 사용
@@ -169,7 +169,7 @@
 - 카테고리별 배경색 + 시간 + 제목 + 소요시간 + 체크박스
 - `isImportant`일 때 진한 색 배경
 
-### `ScheduleStrip` ✨ NEW
+### `ScheduleStrip`
 > 날짜별 그룹화된 수평 스크롤 일정 카드 목록
 - Props: `groups`, `onScheduleClick`, `onComplete`, `emptyMessage`
 - MainPage에서 홈 일정 카드 영역으로 사용
@@ -209,7 +209,7 @@
 
 ## 6. 커스텀 훅 (`fe/src/hooks/`)
 
-### `useGroupedSchedules` ✨ NEW
+### `useGroupedSchedules`
 > 일정 배열을 날짜별로 그룹화하는 훅
 - 미완료 일정만 필터링, 시간순 정렬
 - 오늘/N일 뒤 라벨 자동 생성

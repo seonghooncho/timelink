@@ -4,7 +4,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ScheduleCategory } from '@/types/types';
-import { Camera, Loader2, ImageIcon } from 'lucide-react';
+import { Bell, Camera, Loader2, ImageIcon, Star } from 'lucide-react';
 import { aiApi } from '@/services/api';
 import { useCreateSchedule } from '@/hooks/useSchedules';
 import { appToast, getErrorMessage } from '@/lib/appToast';
@@ -193,7 +193,7 @@ const ScheduleFormPage: React.FC = () => {
                 ) : (
                   <>
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center"><Camera className="w-5 h-5 text-primary" /></div>
-                    <span className="text-xs font-semibold text-primary">📸 사진으로 일정 등록</span>
+                    <span className="text-xs font-semibold text-primary">사진으로 일정 등록</span>
                     <span className="max-w-full px-3 text-center text-[10px] text-muted-foreground">15MB 이하 사진을 맞춘 뒤 AI가 일정 정보를 채워줘요</span>
                   </>
                 )}
@@ -255,12 +255,14 @@ const ScheduleFormPage: React.FC = () => {
         {/* Toggles */}
         <div className="flex gap-4">
           <button onClick={() => setIsImportant(!isImportant)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${isImportant ? 'bg-category-important-light text-category-important-strong border-category-important' : 'bg-card text-muted-foreground border-border'}`}>
-            ⭐ 중요
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${isImportant ? 'bg-category-important-light text-category-important-strong border-category-important' : 'bg-card text-muted-foreground border-border'}`}>
+            <Star className="w-4 h-4" fill={isImportant ? 'currentColor' : 'none'} />
+            중요
           </button>
           <button onClick={() => setHasAlarm(!hasAlarm)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${hasAlarm ? 'bg-primary/10 text-primary border-primary' : 'bg-card text-muted-foreground border-border'}`}>
-            🔔 알림
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${hasAlarm ? 'bg-primary/10 text-primary border-primary' : 'bg-card text-muted-foreground border-border'}`}>
+            <Bell className="w-4 h-4" />
+            알림
           </button>
         </div>
 
