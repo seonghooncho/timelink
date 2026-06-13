@@ -17,10 +17,10 @@
 3. 프론트가 crop/position 조정 UI에서 최종 업로드 이미지를 만듭니다.
 4. 백엔드가 이미지 목적과 크기, 타입을 검증하고 presigned PUT URL을 발급합니다.
 5. 프론트가 결과 이미지를 S3 `upload/{purpose}/{userId}/{imageId}/original.{ext}`에 직접 업로드합니다.
-6. 백엔드는 이미지 레코드를 `PROCESSING` 상태로 저장하고 대상 엔티티에 `imageId`, `imageStatus`를 연결합니다.
+6. 백엔드는 이미지 레코드를 `PROCESSING` 상태로 저장합니다. 프로필, 그룹, 일정, 모임 글처럼 단일 이미지 필드를 가진 대상은 `imageId`, `imageStatus`도 연결합니다.
 7. S3 `upload/` object-created 이벤트가 image processor Lambda를 실행합니다.
 8. Lambda가 원본을 읽어 WebP로 변환하고 `public/member/`, `public/group/`, `public/schedule/`, `public/group-intro/`, `public/group-post/` 중 목적에 맞는 prefix에 저장합니다.
-9. Lambda가 DynamoDB 이미지 레코드와 대상 엔티티를 `COMPLETED` 상태, 최종 WebP URL/key로 갱신합니다.
+9. Lambda가 DynamoDB 이미지 레코드를 `COMPLETED` 상태와 최종 WebP URL/key로 갱신합니다. 단일 이미지 대상은 대상 엔티티도 함께 갱신하고, 모임 소개 이미지는 소개의 `imageIds`가 완료된 이미지 레코드를 조회합니다.
 10. 변환 전 UI는 처리 중 placeholder를 보여주고, 변환 완료 후 최종 WebP 이미지를 표시합니다.
 
 주요 구현 위치는 다음과 같습니다.
