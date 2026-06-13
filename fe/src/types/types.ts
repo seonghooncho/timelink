@@ -26,7 +26,9 @@ export interface Group {
   imageId?: string;
   imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
   inviteCode?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   memberCount?: number;
   myRole?: string;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   schedules: Schedule[];
 }

@@ -1,12 +1,16 @@
 package com.planner.domain.group.service;
 
 import com.planner.domain.group.dto.GroupCreateReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
@@ -55,6 +59,14 @@ class GroupServiceTest {
                 .build();
     }
 
+    private Group samplePublicGroup(String groupId, String createdBy) {
+        Group group = sampleGroup(groupId, createdBy);
+        group.setVisibility("PUBLIC");
+        group.setGsi3pk("GROUP#PUBLIC");
+        group.setGsi3sk(group.getCreatedAt() + "#" + groupId);
+        return group;
+    }
+
     private GroupInvite sampleInvite(String groupId) {
         return GroupInvite.builder()
                 .pk("INVITE#ABC123").sk("METADATA")
@@ -69,6 +81,18 @@ class GroupServiceTest {
                 .id("m1").groupId(groupId).userId(userId).role(role)
                 .gsi2pk("USER#" + userId).gsi2sk("GROUP#" + groupId)
                 .joinedAt("2025-01-01T00:00:00Z")
+                .build();
+    }
+
+    private GroupJoinRequest sampleJoinRequest(String groupId, String userId) {
+        return GroupJoinRequest.builder()
+                .pk("GROUP#" + groupId).sk("JOIN_REQUEST#" + userId)
+                .id("jr1").groupId(groupId).userId(userId)
+                .status("PENDING")
+                .message("함께 참여하고 싶습니다")
+                .nickname("요청자")
+                .avatarUrl("https://img/requester.png")
+                .createdAt("2025-01-02T00:00:00Z")
                 .build();
     }
 
@@ -88,6 +112,23 @@ class GroupServiceTest {
                 "manager".equals(m.getRole())
                         && "스터디장".equals(m.getNickname())
                         && "https://img/profile.png".equals(m.getAvatarUrl())
+        ));
+    }
+
+    @Test
+    @DisplayName("create — 공개 모임은 공개 조회 GSI 키를 저장한다")
+    void create_publicGroup_setsPublicIndex() {
+        GroupCreateReqDTO req = new GroupCreateReqDTO();
+        req.setName("Open Study");
+        req.setVisibility("PUBLIC");
+
+        service.create("user1", req);
+
+        verify(repository).saveGroup(argThat(group ->
+                "PUBLIC".equals(group.getVisibility())
+                        && "GROUP#PUBLIC".equals(group.getGsi3pk())
+                        && group.getGsi3sk() != null
+                        && group.getGsi3sk().contains(group.getId())
         ));
     }
 
@@ -135,6 +176,22 @@ class GroupServiceTest {
         assertThat(result.getItems()).hasSize(1);
         assertThat(result.getItems().get(0).getName()).isEqualTo("Study");
         verify(repository).findGroupsByUserIdPaged("user1", 20, null);
+    }
+
+    @Test
+    @DisplayName("getPublicGroupsPaged — 공개 모임과 내 가입요청 상태를 반환한다")
+    void getPublicGroupsPaged_returnsJoinRequestStatus() {
+        Group group = samplePublicGroup("g1", "manager");
+        when(repository.findPublicGroupsPaged(20, null))
+                .thenReturn(CursorPageResult.<Group>builder().items(List.of(group)).build());
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.of(sampleJoinRequest("g1", "user1")));
+
+        CursorPageResult<GroupResDTO> result = service.getPublicGroupsPaged("user1", 20, null);
+
+        assertThat(result.getItems()).hasSize(1);
+        assertThat(result.getItems().get(0).getVisibility()).isEqualTo("PUBLIC");
+        assertThat(result.getItems().get(0).getJoinRequestStatus()).isEqualTo("PENDING");
     }
 
     @Test
@@ -281,6 +338,83 @@ class GroupServiceTest {
         assertThatCode(() -> service.join("user1", "ABC123")).doesNotThrowAnyException();
         verify(repository, never()).saveMember(any());
         verify(repository, never()).updateMemberCount(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("requestToJoin — 공개 모임 가입요청을 저장하고 관리자에게 알린다")
+    void requestToJoin_savesPendingRequestAndNotifiesManagers() {
+        Group group = samplePublicGroup("g1", "manager");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(sampleMember("g1", "manager", "manager")));
+        when(profileRepository.findByUserId("user1")).thenReturn(Optional.of(
+                Profile.builder().id("USER#user1").sk("PROFILE").nickname("요청자").avatarUrl("https://img/requester.png").build()
+        ));
+
+        GroupJoinRequestCreateReqDTO req = new GroupJoinRequestCreateReqDTO();
+        req.setMessage("함께 참여하고 싶습니다");
+
+        GroupJoinRequestResDTO result = service.requestToJoin("user1", "g1", req);
+
+        assertThat(result.getStatus()).isEqualTo("PENDING");
+        verify(repository).saveJoinRequest(argThat(joinRequest ->
+                "JOIN_REQUEST#user1".equals(joinRequest.getSk())
+                        && "함께 참여하고 싶습니다".equals(joinRequest.getMessage())
+                        && "요청자".equals(joinRequest.getNickname())
+        ));
+        verify(notificationService).createGroupNotification(
+                eq("manager"),
+                contains("가입을 요청했습니다"),
+                eq("함께 참여하고 싶습니다"),
+                eq("GROUP_JOIN_REQUEST"),
+                eq("g1"),
+                eq("/groups/g1?panel=joinRequests")
+        );
+    }
+
+    @Test
+    @DisplayName("requestToJoin — 비공개 모임에는 가입요청을 보낼 수 없다")
+    void requestToJoin_privateGroupThrows() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "manager")));
+
+        GroupJoinRequestCreateReqDTO req = new GroupJoinRequestCreateReqDTO();
+
+        assertThatThrownBy(() -> service.requestToJoin("user1", "g1", req))
+                .isInstanceOf(GroupException.class);
+        verify(repository, never()).saveJoinRequest(any());
+    }
+
+    @Test
+    @DisplayName("decideJoinRequest — 승인하면 멤버를 추가하고 요청자에게 알린다")
+    void decideJoinRequest_approveAddsMember() {
+        Group group = samplePublicGroup("g1", "manager");
+        GroupJoinRequest joinRequest = sampleJoinRequest("g1", "user1");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "manager")).thenReturn(Optional.of(sampleMember("g1", "manager", "manager")));
+        when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.of(joinRequest));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findMembersByGroupId("g1")).thenReturn(
+                List.of(sampleMember("g1", "manager", "manager"), sampleMember("g1", "user1", "member"))
+        );
+
+        GroupJoinRequestDecisionReqDTO req = new GroupJoinRequestDecisionReqDTO();
+        req.setStatus("APPROVED");
+
+        GroupJoinRequestResDTO result = service.decideJoinRequest("manager", "g1", "user1", req);
+
+        assertThat(result.getStatus()).isEqualTo("APPROVED");
+        verify(repository).saveMember(argThat(member -> "user1".equals(member.getUserId()) && "member".equals(member.getRole())));
+        verify(repository).updateMemberCount("g1", 1);
+        verify(repository).saveJoinRequest(argThat(saved -> "APPROVED".equals(saved.getStatus()) && saved.getDecidedAt() != null));
+        verify(notificationService).createGroupNotification(
+                eq("user1"),
+                eq("모임 가입요청이 승인되었습니다"),
+                contains("Study 모임"),
+                eq("GROUP"),
+                eq("g1"),
+                eq("/groups/g1")
+        );
     }
 
     @Test

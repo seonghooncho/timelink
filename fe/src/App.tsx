@@ -7,6 +7,7 @@ import { AppProvider } from "@/context/AppContext";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import MainPage from "./pages/MainPage";
 import CalendarPage from "./pages/CalendarPage";
+import CommunityPage from "./pages/CommunityPage";
 import ScheduleFormPage from "./pages/ScheduleFormPage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupFormPage from "./pages/GroupFormPage";
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="/consent" element={<ProtectedRoute requireConsent={false}><ConsentPage /></ProtectedRoute>} />
               <Route path="/" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
               <Route path="/schedule/new" element={<ProtectedRoute><ScheduleFormPage /></ProtectedRoute>} />
               <Route path="/groups" element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
               <Route path="/groups/join/:inviteCode" element={<ProtectedRoute><GroupJoinPage /></ProtectedRoute>} />

@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import TabBar from '@/components/common/TabBar';
@@ -14,6 +15,7 @@ const TABS = [
 const NOTIFICATION_PAGE_LIMIT = 20;
 
 const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('schedule');
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,9 +54,21 @@ const NotificationsPage: React.FC = () => {
     loadNotifications(null);
   }, [loadNotifications]);
 
-  const handleMarkRead = (id: string) => {
-    notificationApi.markRead(id).then(() => {
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const handleNotificationClick = (notification: NotificationResponse) => {
+    const afterRead = () => {
+      if (notification.targetUrl) {
+        navigate(notification.targetUrl);
+      }
+    };
+
+    if (notification.isRead) {
+      afterRead();
+      return;
+    }
+
+    notificationApi.markRead(notification.id).then(() => {
+      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+      afterRead();
     }).catch((error) => {
       appToast.error('알림 읽음 처리에 실패했습니다', error);
     });
@@ -87,7 +101,7 @@ const NotificationsPage: React.FC = () => {
           notifications.map(n => (
             <div
               key={n.id}
-              onClick={() => !n.isRead && handleMarkRead(n.id)}
+              onClick={() => handleNotificationClick(n)}
               className={`p-4 rounded-2xl transition-all cursor-pointer ${
                 n.isRead ? 'bg-card shadow-soft' : 'bg-card shadow-card border-l-[3px] border-l-primary'
               }`}

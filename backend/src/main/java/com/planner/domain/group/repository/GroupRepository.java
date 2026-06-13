@@ -2,6 +2,7 @@ package com.planner.domain.group.repository;
 
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.global.config.AwsProperties;
 import com.planner.global.cursor.Cursor;
@@ -33,7 +34,9 @@ public class GroupRepository {
     private final DynamoDbTable<Group> groupTable;
     private final DynamoDbTable<GroupMember> memberTable;
     private final DynamoDbTable<GroupInvite> inviteTable;
+    private final DynamoDbTable<GroupJoinRequest> joinRequestTable;
     private final DynamoDbIndex<GroupMember> userGroupsIndex;
+    private final DynamoDbIndex<Group> publicGroupsIndex;
     private final DynamoDbClient dynamoDbClient;
     private final String tableName;
 
@@ -43,7 +46,9 @@ public class GroupRepository {
         this.groupTable = client.table(tableName, TableSchema.fromBean(Group.class));
         this.memberTable = client.table(tableName, TableSchema.fromBean(GroupMember.class));
         this.inviteTable = client.table(tableName, TableSchema.fromBean(GroupInvite.class));
+        this.joinRequestTable = client.table(tableName, TableSchema.fromBean(GroupJoinRequest.class));
         this.userGroupsIndex = memberTable.index("GSI2");
+        this.publicGroupsIndex = groupTable.index("GSI3");
         this.dynamoDbClient = dynamoDbClient;
     }
 
@@ -220,6 +225,55 @@ public class GroupRepository {
                 .items(page.items())
                 .nextCursor(nextCursor)
                 .build();
+    }
+
+    public CursorPageResult<Group> findPublicGroupsPaged(int limit, Cursor cursor) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(
+                        k -> k.partitionValue("GROUP#PUBLIC")
+                ))
+                .scanIndexForward(false);
+
+        if (limit > 0) request.limit(limit);
+        if (cursor != null) request.exclusiveStartKey(toAttributeMap(cursor));
+
+        Iterator<Page<Group>> pages = publicGroupsIndex.query(request.build()).iterator();
+        if (!pages.hasNext()) {
+            return CursorPageResult.<Group>builder().items(List.of()).build();
+        }
+
+        Page<Group> page = pages.next();
+        Cursor nextCursor = page.lastEvaluatedKey() != null && !page.lastEvaluatedKey().isEmpty()
+                ? fromAttributeMap(page.lastEvaluatedKey()) : null;
+
+        return CursorPageResult.<Group>builder()
+                .items(page.items())
+                .nextCursor(nextCursor)
+                .build();
+    }
+
+    public void saveJoinRequest(GroupJoinRequest request) {
+        joinRequestTable.putItem(request);
+    }
+
+    public Optional<GroupJoinRequest> findJoinRequest(String groupId, String userId) {
+        var key = Key.builder()
+                .partitionValue("GROUP#" + groupId)
+                .sortValue("JOIN_REQUEST#" + userId)
+                .build();
+        return Optional.ofNullable(joinRequestTable.getItem(key));
+    }
+
+    public List<GroupJoinRequest> findJoinRequestsByGroupId(String groupId) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.sortBeginsWith(
+                        k -> k.partitionValue("GROUP#" + groupId).sortValue("JOIN_REQUEST#")
+                ))
+                .scanIndexForward(false)
+                .build();
+        return joinRequestTable.query(request).stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
     }
 
     private Map<String, AttributeValue> toAttributeMap(Cursor cursor) {

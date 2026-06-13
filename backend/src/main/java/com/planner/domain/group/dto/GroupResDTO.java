@@ -13,7 +13,9 @@ public class GroupResDTO {
     private String imageId;
     private String imageStatus;
     private String inviteCode;
+    private String visibility;
     private int memberCount;
     private String myRole;
+    private String joinRequestStatus;
     private String createdAt;
 }

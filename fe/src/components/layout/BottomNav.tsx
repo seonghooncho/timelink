@@ -1,11 +1,12 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, CalendarDays, Users, User } from 'lucide-react';
+import { Home, CalendarDays, MessageCircle, Users, User } from 'lucide-react';
 
 const navItems = [
   { path: '/', icon: Home, label: '홈' },
   { path: '/calendar', icon: CalendarDays, label: '캘린더' },
-  { path: '/groups', icon: Users, label: '그룹' },
+  { path: '/groups', icon: Users, label: '모임' },
+  { path: '/community', icon: MessageCircle, label: '커뮤니티' },
   { path: '/mypage', icon: User, label: '마이' },
 ];
 
@@ -24,7 +25,7 @@ const BottomNav: React.FC = () => {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className="flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all"
+              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1.5 transition-all"
             >
               <div className={`p-1.5 rounded-xl transition-all ${
                 isActive ? 'bg-primary/10' : ''

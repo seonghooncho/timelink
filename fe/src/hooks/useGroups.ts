@@ -14,8 +14,10 @@ function mapGroup(g: GroupListResponse): Group {
     imageId: g.imageId,
     imageStatus: g.imageStatus,
     inviteCode: g.inviteCode,
+    visibility: g.visibility ?? 'PRIVATE',
     memberCount: g.memberCount,
     myRole: g.myRole,
+    joinRequestStatus: g.joinRequestStatus,
     schedules: [],
   };
 }
@@ -55,10 +57,32 @@ export function useGroupPages() {
   });
 }
 
+export function usePublicGroupPages() {
+  const { isAuthenticated } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: ['groups', 'public', GROUP_PAGE_LIMIT],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const page = await groupApi.getPublicPage({
+        limit: GROUP_PAGE_LIMIT,
+        cursor: pageParam,
+      });
+      return {
+        ...page,
+        data: page.data.map(mapGroup),
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.meta?.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap(page => page.data),
+    enabled: isAuthenticated,
+  });
+}
+
 export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; description?: string; imageUrl?: string; imageId?: string }) => groupApi.create(data),
+    mutationFn: (data: { name: string; description?: string; imageUrl?: string; imageId?: string; visibility?: 'PRIVATE' | 'PUBLIC' }) => groupApi.create(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['groups'] }); },
   });
 }

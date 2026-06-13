@@ -3,6 +3,9 @@ package com.planner.domain.group.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
@@ -105,6 +108,22 @@ class GroupControllerTest {
 
     @Test
     @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/public — 공개 모임 목록 200")
+    void getPublicGroups_returns200() throws Exception {
+        GroupResDTO dto = GroupResDTO.builder()
+                .id("g1").name("Open Study").visibility("PUBLIC").memberCount(3).build();
+        CursorPageResult<GroupResDTO> page = CursorPageResult.<GroupResDTO>builder().items(List.of(dto)).build();
+        when(service.getPublicGroupsPaged("user1", 20, null)).thenReturn(page);
+        when(service.toPageMeta(page, 20))
+                .thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
+
+        mockMvc.perform(get(BASE + "/public"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].visibility").value("PUBLIC"));
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
     @DisplayName("GET /groups/{id} — 상세 조회 200")
     void getDetail_returns200() throws Exception {
         GroupDetailResDTO dto = GroupDetailResDTO.builder()
@@ -195,5 +214,52 @@ class GroupControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(service).removeMember("user1", "g1", "user2");
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /groups/{id}/join-requests — 가입요청 생성 201")
+    void requestToJoin_returns201() throws Exception {
+        GroupJoinRequestCreateReqDTO req = new GroupJoinRequestCreateReqDTO();
+        req.setMessage("함께 참여하고 싶습니다");
+        GroupJoinRequestResDTO res = GroupJoinRequestResDTO.builder()
+                .groupId("g1").userId("user1").status("PENDING").build();
+        when(service.requestToJoin(eq("user1"), eq("g1"), any())).thenReturn(res);
+
+        mockMvc.perform(post(BASE + "/g1/join-requests").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    @WithMockUser(username = "manager")
+    @DisplayName("GET /groups/{id}/join-requests — 가입요청 목록 200")
+    void getJoinRequests_returns200() throws Exception {
+        GroupJoinRequestResDTO res = GroupJoinRequestResDTO.builder()
+                .groupId("g1").userId("user1").status("PENDING").build();
+        when(service.getJoinRequests("manager", "g1")).thenReturn(List.of(res));
+
+        mockMvc.perform(get(BASE + "/g1/join-requests"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].userId").value("user1"));
+    }
+
+    @Test
+    @WithMockUser(username = "manager")
+    @DisplayName("PATCH /groups/{id}/join-requests/{userId} — 가입요청 승인 200")
+    void decideJoinRequest_returns200() throws Exception {
+        GroupJoinRequestDecisionReqDTO req = new GroupJoinRequestDecisionReqDTO();
+        req.setStatus("APPROVED");
+        GroupJoinRequestResDTO res = GroupJoinRequestResDTO.builder()
+                .groupId("g1").userId("user1").status("APPROVED").build();
+        when(service.decideJoinRequest(eq("manager"), eq("g1"), eq("user1"), any())).thenReturn(res);
+
+        mockMvc.perform(patch(BASE + "/g1/join-requests/user1").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
     }
 }

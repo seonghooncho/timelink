@@ -141,6 +141,28 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("createGroupNotification — 이동 대상 메타를 함께 저장한다")
+    void createGroupNotification_savesTargetMetadata() {
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, true, false)));
+        when(repository.findByUserIdAndNotifId(eq("user1"), anyString())).thenReturn(Optional.empty());
+
+        service.createGroupNotification(
+                "user1",
+                "가입요청",
+                "새 요청",
+                "GROUP_JOIN_REQUEST",
+                "g1",
+                "/groups/g1?panel=joinRequests"
+        );
+
+        verify(repository).saveNotification(argThat(notification ->
+                "GROUP_JOIN_REQUEST".equals(notification.getTargetType())
+                        && "g1".equals(notification.getTargetId())
+                        && "/groups/g1?panel=joinRequests".equals(notification.getTargetUrl())
+        ));
+    }
+
+    @Test
     @DisplayName("markRead — 직접 키 조회로 읽음 처리")
     void markRead_success() {
         Notification n = sampleNotif("n1", "schedule", false);

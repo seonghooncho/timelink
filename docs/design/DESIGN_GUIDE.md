@@ -61,7 +61,7 @@
 |-------|-------|------|
 | Content | `app-layer-content` / `app-layer-content-raised` | 일반 콘텐츠, 카드 내부 강조 요소 |
 | Header | `app-layer-header` | sticky 상단 헤더 |
-| Floating | `app-layer-floating` | FAB, 그룹 상세 고정 액션바 |
+| Floating | `app-layer-floating` | FAB, 모임 상세 고정 액션바 |
 | Navigation | `app-layer-navigation` | 하단 고정 내비게이션 |
 | Popover | `app-layer-popover` | 드롭다운, 툴팁, 시간 선택 메뉴 |
 | Notice | `app-layer-notice` | PWA 설치 안내처럼 비차단 상단 안내 |
@@ -100,7 +100,7 @@
 ```
 
 ### `BottomNav`
-> 하단 고정 네비게이션 (홈/캘린더/그룹/마이)
+> 하단 고정 네비게이션 (홈/캘린더/모임/커뮤니티/마이)
 - 현재 경로에 따라 활성 상태 자동 표시
 - `app-bottom-nav`와 `app-layer-navigation`으로 safe-area와 레이어를 함께 관리
 
@@ -143,9 +143,9 @@
 - 활성: primary 색상, 비활성: muted 색상
 
 ### `GroupAvatar`
-> 그룹 아바타 (이미지 또는 기본 아이콘)
+> 모임 아바타 (이미지 또는 기본 아이콘)
 - Props: `image?`, `name`, `size` (sm/md/lg)
-- 이미지가 없으면 보라색 그룹 아이콘 표시
+- 이미지가 없으면 보라색 모임 아이콘 표시
 
 ```tsx
 <GroupAvatar image={group.image} name={group.name} size="md" />
@@ -179,7 +179,7 @@
   groups={groupedSchedules}
   onScheduleClick={handleClick}
   onComplete={handleComplete}
-  emptyMessage="그룹 일정이 없습니다"
+  emptyMessage="모임 일정이 없습니다"
 />
 ```
 
@@ -199,11 +199,11 @@
 
 ### `CoordinationOneTime`
 > 일회성 시간 조율 폼 (캘린더 날짜 선택)
-- 대상은 그룹 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
+- 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
 
 ### `CoordinationRepeat`
 > 반복 시간 조율 폼 (요일 선택)
-- 대상은 그룹 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
+- 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
 
 ---
 
@@ -243,9 +243,10 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/` | MainPage | ScheduleStrip, Timetable, FAB |
 | `/calendar` | CalendarPage | 캘린더 그리드, ScheduleDetailModal |
 | `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
-| `/groups` | GroupsPage | GroupAvatar, FAB |
-| `/groups/new` | GroupFormPage | 이미지 업로드 |
-| `/groups/:id` | GroupDetailPage | GroupAvatar, 참여 멤버 모달, 일정/조율 더보기 |
+| `/groups` | GroupsPage | 나의 모임 목록, GroupAvatar, FAB |
+| `/community` | CommunityPage | 공개 모임 탐색, 가입 요청 바텀시트 |
+| `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
+| `/groups/:id` | GroupDetailPage | GroupAvatar, 헤더 메뉴, 멤버/멤버관리 모달, 일정/조율 목록 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
 | `/mypage` | MyPage | ToggleSwitch |

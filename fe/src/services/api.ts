@@ -234,9 +234,11 @@ export interface GroupListResponse {
   imageUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
-  inviteCode: string;
+  inviteCode?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   memberCount: number;
   myRole: string;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   createdAt: string;
 }
 
@@ -257,13 +259,27 @@ export interface GroupDetailResponse {
   imageId?: string;
   imageStatus?: ImageStatus;
   inviteCode: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   createdBy: string;
   members: GroupMemberResponse[];
   createdAt: string;
 }
 
+export interface GroupJoinRequestResponse {
+  id?: string;
+  groupId: string;
+  userId: string;
+  message?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  nickname?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+  decidedAt?: string;
+}
+
 export const groupApi = {
   getPage: (params?: PaginationParams) => requestPage<GroupListResponse>('/groups', params),
+  getPublicPage: (params?: PaginationParams) => requestPage<GroupListResponse>('/groups/public', params),
   getAll: async () => {
     const groups: GroupListResponse[] = [];
     let cursor: string | null = null;
@@ -277,13 +293,19 @@ export const groupApi = {
     return groups;
   },
   getById: (id: string) => request<GroupDetailResponse>('GET', `/groups/${id}`),
-  create: (data: { name: string; description?: string; imageUrl?: string; imageId?: string }) =>
+  create: (data: { name: string; description?: string; imageUrl?: string; imageId?: string; visibility?: 'PRIVATE' | 'PUBLIC' }) =>
     request<GroupDetailResponse>('POST', '/groups', data),
-  update: (id: string, data: { name?: string; description?: string; imageUrl?: string; imageId?: string }) =>
+  update: (id: string, data: { name?: string; description?: string; imageUrl?: string; imageId?: string; visibility?: 'PRIVATE' | 'PUBLIC' }) =>
     request<GroupDetailResponse>('PATCH', `/groups/${id}`, data),
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
+  requestToJoin: (groupId: string, message?: string) =>
+    request<GroupJoinRequestResponse>('POST', `/groups/${groupId}/join-requests`, { message }),
+  getJoinRequests: (groupId: string) =>
+    request<GroupJoinRequestResponse[]>('GET', `/groups/${groupId}/join-requests`),
+  decideJoinRequest: (groupId: string, memberUserId: string, status: 'APPROVED' | 'REJECTED') =>
+    request<GroupJoinRequestResponse>('PATCH', `/groups/${groupId}/join-requests/${encodeURIComponent(memberUserId)}`, { status }),
   leaveGroup: (groupId: string) => request<void>('DELETE', `/groups/${groupId}/members/me`),
   removeMember: (groupId: string, memberUserId: string) =>
     request<void>('DELETE', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}`),
@@ -359,6 +381,9 @@ export interface NotificationResponse {
   title: string;
   content: string;
   category?: string;
+  targetType?: string;
+  targetId?: string;
+  targetUrl?: string;
   isImportant?: boolean;
   isRead: boolean;
   createdAt: string;

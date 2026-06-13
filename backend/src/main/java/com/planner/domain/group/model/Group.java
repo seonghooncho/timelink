@@ -24,8 +24,11 @@ public class Group {
     private String imageUploadKey;
     private String imageObjectKey;
     private String createdBy;
+    private String visibility;
     private String inviteCode;
     private Integer memberCount;
+    private String gsi3pk;
+    private String gsi3sk;
     private String createdAt;
     private String updatedAt;
 
@@ -36,4 +39,12 @@ public class Group {
     @DynamoDbSortKey
     @DynamoDbAttribute("SK")
     public String getSk() { return sk; }
+
+    @DynamoDbSecondaryPartitionKey(indexNames = "GSI3")
+    @DynamoDbAttribute("GSI3PK")
+    public String getGsi3pk() { return gsi3pk; }
+
+    @DynamoDbSecondarySortKey(indexNames = "GSI3")
+    @DynamoDbAttribute("GSI3SK")
+    public String getGsi3sk() { return gsi3sk; }
 }
