@@ -35,14 +35,15 @@ describe('analytics', () => {
     const { trackPageView, isAnalyticsConfigured } = await loadAnalytics('G-TEST1234');
 
     trackPageView('/demo');
+    const queuedCommands = window.dataLayer?.map((entry) => Array.from(entry as ArrayLike<unknown>));
 
     expect(isAnalyticsConfigured()).toBe(true);
     expect(document.querySelector('script[data-ga4-id="G-TEST1234"]')).toBeInTheDocument();
-    expect(window.dataLayer).toContainEqual(['js', expect.any(Date), undefined]);
-    expect(window.dataLayer).toContainEqual(['config', 'G-TEST1234', { send_page_view: false }]);
-    expect(window.dataLayer).toContainEqual([
-      'event',
-      'page_view',
+    expect(queuedCommands).toContainEqual(['js', expect.any(Date)]);
+    expect(queuedCommands).toContainEqual(['config', 'G-TEST1234', { send_page_view: false }]);
+    expect(queuedCommands).toContainEqual([
+      'config',
+      'G-TEST1234',
       expect.objectContaining({ page_path: '/demo' }),
     ]);
   });
