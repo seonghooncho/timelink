@@ -191,6 +191,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `is_completed` | `boolean` | 완료 여부 (기본: false) |
 | `has_alarm` | `boolean` | 알림 여부 (기본: true) |
 | `group_id` | `uuid` FK nullable | 그룹 일정 시 그룹 ID |
+| `group_schedule_id` | `string` nullable | 여러 사용자 일정으로 복제된 모임 일정 묶음 ID |
+| `group_schedule_created_by` | `string` nullable | 모임 일정 작성자 userId |
 | `created_at` | `timestamptz` | 생성일 |
 | `updated_at` | `timestamptz` | 수정일 |
 
@@ -266,14 +268,24 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "start_time": "2026-03-08T12:00:00Z",
   "duration": 3,
   "has_alarm": true,
-  "group_id": null
+  "group_id": "group-uuid",
+  "participant_user_ids": ["user-1", "user-2"]
 }
 ```
+
+`group_id`가 있으면 모임 일정으로 생성한다. `participant_user_ids`를 생략하면 모임 전체 멤버를 대상으로 생성하고, 값을 전달하면 선택된 모임 멤버와 생성자를 대상으로 각자의 캘린더에 일정 사본을 만든다. 생성자는 요청에 없어도 자동 포함된다.
 
 **Response** `201 Created`
 ```json
 {
-  "data": { "id": "uuid", "title": "수강 신청", ... }
+  "data": {
+    "id": "uuid",
+    "title": "수강 신청",
+    "group_id": "group-uuid",
+    "group_schedule_id": "group-schedule-uuid",
+    "group_schedule_created_by": "user-1",
+    "group_schedule_owner": true
+  }
 }
 ```
 
@@ -284,6 +296,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 일정 부분 수정
 
 `start_time` 또는 `duration`이 변경되면 서버가 `end_time`을 다시 계산한다.
+모임 일정의 제목, 내용, 일시, 소요시간, 이미지 같은 표시 정보는 작성자만 수정할 수 있다. 참여자는 완료 여부와 알림처럼 본인 캘린더에만 적용되는 필드만 변경할 수 있다.
 
 **Request Body** (변경할 필드만)
 ```json
@@ -301,7 +314,19 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 일정 삭제
 
+모임 일정 작성자가 삭제하면 선택 참여자들의 일정 사본을 함께 삭제한다. 작성자가 아닌 참여자가 삭제하면 본인 캘린더에서만 해당 약속을 빠진다.
+
 **Response** `204 No Content`
+
+---
+
+#### `DELETE` /api/planner/v1/schedules/:id/participation
+
+모임 일정 참여자가 본인 캘린더에서만 약속을 빠진다. 작성자는 이 API로 빠질 수 없으며, 작성자는 일정 삭제 API를 사용한다.
+
+**Response** `204 No Content`
+
+**Error** `403 CANNOT_LEAVE_OWN_GROUP_SCHEDULE` — 모임 일정 작성자인 경우
 
 ---
 
@@ -312,6 +337,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | 엔티티 | PK | SK |
 |--------|----|----|
 | Group | `GROUP#{groupId}` | `METADATA` |
+| GroupIntro | `GROUP#{groupId}` | `INTRO` |
+| GroupNotice | `GROUP#{groupId}` | `NOTICE#{createdAt}#{noticeId}` |
 | GroupMember | `GROUP#{groupId}` | `MEMBER#{userId}` |
 | GroupJoinRequest | `GROUP#{groupId}` | `JOIN_REQUEST#{userId}` |
 
@@ -338,6 +365,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|------|------|
 | `limit` | number | 선택 | 한 번에 조회할 개수. 기본 20, 최대 100 |
 | `cursor` | string | 선택 | 다음 페이지 조회용 opaque cursor |
+| `q` | string | 선택 | 모임 이름 또는 설명 검색어 |
 
 **Response** `200 OK`
 ```json
@@ -444,6 +472,137 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 **Error** `403 NOT_GROUP_MEMBER` — 멤버가 아닌 경우
 **Error** `404 GROUP_NOT_FOUND` — 존재하지 않는 모임
+
+---
+
+#### `GET` /api/planner/v1/groups/:id/intro
+
+모임 소개 페이지 데이터. 공개 모임은 미가입자도 조회 가능하며, 비공개 모임은 멤버만 조회 가능.
+화면 노출 범위는 진입 경로가 아니라 조회 사용자의 역할(`member`, `myRole`, `canEditIntro`, `canWriteNotice`)로 결정한다.
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "id": "group-uuid",
+    "name": "주말 러닝 모임",
+    "description": "한강에서 가볍게 달립니다",
+    "imageUrl": "https://...",
+    "imageStatus": "COMPLETED",
+    "visibility": "PUBLIC",
+    "memberCount": 12,
+    "myRole": null,
+    "joinRequestStatus": "PENDING",
+    "introText": "매주 토요일 아침에 천천히 달리는 모임입니다.",
+    "images": [
+      { "imageId": "image-uuid", "url": "https://...", "status": "COMPLETED" }
+    ],
+    "notices": [
+      {
+        "id": "notice-uuid",
+        "title": "이번 주 집합 장소",
+        "content": "여의나루역 2번 출구에서 만납니다.",
+        "authorNickname": "민지",
+        "createdAt": "2026-03-01T00:00:00Z"
+      }
+    ],
+    "postPreviews": [
+      {
+        "id": "post-uuid",
+        "title": "지난주 러닝 후기",
+        "contentSnippet": "처음 오신 분들도 편하게 달렸어요...",
+        "authorNickname": "현우",
+        "createdAt": "2026-03-01T00:00:00Z"
+      }
+    ],
+    "member": false,
+    "canEditIntro": false,
+    "canWriteNotice": false
+  }
+}
+```
+
+---
+
+#### `PATCH` /api/planner/v1/groups/:id/intro
+
+모임 소개글과 소개 이미지 목록 수정. **manager만** 수행 가능.
+
+**Request Body**
+```json
+{
+  "introText": "모임 소개글",
+  "imageIds": ["image-uuid-1", "image-uuid-2"]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `introText` | string | 선택 | 최대 1000자 |
+| `imageIds` | string[] | 선택 | 최대 10개. `GROUP_INTRO` 목적 이미지 ID |
+
+**Response** `200 OK` — GroupIntroResDTO 반환
+
+**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+
+---
+
+#### `GET` /api/planner/v1/groups/:id/intro/posts
+
+모임 소개 페이지용 모임 글 목록. 공개 모임은 미가입자도 조회 가능하며, 커서 페이지네이션을 사용한다. `memberOnly=true` 글은 미가입자에게 제목과 본문 대신 잠금 상태로 반환한다.
+
+**Query Parameters**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `limit` | number | 선택 | 기본 3, 최대 20 |
+| `cursor` | string | 선택 | 다음 페이지 조회용 opaque cursor |
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "post-uuid",
+      "title": "지난주 러닝 후기",
+      "content": "처음 오신 분들도 편하게 달렸어요.",
+      "contentSnippet": "처음 오신 분들도 편하게 달렸어요.",
+      "authorNickname": "현우",
+      "likeCount": 3,
+      "commentCount": 1,
+      "memberOnly": false,
+      "locked": false,
+      "createdAt": "2026-03-01T00:00:00Z"
+    }
+  ],
+  "meta": { "perPage": 3, "nextCursor": null }
+}
+```
+
+---
+
+#### `GET` /api/planner/v1/groups/:id/notices
+
+모임 소개에 표시할 최신 공지 목록. 공개 모임은 미가입자도 조회 가능.
+
+**Response** `200 OK` — GroupIntroNoticeDTO 배열 반환
+
+---
+
+#### `POST` /api/planner/v1/groups/:id/notices
+
+모임 공지 작성. **모임 멤버라면 누구나** 작성 가능.
+
+**Request Body**
+```json
+{
+  "title": "이번 주 집합 장소",
+  "content": "여의나루역 2번 출구에서 만납니다."
+}
+```
+
+**Response** `201 Created` — GroupIntroNoticeDTO 반환
+
+**Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
 
 ---
 
@@ -860,7 +1019,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ### 모임 게시판 엔드포인트
 
-모임 게시판은 커뮤니티 게시물과 같은 DTO와 댓글/좋아요 모델을 사용한다. 단, 모든 조회와 변경은 해당 모임 멤버에게만 허용된다.
+모임 글은 커뮤니티 게시물과 같은 DTO와 댓글/좋아요 모델을 사용한다. 단, 전체 조회와 상호작용은 해당 모임 멤버에게만 허용된다. 공개 소개 페이지에서는 미가입자에게 제목과 본문 일부만 preview로 노출한다.
 
 #### `GET` /api/planner/v1/groups/:groupId/posts
 
@@ -874,15 +1033,18 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/groups/:groupId/posts
 
-모임 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다.
+모임 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다. 이미지는 게시물 생성 후 `GROUP_POST` presigned 업로드와 `PATCH imageId`로 연결합니다.
 
 **Request Body**
 ```json
 {
   "title": "이번 주 준비물",
-  "content": "노트북과 충전기를 챙겨와 주세요."
+  "content": "노트북과 충전기를 챙겨와 주세요.",
+  "memberOnly": false
 }
 ```
+
+`memberOnly=true`이면 소개 페이지의 미가입자에게 잠금 상태로만 노출된다. `false`이면 미가입자도 소개 페이지에서 제목과 본문 일부를 읽을 수 있지만 댓글, 좋아요 같은 상호작용은 가입 후 가능하다.
 
 **Response** `201 Created` — CommunityPostResDTO 반환
 
@@ -902,7 +1064,16 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `PATCH` /api/planner/v1/groups/:groupId/posts/:postId
 
-모임 게시물 수정. **작성자만** 수행 가능합니다.
+모임 게시물 수정. **작성자만** 수행 가능합니다. `imageId`를 전달하면 해당 글의 첨부 이미지로 연결합니다.
+
+**Request Body**
+```json
+{
+  "title": "수정한 제목",
+  "content": "수정한 본문",
+  "imageId": "image-uuid"
+}
+```
 
 **Response** `200 OK` — CommunityPostResDTO 반환
 
@@ -1415,6 +1586,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 - 프로필/멤버 결과: `public/member/`
 - 그룹 결과: `public/group/`
 - 일정 결과: `public/schedule/`
+- 모임 소개 결과: `public/group-intro/`
+- 모임 글 결과: `public/group-post/`
 - 허용 타입: `jpg`, `jpeg`, `png`, `webp`
 - 최대 크기: 15MB
 - 처리 상태: `PROCESSING`, `COMPLETED`, `FAILED`
@@ -1440,7 +1613,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `purpose` | enum | 필수 | `MEMBER`, `GROUP`, `SCHEDULE` |
+| `purpose` | enum | 필수 | `MEMBER`, `GROUP`, `SCHEDULE`, `GROUP_INTRO`, `GROUP_POST` |
 | `fileName` | string | 필수 | 원본 파일명 |
 | `contentType` | string | 필수 | `image/jpeg`, `image/png`, `image/webp` |
 | `contentLength` | number | 필수 | 15MB 이하 |
@@ -1618,9 +1791,15 @@ Community
 | `POST` | `/schedules` | 일정 생성 | 인증 | 구현됨 |
 | `PATCH` | `/schedules/:id` | 일정 수정 | 인증(본인) | 구현됨 |
 | `DELETE` | `/schedules/:id` | 일정 삭제 | 인증(본인) | 구현됨 |
+| `DELETE` | `/schedules/:id/participation` | 모임 일정에서 본인만 빠지기 | 참여자 | 구현됨 |
 | `GET` | `/groups` | 내 모임 목록과 다음 일정 요약 | 인증 | 구현됨 |
 | `GET` | `/groups/public` | 모임 둘러보기 공개 모임 목록 | 인증 | 구현됨 |
 | `GET` | `/groups/:id` | 모임 상세 | 멤버 | 구현됨 |
+| `GET` | `/groups/:id/intro` | 모임 소개와 역할 기반 액션 정보 | 공개 모임 또는 멤버 | 구현됨 |
+| `GET` | `/groups/:id/intro/posts` | 소개 페이지용 모임 글 목록 | 공개 모임 또는 멤버 | 구현됨 |
+| `PATCH` | `/groups/:id/intro` | 모임 소개글과 소개 이미지 수정 | manager | 구현됨 |
+| `GET` | `/groups/:id/notices` | 모임 공지 목록 | 공개 모임 또는 멤버 | 구현됨 |
+| `POST` | `/groups/:id/notices` | 모임 공지 작성 | 멤버 | 구현됨 |
 | `POST` | `/groups` | 모임 생성 | 인증 | 구현됨 |
 | `PATCH` | `/groups/:id` | 모임 수정 | 멤버 | 구현됨 |
 | `DELETE` | `/groups/:id` | 모임 삭제 (멤버 cleanup 포함) | manager | 구현됨 |
@@ -1680,4 +1859,4 @@ Community
 
 ---
 
-*마지막 업데이트: 2026-06-13 (모임 둘러보기 이동, 커뮤니티/모임 게시판 API 반영)*
+*마지막 업데이트: 2026-06-13 (모임 소개 글 목록, 공개범위, 모임 일정 참여자 선택 API 반영)*

@@ -7,7 +7,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import { Schedule } from '@/types/types';
-import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
+import { useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
@@ -18,6 +18,7 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const CalendarPage: React.FC = () => {
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
+  const leaveGroupScheduleMutation = useLeaveGroupSchedule();
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
@@ -91,6 +92,16 @@ const CalendarPage: React.FC = () => {
         setConfirmDelete(null);
       },
       onError: (error) => appToast.error('일정 삭제에 실패했습니다', error),
+    });
+  };
+
+  const handleLeaveGroupSchedule = (schedule: Schedule) => {
+    leaveGroupScheduleMutation.mutate(schedule.id, {
+      onSuccess: () => {
+        appToast.success('약속에서 빠졌습니다');
+        setDetailSchedule(null);
+      },
+      onError: (error) => appToast.error('약속에서 빠지지 못했습니다', error),
     });
   };
 
@@ -173,6 +184,7 @@ const CalendarPage: React.FC = () => {
         onClose={() => setDetailSchedule(null)}
         onUpdate={handleUpdate}
         onDelete={handleDeleteRequest}
+        onLeaveGroupSchedule={handleLeaveGroupSchedule}
       />
       <ConfirmModal
         open={!!confirmDelete}

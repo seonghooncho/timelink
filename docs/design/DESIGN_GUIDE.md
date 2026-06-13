@@ -188,6 +188,7 @@
 > 바텀시트 형태의 일정 상세 모달
 - 뷰/편집 모드 전환
 - framer-motion spring 애니메이션
+- 모임 일정 작성자가 아닌 참여자에게는 수정/삭제 대신 `약속 빠지기` 액션만 노출한다.
 
 ### `Timetable`
 > 타임테이블 그리드 뷰 (4일 단위)
@@ -218,6 +219,13 @@
 > 게시글 목록용 플랫 리스트 아이템
 - 모임 게시판과 커뮤니티 목록에서 공유한다.
 - 큰 카드 박스 대신 얇은 실선과 여백으로 아이템을 구분한다.
+- 모임 전용 게시물은 작은 `모임 공개` 텍스트 태그로 공개 범위를 표시한다.
+
+### 모임 글 공개범위 토글
+> 모임 상세 글쓰기 폼의 공개 범위 선택
+- `모임에만 게시하기`는 버튼형 토글로 제공한다.
+- 꺼진 상태의 글은 공개 모임 소개 페이지에서 미가입자도 일부 읽을 수 있음을 보조 문구로 알려준다.
+- 켜진 상태의 글은 소개 페이지에서 잠금 아이콘과 짧은 안내만 보여준다.
 
 ---
 
@@ -256,12 +264,13 @@ const groupedSchedules = useGroupedSchedules(schedules);
 |------|--------|-------------|
 | `/` | MainPage | ScheduleStrip, Timetable, FAB |
 | `/calendar` | CalendarPage | 캘린더 그리드, ScheduleDetailModal |
-| `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
-| `/groups` | GroupsPage | 내 모임/둘러보기 탭, 다음 일정 요약, 공개 모임 가입 요청 |
+| `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택, 모임 일정 참여 멤버 선택 |
+| `/groups` | GroupsPage | 내 모임/둘러보기 탭, 다음 일정 요약, 공개 모임 검색과 소개 진입 |
 | `/community` | CommunityPage | PostListItem, 글쓰기 바텀시트 |
 | `/community/posts/:postId` | CommunityPostDetailPage | 플랫 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
 | `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
 | `/groups/:id` | GroupDetailPage | 헤더 그룹 요약, ScheduleStrip, CoordinationStrip, PostListItem, 멤버/멤버관리 모달 |
+| `/groups/:id/intro` | GroupIntroPage | 소개 이미지 슬라이더, 소개글, 전체/공지 필터, 모임 글 목록, 역할 기반 가입/편집 액션 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
 | `/mypage` | MyPage | ToggleSwitch |

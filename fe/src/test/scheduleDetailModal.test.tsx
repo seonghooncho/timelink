@@ -97,4 +97,30 @@ describe('ScheduleDetailModal', () => {
       '시작 시간과 소요시간은 같은 날짜 안에서 끝나야 합니다.',
     );
   });
+
+  it('그룹 일정 작성자가 아니면 수정/삭제 대신 약속 빠지기를 보여준다', () => {
+    const onLeaveGroupSchedule = vi.fn();
+    render(
+      <ScheduleDetailModal
+        schedule={makeSchedule({
+          groupId: 'group-1',
+          groupScheduleId: 'group-schedule-1',
+          groupScheduleCreatedBy: 'owner-user',
+          groupScheduleOwner: false,
+        })}
+        open
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        onLeaveGroupSchedule={onLeaveGroupSchedule}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: '수정하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '일정 삭제' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /약속 빠지기/ }));
+
+    expect(onLeaveGroupSchedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'schedule-1' }));
+  });
 });

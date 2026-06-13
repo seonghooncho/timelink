@@ -12,7 +12,7 @@ import { useApp } from '@/context/AppContext';
 import { Schedule } from '@/types/types';
 import { getDayLabel } from '@/utils';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
-import { useSchedules, useUpdateSchedule, useDeleteSchedule } from '@/hooks/useSchedules';
+import { useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
 import { getDefaultScheduleAnchor, getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { appToast } from '@/lib/appToast';
 import { addLocalDays, maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
@@ -22,6 +22,7 @@ const MainPage: React.FC = () => {
   const { selectedSchedule, setSelectedSchedule, showScheduleDetail, setShowScheduleDetail } = useApp();
   const updateMutation = useUpdateSchedule();
   const deleteMutation = useDeleteSchedule();
+  const leaveGroupScheduleMutation = useLeaveGroupSchedule();
   const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
 
@@ -116,6 +117,16 @@ const MainPage: React.FC = () => {
     );
   };
 
+  const handleLeaveGroupSchedule = (schedule: Schedule) => {
+    leaveGroupScheduleMutation.mutate(schedule.id, {
+      onSuccess: () => {
+        appToast.success('약속에서 빠졌습니다');
+        setShowScheduleDetail(false);
+      },
+      onError: (error) => appToast.error('약속에서 빠지지 못했습니다', error),
+    });
+  };
+
   const todayDate = new Date();
   const month = todayDate.getMonth() + 1;
   const date = todayDate.getDate();
@@ -181,6 +192,7 @@ const MainPage: React.FC = () => {
         onClose={() => setShowScheduleDetail(false)}
         onUpdate={handleUpdate}
         onDelete={handleDeleteRequest}
+        onLeaveGroupSchedule={handleLeaveGroupSchedule}
       />
 
       <ConfirmModal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDeleteConfirm}

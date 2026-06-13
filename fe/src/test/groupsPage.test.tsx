@@ -9,8 +9,6 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   useGroupPages: vi.fn(),
   usePublicGroupPages: vi.fn(),
-  getMe: vi.fn(),
-  requestToJoin: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -24,15 +22,6 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/hooks/useGroups', () => ({
   useGroupPages: mocks.useGroupPages,
   usePublicGroupPages: mocks.usePublicGroupPages,
-}));
-
-vi.mock('@/services/api', () => ({
-  profileApi: {
-    getMe: mocks.getMe,
-  },
-  groupApi: {
-    requestToJoin: mocks.requestToJoin,
-  },
 }));
 
 function renderPage(initialEntries = ['/groups']) {
@@ -54,9 +43,6 @@ describe('GroupsPage', () => {
     mocks.navigate.mockReset();
     mocks.useGroupPages.mockReset();
     mocks.usePublicGroupPages.mockReset();
-    mocks.getMe.mockReset();
-    mocks.requestToJoin.mockReset();
-    mocks.getMe.mockResolvedValue({ nickname: '민지', avatarUrl: '' });
     mocks.useGroupPages.mockReturnValue({
       data: [],
       isLoading: false,
@@ -161,7 +147,7 @@ describe('GroupsPage', () => {
     expect(screen.queryByText('예정된 모임 일정이 없습니다')).not.toBeInTheDocument();
   });
 
-  it('opens public meetup discovery from query tab', () => {
+  it('opens public meetup intro from query tab', () => {
     mocks.usePublicGroupPages.mockReturnValue({
       data: [{
         id: 'group-2',
@@ -180,7 +166,8 @@ describe('GroupsPage', () => {
     renderPage(['/groups?tab=discover']);
 
     expect(screen.getByText('공개 모임 찾아보기')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /가입 요청/ }));
-    expect(screen.getByText('가입요청 보내기')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /소개 보기/ }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/groups/group-2/intro');
   });
 });

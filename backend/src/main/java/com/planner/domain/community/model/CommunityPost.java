@@ -23,6 +23,12 @@ public class CommunityPost {
     private String title;
     private String content;
     private String groupId;
+    private Boolean memberOnly;
+    private String imageUrl;
+    private String imageId;
+    private String imageStatus;
+    private String imageUploadKey;
+    private String imageObjectKey;
     private String authorUserId;
     private String authorNickname;
     private String authorAvatarUrl;

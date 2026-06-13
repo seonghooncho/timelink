@@ -11,7 +11,7 @@
 ## 현재 반영된 정리
 
 - 프론트 인증은 기존 외부 인증 의존을 제거하고 백엔드 `auth` API 기반 세션으로 전환했다.
-- 프로필/그룹 이미지 업로드는 백엔드 `storage` API에서 presigned URL을 발급하고, S3 `upload/` 이벤트 기반 Lambda가 WebP로 변환해 `public/{member|group|schedule}/`에 저장하는 흐름으로 통일했다.
+- 프로필/그룹/일정/모임 소개/모임 글 이미지 업로드는 백엔드 `storage` API에서 presigned URL을 발급하고, S3 `upload/` 이벤트 기반 Lambda가 WebP로 변환해 `public/{member|group|schedule|group-intro|group-post}/`에 저장하는 흐름으로 통일했다.
 - 프론트는 `CloudFront + S3`, 백엔드와 AI는 `API Gateway + Lambda` 경로가 되도록 인프라 라우팅을 명시적으로 정리했다.
 - 로컬 개발은 Vite proxy, 배포는 CloudFront `/api/* -> API Gateway` 라우팅으로 경로를 맞췄다.
 - 인프라는 프론트 정적 호스팅 버킷과 업로드 이미지 버킷을 분리했다.
@@ -19,7 +19,8 @@
 - 백엔드와 AI의 런타임 설정은 Lambda env 직접 주입 대신 SSM Parameter Store에서 읽도록 전환했다.
 - DynamoDB 문서는 PartiQL 기준 운영 예시를 함께 남기고, 런타임 hot path는 단일 테이블 키 조회를 유지한다.
 - 그룹 초대 링크는 `inviteCode` 기반 join 라우트와 로그인 후 복귀 경로까지 연결했다.
-- 그룹 일정 생성은 `groupId`를 전달하도록 정리했고, 그룹 목록 멤버 수는 백엔드 값과 맞췄다.
+- 그룹 일정 생성은 `groupId`와 선택 참여자 목록을 전달하도록 정리했고, 생성자는 자동 포함되며 선택 참여자의 개인 캘린더에 일정 사본을 만든다.
+- 모임 일정 사본은 `groupScheduleId`와 참여자 인덱스로 묶어 작성자 수정/삭제 전파와 참여자별 `약속 빠지기`를 구분한다.
 - 시간 조율 대상은 그룹 전체 멤버로 정의했고, 프론트의 멤버 선택 UI와 더미 `members` 상태를 제거했다.
 - 조율 목록의 응답 수는 백엔드 `responseCount` 값을 프론트 목록 화면에서 그대로 사용하도록 연결했다.
 - 프론트 공통 request 레이어가 목록 API의 `meta.nextCursor`를 유지하도록 맞췄다.

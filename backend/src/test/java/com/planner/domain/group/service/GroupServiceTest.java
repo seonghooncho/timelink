@@ -1,15 +1,19 @@
 package com.planner.domain.group.service;
 
+import com.planner.domain.community.model.CommunityPost;
+import com.planner.domain.community.repository.CommunityRepository;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
+import com.planner.domain.group.dto.GroupIntroResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupIntro;
 import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
@@ -18,6 +22,7 @@ import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.domain.storage.repository.ImageUploadRepository;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +49,8 @@ class GroupServiceTest {
     @Mock private NotificationService notificationService;
     @Mock private CursorCodec cursorCodec;
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private ImageUploadRepository imageUploadRepository;
+    @Mock private CommunityRepository communityRepository;
     @InjectMocks private GroupService service;
 
     @BeforeEach
@@ -98,6 +105,27 @@ class GroupServiceTest {
                 .avatarUrl("https://img/requester.png")
                 .createdAt("2025-01-02T00:00:00Z")
                 .build();
+    }
+
+    private CommunityPost sampleGroupPost(String groupId) {
+        return CommunityPost.builder()
+                .pk("POST#p1")
+                .sk("METADATA")
+                .id("p1")
+                .groupId(groupId)
+                .title("지난주 후기")
+                .content("처음 온 분들도 편하게 달렸습니다.")
+                .authorNickname("민지")
+                .createdAt("2026-06-13T00:00:00Z")
+                .build();
+    }
+
+    private CommunityPost sampleMemberOnlyGroupPost(String groupId) {
+        CommunityPost post = sampleGroupPost(groupId);
+        post.setId("p-private");
+        post.setTitle("멤버 공지");
+        post.setMemberOnly(true);
+        return post;
     }
 
     @Test
@@ -226,6 +254,52 @@ class GroupServiceTest {
 
         assertThatThrownBy(() -> service.getDetail("user1", "g1"))
                 .isInstanceOf(GroupException.class);
+    }
+
+    @Test
+    @DisplayName("getIntro — 공개 모임은 미가입자에게 소개와 글 미리보기를 반환한다")
+    void getIntro_publicGroup_returnsPreviewForNonMember() {
+        Group group = samplePublicGroup("g1", "manager");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.of(sampleJoinRequest("g1", "user1")));
+        when(repository.findIntro("g1")).thenReturn(Optional.of(GroupIntro.builder()
+                .pk("GROUP#g1")
+                .sk("INTRO")
+                .groupId("g1")
+                .introText("천천히 함께 달립니다.")
+                .imageIds(List.of())
+                .build()));
+        when(repository.findNoticesByGroupId("g1", 5)).thenReturn(List.of());
+        when(communityRepository.findGroupPostsPaged("g1", 5, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of(sampleGroupPost("g1"))).build());
+
+        GroupIntroResDTO result = service.getIntro("user1", "g1");
+
+        assertThat(result.isMember()).isFalse();
+        assertThat(result.getJoinRequestStatus()).isEqualTo("PENDING");
+        assertThat(result.getIntroText()).isEqualTo("천천히 함께 달립니다.");
+        assertThat(result.getPostPreviews()).hasSize(1);
+        assertThat(result.getPostPreviews().get(0).getTitle()).isEqualTo("지난주 후기");
+    }
+
+    @Test
+    @DisplayName("getIntro — 미가입자에게 멤버 전용 글 미리보기를 노출하지 않는다")
+    void getIntro_publicGroup_filtersMemberOnlyPreviewForNonMember() {
+        Group group = samplePublicGroup("g1", "manager");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
+        when(repository.findIntro("g1")).thenReturn(Optional.empty());
+        when(repository.findNoticesByGroupId("g1", 5)).thenReturn(List.of());
+        when(communityRepository.findGroupPostsPaged("g1", 5, null)).thenReturn(CursorPageResult.<CommunityPost>builder()
+                .items(List.of(sampleMemberOnlyGroupPost("g1"), sampleGroupPost("g1")))
+                .build());
+
+        GroupIntroResDTO result = service.getIntro("user1", "g1");
+
+        assertThat(result.getPostPreviews())
+                .extracting("title")
+                .containsExactly("지난주 후기");
     }
 
     @Test

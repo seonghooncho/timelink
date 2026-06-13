@@ -2,8 +2,10 @@ package com.planner.domain.group.repository;
 
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupIntro;
 import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.model.GroupNotice;
 import com.planner.global.config.AwsProperties;
 import com.planner.global.cursor.Cursor;
 import com.planner.global.cursor.CursorPageResult;
@@ -32,9 +34,11 @@ import java.util.stream.Collectors;
 public class GroupRepository {
 
     private final DynamoDbTable<Group> groupTable;
+    private final DynamoDbTable<GroupIntro> introTable;
     private final DynamoDbTable<GroupMember> memberTable;
     private final DynamoDbTable<GroupInvite> inviteTable;
     private final DynamoDbTable<GroupJoinRequest> joinRequestTable;
+    private final DynamoDbTable<GroupNotice> noticeTable;
     private final DynamoDbIndex<GroupMember> userGroupsIndex;
     private final DynamoDbIndex<Group> publicGroupsIndex;
     private final DynamoDbClient dynamoDbClient;
@@ -44,9 +48,11 @@ public class GroupRepository {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
         this.tableName = prefix + "main";
         this.groupTable = client.table(tableName, TableSchema.fromBean(Group.class));
+        this.introTable = client.table(tableName, TableSchema.fromBean(GroupIntro.class));
         this.memberTable = client.table(tableName, TableSchema.fromBean(GroupMember.class));
         this.inviteTable = client.table(tableName, TableSchema.fromBean(GroupInvite.class));
         this.joinRequestTable = client.table(tableName, TableSchema.fromBean(GroupJoinRequest.class));
+        this.noticeTable = client.table(tableName, TableSchema.fromBean(GroupNotice.class));
         this.userGroupsIndex = memberTable.index("GSI2");
         this.publicGroupsIndex = groupTable.index("GSI3");
         this.dynamoDbClient = dynamoDbClient;
@@ -59,6 +65,35 @@ public class GroupRepository {
     public Optional<Group> findGroupById(String groupId) {
         var key = Key.builder().partitionValue("GROUP#" + groupId).sortValue("METADATA").build();
         return Optional.ofNullable(groupTable.getItem(key));
+    }
+
+    public Optional<GroupIntro> findIntro(String groupId) {
+        var key = Key.builder().partitionValue("GROUP#" + groupId).sortValue("INTRO").build();
+        return Optional.ofNullable(introTable.getItem(key));
+    }
+
+    public void saveIntro(GroupIntro intro) {
+        introTable.putItem(intro);
+    }
+
+    public void saveNotice(GroupNotice notice) {
+        noticeTable.putItem(notice);
+    }
+
+    public List<GroupNotice> findNoticesByGroupId(String groupId, int limit) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.sortBeginsWith(
+                        k -> k.partitionValue("GROUP#" + groupId).sortValue("NOTICE#")
+                ))
+                .scanIndexForward(false);
+
+        if (limit > 0) request.limit(limit);
+
+        Iterator<Page<GroupNotice>> pages = noticeTable.query(request.build()).iterator();
+        if (!pages.hasNext()) {
+            return List.of();
+        }
+        return pages.next().items();
     }
 
     public void deleteGroup(String groupId) {

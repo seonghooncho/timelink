@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, Copy, Heart, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Heart, ImageIcon, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import GroupAvatar from '@/components/common/GroupAvatar';
+import ImageCropModal from '@/components/common/ImageCropModal';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import PostListItem from '@/components/community/PostListItem';
 import CoordinationStrip from '@/components/coordination/CoordinationStrip';
@@ -30,6 +31,7 @@ import {
   coordinationApi,
   CoordinationResponse as CoordResp,
   groupApi,
+  groupPostApi,
   GroupJoinRequestResponse,
   GroupMemberResponse,
 } from '@/services/api';
@@ -38,6 +40,7 @@ import { appToast } from '@/lib/appToast';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -50,6 +53,7 @@ const GroupDetailPage: React.FC = () => {
   const { setSelectedSchedule, setShowScheduleDetail } = useApp();
   const { data: groups = [] } = useGroups();
   const menuRef = useRef<HTMLDivElement>(null);
+  const postImageInputRef = useRef<HTMLInputElement>(null);
   const groupScheduleRange = useMemo(() => {
     const today = new Date();
     return {
@@ -89,6 +93,11 @@ const GroupDetailPage: React.FC = () => {
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
+  const [postMemberOnly, setPostMemberOnly] = useState(false);
+  const [postCropFile, setPostCropFile] = useState<File | null>(null);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [isPostImageUploading, setIsPostImageUploading] = useState(false);
   const {
     data: groupPosts = [],
     isLoading: isGroupPostsLoading,
@@ -169,6 +178,7 @@ const GroupDetailPage: React.FC = () => {
   const groupedUpcomingSchedules = useGroupedSchedules(upcomingGroupSchedules);
 
   const memberCount = members.length || group?.memberCount || 0;
+  const memberCountLabel = memberCount > 99 ? '99+' : String(memberCount);
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
   const groupScheduleCountLabel = `${upcomingGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
@@ -202,6 +212,14 @@ const GroupDetailPage: React.FC = () => {
       setSearchParams({}, { replace: true });
     }
   }, [isManager, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (postImagePreview) {
+        URL.revokeObjectURL(postImagePreview);
+      }
+    };
+  }, [postImagePreview]);
 
   const formatJoinedAt = (joinedAt: string) => {
     const date = new Date(joinedAt);
@@ -332,6 +350,40 @@ const GroupDetailPage: React.FC = () => {
     fetchNextGroupPostPage();
   }, [fetchNextGroupPostPage, hasNextGroupPostPage, isFetchingNextGroupPostPage]);
 
+  const resetPostImage = () => {
+    if (postImagePreview) {
+      URL.revokeObjectURL(postImagePreview);
+    }
+    setPostImagePreview(null);
+    setPostImageFile(null);
+    setPostCropFile(null);
+    if (postImageInputRef.current) {
+      postImageInputRef.current.value = '';
+    }
+  };
+
+  const handlePostImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) {
+      appToast.error(validationMessage);
+      event.target.value = '';
+      return;
+    }
+    setPostCropFile(file);
+  };
+
+  const handlePostImageCropConfirm = (file: File, previewUrl: string) => {
+    if (postImagePreview) {
+      URL.revokeObjectURL(postImagePreview);
+    }
+    setPostImageFile(file);
+    setPostImagePreview(previewUrl);
+    setPostCropFile(null);
+  };
+
   const handleCreateGroupPost = async () => {
     const title = postTitle.trim();
     const content = postContent.trim();
@@ -345,15 +397,34 @@ const GroupDetailPage: React.FC = () => {
       return;
     }
 
-    try {
-      await createGroupPost.mutateAsync({ title, content });
-      setPostTitle('');
-      setPostContent('');
-      setShowPostComposer(false);
-      appToast.success('게시물을 등록했습니다');
-    } catch (error) {
+    const createdPost = await createGroupPost.mutateAsync({ title, content, memberOnly: postMemberOnly }).catch((error) => {
       appToast.error('게시물을 등록하지 못했습니다', error);
+      return null;
+    });
+    if (!createdPost) return;
+
+    if (postImageFile && id) {
+      try {
+        setIsPostImageUploading(true);
+        const uploaded = await uploadProcessedImage('GROUP_POST', postImageFile, createdPost.id);
+        await groupPostApi.updatePost(id, createdPost.id, { imageId: uploaded.imageId });
+        await queryClient.invalidateQueries({ queryKey: ['groups', id, 'posts'] });
+        void waitForImageProcessing(uploaded.imageId).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['groups', id, 'posts'] });
+        }).catch(() => undefined);
+      } catch (error) {
+        appToast.error('게시물은 등록됐지만 이미지를 첨부하지 못했습니다', error);
+      } finally {
+        setIsPostImageUploading(false);
+      }
     }
+
+    setPostTitle('');
+    setPostContent('');
+    setPostMemberOnly(false);
+    resetPostImage();
+    setShowPostComposer(false);
+    appToast.success('게시물을 등록했습니다');
   };
 
   const handleLeave = async () => {
@@ -387,15 +458,27 @@ const GroupDetailPage: React.FC = () => {
         showBack
         backTo="/groups"
         titleElement={
-          <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(`/groups/${id}/intro`)}
+            className="flex min-w-0 items-center gap-2 text-left"
+            aria-label="모임 소개 보기"
+          >
             <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold leading-5 text-foreground">{group.name}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <p className="min-w-0 truncate text-sm font-bold leading-5 text-foreground">{group.name}</p>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  {memberCountLabel}
+                </span>
+              </div>
               <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                {group.description || `멤버 ${memberCount}명`}
+                {group.description || '모임 소개'}
               </p>
             </div>
-          </div>
+          </button>
         }
         rightElement={
           <div ref={menuRef} className="relative">
@@ -472,59 +555,62 @@ const GroupDetailPage: React.FC = () => {
         }
       />
 
-      {groupedUpcomingSchedules.length > 0 ? (
-        <section className="border-t border-border/50 pt-3">
-          <div className="mb-2 flex items-end justify-between gap-3 px-5">
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-foreground">확정 일정 ({groupScheduleCountLabel})</h2>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">가까운 약속부터 좌우로 확인하세요.</p>
-            </div>
+      <section className="border-t border-border/50 pt-3">
+        <div className="mb-2 flex items-end justify-between gap-3 px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">일정({groupScheduleCountLabel})</h2>
           </div>
+        </div>
+        {groupedUpcomingSchedules.length > 0 ? (
           <ScheduleStrip
             groups={groupedUpcomingSchedules}
             onScheduleClick={handleScheduleClick}
           />
-          {hasNextSchedulePage ? (
-            <div className="px-5 pt-2">
-              <button
-                type="button"
-                onClick={() => fetchNextSchedulePage()}
-                disabled={isFetchingNextSchedulePage}
-                className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-              >
-                {isFetchingNextSchedulePage ? '불러오는 중...' : '일정 더보기'}
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      {isCoordinationLoading || coordinations.length > 0 ? (
-        <section className="mt-5 border-t border-border/50 pt-3">
-          <div className="mb-2 px-5">
-            <h2 className="text-sm font-bold text-foreground">조율 중인 일정 ({coordinationCountLabel})</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">아직 확정 전인 후보 시간을 확인하세요.</p>
+        ) : (
+          <p className="border-y border-dashed border-border/70 px-5 py-5 text-xs text-muted-foreground">
+            아직 일정이 없습니다.
+          </p>
+        )}
+        {hasNextSchedulePage ? (
+          <div className="px-5 pt-2">
+            <button
+              type="button"
+              onClick={() => fetchNextSchedulePage()}
+              disabled={isFetchingNextSchedulePage}
+              className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              {isFetchingNextSchedulePage ? '불러오는 중...' : '일정 더보기'}
+            </button>
           </div>
-          {isCoordinationLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : (
-            <CoordinationStrip
-              coordinations={coordinations}
-              onCoordinationClick={(coord) => navigate(`/groups/${id}/coordination/${coord.id}/timetable`)}
-              onReachEnd={handleLoadMoreCoordinations}
-              isLoadingMore={isFetchingMoreCoordinations}
-            />
-          )}
-        </section>
-      ) : null}
+        ) : null}
+      </section>
+
+      <section className="mt-5 border-t border-border/50 pt-3">
+        <div className="mb-2 px-5">
+          <h2 className="text-sm font-bold text-foreground">시간 조율({coordinationCountLabel})</h2>
+        </div>
+        {isCoordinationLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : coordinations.length > 0 ? (
+          <CoordinationStrip
+            coordinations={coordinations}
+            onCoordinationClick={(coord) => navigate(`/groups/${id}/coordination/${coord.id}/timetable`)}
+            onReachEnd={handleLoadMoreCoordinations}
+            isLoadingMore={isFetchingMoreCoordinations}
+          />
+        ) : (
+          <p className="border-y border-dashed border-border/70 px-5 py-5 text-xs text-muted-foreground">
+            아직 시간 조율이 없습니다.
+          </p>
+        )}
+      </section>
 
       <section className="mt-5 border-t border-border/50 pt-4">
         <div className="mb-2 flex items-center justify-between gap-3 px-5">
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-foreground">모임 게시판</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">멤버들과 약속 준비 이야기를 남겨보세요.</p>
+            <h2 className="text-sm font-bold text-foreground">모임 글</h2>
           </div>
           <button
             type="button"
@@ -555,11 +641,53 @@ const GroupDetailPage: React.FC = () => {
               />
               <button
                 type="button"
+                onClick={() => setPostMemberOnly((prev) => !prev)}
+                className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-colors ${postMemberOnly ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-muted-foreground'}`}
+              >
+                <span className="text-xs font-bold">모임에만 게시하기</span>
+                <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${postMemberOnly ? 'bg-primary' : 'bg-muted-foreground/25'}`}>
+                  <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${postMemberOnly ? 'translate-x-4' : ''}`} />
+                </span>
+              </button>
+              <p className="text-[10px] leading-4 text-muted-foreground">
+                꺼두면 미가입자도 소개 페이지에서 글을 읽을 수 있습니다.
+              </p>
+              {postImagePreview ? (
+                <div className="relative overflow-hidden rounded-xl border border-border">
+                  <img src={postImagePreview} alt="첨부 이미지 미리보기" className="h-44 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={resetPostImage}
+                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white"
+                    aria-label="첨부 이미지 제거"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => postImageInputRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background py-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  이미지 추가
+                </button>
+              )}
+              <input
+                ref={postImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePostImageSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
                 onClick={handleCreateGroupPost}
-                disabled={createGroupPost.isPending}
+                disabled={createGroupPost.isPending || isPostImageUploading}
                 className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
               >
-                {createGroupPost.isPending ? '등록 중...' : '게시물 등록'}
+                {createGroupPost.isPending || isPostImageUploading ? '등록 중...' : '게시물 등록'}
               </button>
             </div>
           </div>
@@ -593,6 +721,18 @@ const GroupDetailPage: React.FC = () => {
           </p>
         )}
       </section>
+
+      {postCropFile ? (
+        <ImageCropModal
+          file={postCropFile}
+          title="게시물 이미지 편집"
+          description="글에 첨부할 영역을 맞춰주세요."
+          outputNamePrefix="group-post"
+          aspectRatio={4 / 3}
+          onClose={() => setPostCropFile(null)}
+          onConfirm={handlePostImageCropConfirm}
+        />
+      ) : null}
 
       {showMembersModal && (
         <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowMembersModal(false)}>

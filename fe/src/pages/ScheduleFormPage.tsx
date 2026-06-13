@@ -1,11 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ScheduleCategory } from '@/types/types';
-import { Bell, Camera, Loader2, ImageIcon, Star } from 'lucide-react';
-import { aiApi } from '@/services/api';
+import { Bell, Camera, Check, Loader2, ImageIcon, Search, Star } from 'lucide-react';
+import { aiApi, groupApi } from '@/services/api';
 import { useCreateSchedule } from '@/hooks/useSchedules';
 import { appToast, getErrorMessage } from '@/lib/appToast';
 import {
@@ -83,9 +84,42 @@ const ScheduleFormPage: React.FC = () => {
   const [duration, setDuration] = useState(initialContext.duration);
   const [isImportant, setIsImportant] = useState(false);
   const [hasAlarm, setHasAlarm] = useState(false);
+  const [participantUserIds, setParticipantUserIds] = useState<string[]>([]);
+  const [showMemberSearch, setShowMemberSearch] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
+  const { data: groupMembers = [], isLoading: isGroupMembersLoading } = useQuery({
+    queryKey: ['groups', initialContext.groupId, 'members'],
+    queryFn: () => groupApi.getMembers(initialContext.groupId as string),
+    enabled: Boolean(initialContext.groupId),
+  });
+
+  React.useEffect(() => {
+    if (!initialContext.groupId || groupMembers.length === 0 || participantUserIds.length > 0) return;
+    setParticipantUserIds(groupMembers.map(member => member.userId));
+  }, [groupMembers, initialContext.groupId, participantUserIds.length]);
+
+  const filteredGroupMembers = useMemo(() => {
+    const query = memberSearchQuery.trim().toLowerCase();
+    if (!query) return groupMembers;
+    return groupMembers.filter(member =>
+      (member.nickname || member.userId).toLowerCase().includes(query),
+    );
+  }, [groupMembers, memberSearchQuery]);
+
+  const toggleParticipant = (userId: string) => {
+    setParticipantUserIds(prev => (
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    ));
+  };
+
+  const selectAllParticipants = () => {
+    setParticipantUserIds(groupMembers.map(member => member.userId));
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -138,6 +172,7 @@ const ScheduleFormPage: React.FC = () => {
       duration,
       hasAlarm,
       groupId: initialContext.groupId,
+      participantUserIds: initialContext.groupId ? participantUserIds : undefined,
     });
 
     if (!result.ok) {
@@ -215,7 +250,7 @@ const ScheduleFormPage: React.FC = () => {
           <label className="text-xs font-semibold text-muted-foreground mb-2 block">카테고리</label>
           <div className="flex gap-2">
             {categories.map(c => (
-              <button key={c.value} onClick={() => setCategory(c.value)}
+              <button key={c.value} type="button" onClick={() => setCategory(c.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${category === c.value ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:border-muted-foreground'}`}>
                 {c.label}
               </button>
@@ -227,6 +262,82 @@ const ScheduleFormPage: React.FC = () => {
             </p>
           ) : null}
         </div>
+
+        {initialContext.groupId ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">참여 멤버</label>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  선택된 멤버의 캘린더에도 일정이 등록됩니다.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={selectAllParticipants}
+                  className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-bold text-foreground"
+                >
+                  전체선택
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMemberSearch((prev) => !prev)}
+                  className="rounded-lg border border-border p-1.5 text-muted-foreground"
+                  aria-label="멤버 이름 검색"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            {showMemberSearch ? (
+              <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input
+                  value={memberSearchQuery}
+                  onChange={(event) => setMemberSearchQuery(event.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                  placeholder="이름으로 검색"
+                  autoFocus
+                />
+              </div>
+            ) : null}
+            <div className="rounded-2xl border border-border bg-card p-2">
+              {isGroupMembersLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : filteredGroupMembers.length > 0 ? (
+                <div className="max-h-44 space-y-1 overflow-y-auto scrollbar-thin-soft">
+                  {filteredGroupMembers.map(member => {
+                    const selected = participantUserIds.includes(member.userId);
+                    return (
+                      <button
+                        key={member.userId}
+                        type="button"
+                        onClick={() => toggleParticipant(member.userId)}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${selected ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                          {(member.nickname || member.userId).slice(0, 1)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                          {member.nickname || member.userId}
+                        </span>
+                        {selected ? <Check className="h-4 w-4 shrink-0" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="px-3 py-6 text-center text-xs text-muted-foreground">검색된 멤버가 없습니다.</p>
+              )}
+            </div>
+            <p className="text-right text-[10px] text-muted-foreground">
+              {participantUserIds.length}명 선택
+            </p>
+          </div>
+        ) : null}
 
         {/* Title */}
         <div>
@@ -262,12 +373,12 @@ const ScheduleFormPage: React.FC = () => {
 
         {/* Toggles */}
         <div className="flex gap-4">
-          <button onClick={() => setIsImportant(!isImportant)}
+          <button type="button" onClick={() => setIsImportant(!isImportant)}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${isImportant ? 'bg-category-important-light text-category-important-strong border-category-important' : 'bg-card text-muted-foreground border-border'}`}>
             <Star className="w-4 h-4" fill={isImportant ? 'currentColor' : 'none'} />
             중요
           </button>
-          <button onClick={() => setHasAlarm(!hasAlarm)}
+          <button type="button" onClick={() => setHasAlarm(!hasAlarm)}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${hasAlarm ? 'bg-primary/10 text-primary border-primary' : 'bg-card text-muted-foreground border-border'}`}>
             <Bell className="w-4 h-4" />
             알림

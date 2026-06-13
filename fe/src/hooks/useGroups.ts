@@ -58,16 +58,18 @@ export function useGroupPages() {
   });
 }
 
-export function usePublicGroupPages() {
+export function usePublicGroupPages(query?: string) {
   const { isAuthenticated } = useAuth();
+  const trimmedQuery = query?.trim() || undefined;
 
   return useInfiniteQuery({
-    queryKey: ['groups', 'public', GROUP_PAGE_LIMIT],
+    queryKey: ['groups', 'public', GROUP_PAGE_LIMIT, trimmedQuery ?? ''],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       const page = await groupApi.getPublicPage({
         limit: GROUP_PAGE_LIMIT,
         cursor: pageParam,
+        q: trimmedQuery,
       });
       return {
         ...page,
