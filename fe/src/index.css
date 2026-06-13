@@ -65,7 +65,7 @@
     --coord-best: 45 90% 50%;
     --coord-alt: 275 55% 58%;
 
-    --app-bottom-nav-height: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    --app-bottom-nav-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
     --app-content-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
     --app-floating-bottom-space: calc(var(--app-bottom-nav-height) + 1rem);
     --app-bottom-sheet-max-height: min(calc(100vh - var(--app-bottom-nav-height) - 1rem), 30rem);
@@ -192,7 +192,7 @@
 
   .app-bottom-nav {
     height: var(--app-bottom-nav-height);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
   }
 
   .app-floating-action {

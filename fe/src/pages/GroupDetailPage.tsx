@@ -1117,7 +1117,7 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
     <PostListItem
       post={post}
       actions={
-        <div className="flex items-center gap-2 pl-12">
+        <>
           <button
             type="button"
             onClick={handleToggleLike}
@@ -1139,7 +1139,7 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
             <MessageCircle className="h-3.5 w-3.5" />
             댓글 {post.commentCount ?? 0}
           </button>
-        </div>
+        </>
       }
     >
       {showComments ? (

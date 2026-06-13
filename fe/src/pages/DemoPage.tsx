@@ -338,7 +338,7 @@ const DemoPage: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 app-layer-critical px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 app-layer-notice px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
         <div className="pointer-events-auto mx-auto grid w-full max-w-lg grid-cols-[0.9fr_1.4fr] gap-2 rounded-2xl border border-border/70 bg-card/95 p-2 shadow-elevated backdrop-blur">
           <button
             type="button"
