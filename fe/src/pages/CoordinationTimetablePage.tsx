@@ -34,6 +34,7 @@ const CoordinationTimetablePage: React.FC = () => {
   const [hasShownRecommendationModal, setHasShownRecommendationModal] = useState(false);
   const [dateWindowStart, setDateWindowStart] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 드래그 시작 시 선택/해제 모드를 고정해 지나간 슬롯에 같은 동작을 적용한다.
   const dragSelectionRef = useRef<{
     pointerId: number;
     mode: 'select' | 'deselect';
@@ -71,6 +72,7 @@ const CoordinationTimetablePage: React.FC = () => {
   const hours = useMemo(() => { const h: number[] = []; for (let i = startHour; i < endHour; i++) h.push(i); return h; }, [startHour, endHour]);
 
   const parsedDates = useMemo(() => dates.map(d => { const parts = d.split('-').map(Number); return new Date(parts[0], parts[1] - 1, parts[2]); }), [dates]);
+  // 후보 날짜가 많으면 5개씩 보여주되 마지막 페이지도 5칸을 유지한다.
   const dateWindowStarts = useMemo(() => getCoordinationDateWindowStarts(parsedDates.length), [parsedDates.length]);
   const normalizedDateWindowStart = dateWindowStarts.includes(dateWindowStart) ? dateWindowStart : dateWindowStarts[0];
   const currentDateWindowIndex = Math.max(0, dateWindowStarts.indexOf(normalizedDateWindowStart));
@@ -157,6 +159,7 @@ const CoordinationTimetablePage: React.FC = () => {
   };
 
   const findSlotKeyFromPoint = (clientX: number, clientY: number) => {
+    // pointer capture 중에는 event target이 고정되므로 좌표 기준으로 실제 슬롯을 다시 찾는다.
     const element = document.elementFromPoint(clientX, clientY);
     if (!(element instanceof HTMLElement)) return null;
     return element.closest<HTMLElement>('[data-coordination-slot-key]')?.dataset.coordinationSlotKey ?? null;
@@ -224,6 +227,7 @@ const CoordinationTimetablePage: React.FC = () => {
       selectedEntry,
     );
 
+    // 선택한 슬롯이 없으면 가장 많이, 가장 길게 겹친 추천 슬롯을 일정 후보로 쓴다.
     if (!slot) {
       appToast.info('일정을 만들 수 있는 시간이 없습니다', '한 명 이상 가능한 시간이 생기면 그룹 일정을 만들 수 있습니다.');
       return;

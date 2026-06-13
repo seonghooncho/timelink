@@ -101,6 +101,7 @@ const isSameLocalDate = (first: Date, second: Date) =>
   && first.getMonth() === second.getMonth()
   && first.getDate() === second.getDate();
 
+// 프론트 입력 검증은 백엔드의 startTime + duration 정책과 같은 기준을 사용한다.
 export const buildScheduleCreateRequest = (values: ScheduleFormValues): ScheduleFormResult => {
   const title = values.title.trim();
   if (!title) {

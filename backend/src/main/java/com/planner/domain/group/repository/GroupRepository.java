@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * 그룹, 멤버, 초대코드를 단일 DynamoDB 테이블에서 조회한다.
+ */
 @Repository
 public class GroupRepository {
 
@@ -60,6 +63,7 @@ public class GroupRepository {
 
     public boolean saveInviteIfAbsent(GroupInvite invite) {
         try {
+            // 초대코드는 별도 매핑 아이템을 조건부 저장해 scan 없이 중복을 막는다.
             dynamoDbClient.putItem(PutItemRequest.builder()
                     .tableName(tableName)
                     .item(Map.of(
@@ -128,6 +132,7 @@ public class GroupRepository {
         StringBuilder updateExpression = new StringBuilder(
                 "SET imageId = :imageId, #imageStatus = :imageStatus, updatedAt = :updatedAt"
         );
+        // Lambda 완료 업데이트와 폼 저장 업데이트가 서로 다른 필드만 보낼 수 있어 동적으로 구성한다.
         if (group.getImageUploadKey() != null && !group.getImageUploadKey().isBlank()) {
             updateExpression.append(", imageUploadKey = :imageUploadKey");
             values.put(":imageUploadKey", AttributeValue.builder().s(group.getImageUploadKey()).build());

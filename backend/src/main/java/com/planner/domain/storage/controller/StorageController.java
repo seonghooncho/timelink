@@ -40,6 +40,7 @@ public class StorageController {
     }
 
     @PostMapping(value = "/images/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Deprecated(since = "2026-06-13", forRemoval = false)
     public ResponseEntity<CustomResponse<ImageUploadResDTO>> uploadProfileImage(
             @RequestPart("file") MultipartFile file) {
         String userId = AuthUtil.getCurrentUserId();
@@ -47,6 +48,7 @@ public class StorageController {
     }
 
     @PostMapping(value = "/images/group", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Deprecated(since = "2026-06-13", forRemoval = false)
     public ResponseEntity<CustomResponse<ImageUploadResDTO>> uploadGroupImage(
             @RequestPart("file") MultipartFile file) {
         String userId = AuthUtil.getCurrentUserId();

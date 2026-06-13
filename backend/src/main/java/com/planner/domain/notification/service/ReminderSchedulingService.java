@@ -24,6 +24,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.List;
 
+/**
+ * 일정 알림 설정을 EventBridge Scheduler 작업과 동기화한다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,6 +45,7 @@ public class ReminderSchedulingService {
     private final ObjectMapper objectMapper;
 
     public void syncUserReminders(String userId, NotificationSettings settings) {
+        // 설정 변경은 기존 예약을 모두 지운 뒤 현재 설정 기준으로 다시 만드는 단순 동기화 방식이다.
         deleteAllUserJobs(userId);
         if (!Boolean.TRUE.equals(settings.getScheduleAlarm()) || !hasSchedulerConfig()) {
             return;
@@ -132,6 +136,7 @@ public class ReminderSchedulingService {
             return;
         }
 
+        // 이미 지난 리마인드는 즉시성 알림으로 보정하되 시작 알림보다 뒤로 가지 않게 한다.
         Instant scheduledAt = reminderAt.toInstant().isBefore(now)
                 ? now.plus(Duration.ofMinutes(1))
                 : reminderAt.toInstant();
@@ -181,6 +186,7 @@ public class ReminderSchedulingService {
             return;
         }
 
+        // 같은 jobId를 다시 예약할 수 있으므로 기존 스케줄을 먼저 제거한다.
         deleteScheduler(schedulerName);
         try {
             String input = objectMapper.writeValueAsString(event);

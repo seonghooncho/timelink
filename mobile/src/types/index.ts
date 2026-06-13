@@ -7,6 +7,7 @@ export interface Schedule {
   category: ScheduleCategory;
   isImportant: boolean;
   startTime: string;
+  /** @deprecated 일정 표시는 startTime + duration을 기준으로 계산합니다. */
   endTime?: string;
   duration: number;
   isCompleted: boolean;
@@ -63,6 +64,7 @@ export interface NotificationItem {
 
 export interface NotificationSettings {
   scheduleAlarm: boolean;
+  /** @deprecated 그룹 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
   groupAlarm: boolean;
   pushAlarm: boolean;
   remindOneDayBefore: boolean;

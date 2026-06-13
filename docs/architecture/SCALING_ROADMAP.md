@@ -2,7 +2,7 @@
 
 ## 근본 목적
 
-[부하테스트 결과](LOAD_TEST_REPORT.md)를 기준으로 트래픽과 그룹 규모가 늘 때 어떤 병목을 먼저 제거해야 하는지 판단할 수 있게 하는 것이 목적입니다.
+[부하테스트 결과](../testing/LOAD_TEST_REPORT.md)를 기준으로 트래픽과 그룹 규모가 늘 때 어떤 병목을 먼저 제거해야 하는지 판단할 수 있게 하는 것이 목적입니다.
 
 ## 비목적
 
@@ -10,7 +10,7 @@
 
 ## 현재 판단
 
-현 구조는 운영 초기 소규모 트래픽에는 사용할 수 있다. 다만 Lambda 동시 실행 quota 10, 초대코드 scan 조회, 그룹/조율 목록의 N+1 집계가 명확한 확장 한계다.
+현 구조는 운영 초기 소규모 트래픽에는 사용할 수 있다. 다만 Lambda 동시 실행 quota 10, 그룹 목록의 그룹 metadata 추가 조회, 알림/조율 목록의 페이지 후 메모리 필터링, 조율 상세의 응답 전체 읽기가 명확한 확장 한계다.
 
 보수적인 기준:
 
@@ -23,26 +23,7 @@
 
 ## 1단계: 운영 초기 즉시 개선
 
-초대코드 구조를 먼저 고친다. 현재는 `inviteCode`가 중복될 수 있고 조회가 scan이다. 올바른 구조는 그룹 생성 시 별도 invite mapping item을 조건부로 저장하는 것이다.
-
-권장 데이터 모델:
-
-```text
-PK = INVITE#<code>
-SK = GROUP#<groupId>
-groupId = <groupId>
-createdAt = <iso>
-```
-
-생성 흐름:
-
-1. 충분히 긴 초대코드를 생성한다.
-2. `attribute_not_exists(PK)` 조건으로 invite mapping item을 먼저 저장한다.
-3. 충돌하면 새 코드를 생성해 제한 횟수만큼 재시도한다.
-4. 그룹 metadata에도 표시용 `inviteCode`를 저장한다.
-5. join은 scan 대신 `GetItem(PK=INVITE#code)` 후 groupId로 그룹을 조회한다.
-
-이 방식이면 SnapStart나 랜덤 상태 이슈로 코드가 반복되어도 조건부 쓰기가 중복을 막는다.
+현재 초대코드는 invite mapping item과 조건부 쓰기 구조로 정리되어 있어 scan 병목은 우선순위에서 내려간다. 운영 초기는 구조를 크게 바꾸기보다 관측과 배포 전 검증 누락을 줄이는 데 집중한다.
 
 같이 처리할 항목:
 
@@ -65,12 +46,12 @@ SnapStart는 cold start 완화에는 유효하지만 동시 실행 quota를 늘�
 
 ## 3단계: 그룹/조율 데이터 증가
 
-그룹 목록과 조율 목록의 집계성 읽기를 denormalize한다.
+그룹 목록, 조율 목록, 알림 목록의 조회 방식을 데이터 증가 기준으로 재설계한다. 현재 `memberCount`, `responseCount`는 metadata에 저장하지만, 목록 응답을 만들 때 그룹 metadata를 추가 조회하거나 status/type 필터를 페이지 조회 후 메모리에서 적용하는 구간이 남아 있다.
 
 우선순위:
 
-- 그룹 metadata에 `memberCount`를 저장하고 가입/탈퇴/강퇴 시 조건부 update로 증감한다.
-- 조율 metadata에 `responseCount` 또는 응답자 수를 저장하고 응답 제출/삭제 시 갱신한다.
+- 그룹 membership item에 목록 표시용 그룹명, 설명, 이미지, 멤버 수를 denormalize하거나 batch get으로 그룹 metadata 조회를 묶는다.
+- 조율/알림 목록은 `status`, `type`, `isRead` 조건을 먼저 만족하는 키 또는 GSI를 추가해 페이지 후 메모리 필터링을 없앤다.
 - 그룹 멤버 목록에 cursor pagination을 추가한다.
 - 조율 상세의 heatmap은 응답 전체를 매번 읽지 않고 slot별 집계 item을 유지한다.
 
@@ -100,8 +81,8 @@ SnapStart는 cold start 완화에는 유효하지만 동시 실행 quota를 늘�
 
 ## 당장 제안할 작업
 
-1. 초대코드 `scan`을 invite mapping item + 조건부 쓰기 구조로 바꾼다.
-2. Lambda concurrency quota를 50으로 올리는 신청을 준비하고, API/worker/AI reserved concurrency 분배안을 정한다.
-3. 그룹 `memberCount`, 조율 `responseCount` denormalize를 추가한다.
+1. Lambda concurrency quota를 50으로 올리는 신청을 준비하고, API/worker/AI reserved concurrency 분배안을 정한다.
+2. 그룹 목록 metadata 조회와 알림/조율 목록 필터링의 실제 read 비용을 CloudWatch 지표와 부하테스트로 추적한다.
+3. 사용자당 그룹 수 20개, 그룹 멤버 50명, 조율 응답 slot 500개 기준에 접근하면 batch get 또는 denormalized item/GSI 개선을 먼저 적용한다.
 4. PWA 설치 안내 overlay가 주요 버튼 클릭을 막지 않도록 UI layer를 조정한다.
 5. 이 문서의 k6/Playwright 시나리오를 배포 전 체크에 연결한다.

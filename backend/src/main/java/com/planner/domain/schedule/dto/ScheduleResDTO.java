@@ -12,6 +12,7 @@ public class ScheduleResDTO {
     private String category;
     private Boolean isImportant;
     private String startTime;
+    /** 하위 호환용 필드이며 신규 화면 표시는 startTime + duration을 기준으로 한다. */
     private String endTime;
     private Double duration;
     private Boolean isCompleted;

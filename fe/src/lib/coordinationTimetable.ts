@@ -37,6 +37,7 @@ export const getCoordinationDateWindowStarts = (
   const starts: number[] = [];
   const maxStart = Math.max(0, totalDates - windowSize);
 
+  // 마지막 묶음도 windowSize만큼 보이도록 필요하면 이전 날짜를 중복해서 보여준다.
   for (let start = 0; start < totalDates; start += windowSize) {
     const nextStart = Math.min(start, maxStart);
     if (!starts.includes(nextStart)) starts.push(nextStart);
@@ -63,6 +64,7 @@ export const getRecommendedCoordinationAvailabilityWindow = (
 
   const windows: CoordinationAvailabilityWindow[] = [];
 
+  // 최다 득표 슬롯 중 같은 날짜에서 연속된 시간대를 하나의 추천 구간으로 묶는다.
   bestSlots.forEach((slot) => {
     const lastWindow = windows[windows.length - 1];
     const lastSlot = lastWindow?.slots[lastWindow.slots.length - 1];
@@ -101,6 +103,7 @@ export const getRecommendedCoordinationScheduleSlot = (
     return selectedSlot;
   }
 
+  // 사용자가 고른 슬롯이 없으면 추천 구간의 첫 시간을 그룹 일정 후보로 사용한다.
   return getRecommendedCoordinationAvailabilityWindow(heatmap, dates)?.slots[0] ?? null;
 };
 
@@ -132,6 +135,7 @@ export const scheduleOverlapsCoordinationSlot = (
     return false;
   }
 
+  // 끝과 시작이 맞닿는 경우는 같은 시간 점유로 보지 않는다.
   return scheduleStart.getTime() < slotEnd.getTime() && scheduleEnd.getTime() > slotStart.getTime();
 };
 
@@ -142,6 +146,7 @@ export const groupSchedulesByCoordinationSlot = (
 ) => {
   const map: Record<string, Schedule[]> = {};
 
+  // 기존 일정을 먼저 깔아두기 위해 후보 슬롯별 겹치는 일정을 모아둔다.
   schedules.forEach((schedule) => {
     dates.forEach((date, dateIndex) => {
       hours.forEach((hour) => {

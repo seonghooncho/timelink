@@ -143,6 +143,7 @@ export interface ScheduleResponse {
   category: string;
   isImportant: boolean;
   startTime: string;
+  /** @deprecated 일정 표시는 startTime + duration을 기준으로 계산합니다. */
   endTime?: string;
   duration: number;
   isCompleted: boolean;
@@ -380,6 +381,7 @@ export const notificationApi = {
 
 export interface NotificationSettingsResponse {
   scheduleAlarm: boolean;
+  /** @deprecated 그룹 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
   groupAlarm: boolean;
   pushAlarm: boolean;
   remindOneDayBefore: boolean;
@@ -454,7 +456,9 @@ export interface PresignImageUploadResponse {
 }
 
 export const storageApi = {
+  /** @deprecated 신규 이미지 업로드는 createImageUpload + presigned PUT 경로를 사용합니다. */
   uploadProfileImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/profile', file),
+  /** @deprecated 신규 이미지 업로드는 createImageUpload + presigned PUT 경로를 사용합니다. */
   uploadGroupImage: (file: File) => uploadFile<ImageUploadResponse>('/storage/images/group', file),
   createImageUpload: (data: PresignImageUploadRequest) =>
     request<PresignImageUploadResponse>('POST', '/storage/images/presign', data),

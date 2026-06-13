@@ -38,7 +38,8 @@ export function LoginScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState<LoginMode>(null);
 
   const redirectPath = '/';
-  const showGuestFallback = Boolean(providers) || providerFetchFailed;
+  const isDevLoginEnabled = __DEV__ || env.enableDevLogin;
+  const showGuestFallback = isDevLoginEnabled && (Boolean(providers) || providerFetchFailed);
   const hasEnabledProvider = Boolean(providers?.google || providers?.kakao);
 
   useEffect(() => {

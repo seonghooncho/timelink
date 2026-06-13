@@ -23,6 +23,10 @@
 └── package.json
 ```
 
+## 작업 기준
+
+운영 반영과 PR 작업은 `main` 브랜치를 기준으로 한 최신 worktree에서 수행합니다. 오래된 feature worktree나 원격 브랜치가 사라진 작업 디렉터리는 분석 참고용으로만 보고 새 변경의 기준으로 사용하지 않습니다.
+
 ## 로컬 개발
 
 ### Frontend
@@ -111,7 +115,7 @@ terraform apply
 
 ## 운영 배포
 
-운영 배포 전에는 [docs/infrastructure/DEPLOYMENT_NOTES.md](docs/infrastructure/DEPLOYMENT_NOTES.md)를 먼저 확인합니다.
+운영 배포 전에는 [docs/operations/DEPLOYMENT_NOTES.md](docs/operations/DEPLOYMENT_NOTES.md)를 먼저 확인합니다.
 이 문서에는 현행 S3/CloudFront/Lambda 배포 순서, CloudFront 캐시 무효화, Google/Kakao 소셜 로그인 콜백 URL 확인 항목이 정리돼 있습니다.
 
 ## 환경 변수

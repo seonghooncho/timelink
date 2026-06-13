@@ -26,16 +26,17 @@
 - 프론트의 일정/알림/조율 목록은 기본 화면 진입 시 모든 페이지를 합치지 않고, 범위 조회와 `limit/cursor` 기반 더보기로 가져오도록 정리했다.
 - AI 컨테이너 이미지는 일반 Python 이미지가 아니라 AWS Lambda Python base image를 사용하도록 수정했다.
 - 운영 부하테스트와 Playwright 서버리스 흐름 검증은 `test/k6`, `test/playwright` 하위에 재현 가능한 테스트 코드로 추가했다.
+- 그룹 초대코드는 `INVITE#code` mapping item과 조건부 쓰기로 유일성을 보장하고, join 시 scan 없이 invite mapping을 조회한다.
 
 ## 즉시 수정이 필요한 항목
 
 - 라우팅/API 계약 불일치 중 즉시 수정이 필요한 항목은 없다.
-- 다만 그룹 초대코드는 유일성 보장 없이 6자리 랜덤 문자열을 생성하고, join은 DynamoDB scan으로 `inviteCode`를 찾는다. 부하테스트 중 서로 다른 테스트 그룹이 같은 초대코드를 받아 잘못된 그룹에 가입되는 문제가 확인됐으므로, invite mapping item 또는 GSI 기반의 조건부 유일성 보장 구조로 바꿔야 한다.
+- 다만 모바일 앱은 Web Push 구독을 직접 만들지 않으므로, `pushAlarm` 설정값 동기화와 앱 자체 APNs/FCM 푸시 전달은 분리해서 봐야 한다.
 
 ## 추후 구조 개선 후보
 
-- 그룹 목록은 현재 각 그룹별 멤버 수 조회가 반복되므로, 그룹 규모가 커지면 `memberCount`를 metadata에 denormalize해야 한다.
-- 조율 목록은 각 조율별 응답 수 조회가 반복되므로, `responseCount` 또는 응답자 수를 metadata에 denormalize해야 한다.
+- 그룹 목록은 현재 membership 조회 뒤 그룹 metadata를 추가 조회하므로, 그룹 수가 커지면 목록 표시 필드를 membership에 denormalize하거나 batch get으로 묶어야 한다.
+- 알림/조율 목록은 일부 필터를 페이지 조회 뒤 메모리에서 적용하므로, 데이터가 늘면 필터 조건을 반영한 key 또는 GSI가 필요하다.
 - 조율 상세 heatmap은 응답 전체를 매번 읽어 계산하므로, 응답 slot이 많아지면 slot별 집계 item을 별도로 유지해야 한다.
 - 그룹 멤버 목록은 현재 전체 배열을 반환하므로, 그룹 규모가 커지면 cursor pagination 계약을 추가해야 한다.
 - 커스텀 도메인 `/health`는 CloudFront SPA fallback으로 처리될 수 있으므로, 운영 헬스체크는 API Gateway `/health`를 기준으로 두거나 `/api/planner/v1/health` 같은 API 경로를 별도 계약으로 추가하는 편이 낫다.

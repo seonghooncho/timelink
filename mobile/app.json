@@ -89,7 +89,8 @@
       "plannerApiBaseUrl": "https://timelink.cloud/api/planner/v1",
       "aiApiBaseUrl": "https://timelink.cloud/api/ai/v1",
       "webAppOrigin": "https://timelink.cloud",
-      "mobileAppOrigin": "timelink://app"
+      "mobileAppOrigin": "timelink://app",
+      "enableDevLogin": false
     }
   }
 }

@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class NotificationSettingsUpdateReqDTO {
     private Boolean scheduleAlarm;
+    /** 하위 호환용 필드이며 신규 클라이언트는 pushAlarm만 수정한다. */
     private Boolean groupAlarm;
     private Boolean pushAlarm;
     private Boolean remindOneDayBefore;

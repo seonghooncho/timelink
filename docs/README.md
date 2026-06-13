@@ -73,20 +73,37 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   ├── worker.js
 │       │   └── README.md
 │       └── README.md
-├── docs/                   # 설계/운영 문서
-│   ├── infrastructure/     # 배포/아키텍처/부하테스트/확장 문서
-│   ├── mobile/             # 모바일 앱 제출 준비 문서
-│   └── monitoring/         # 운영 초기 모니터링 문서
+├── docs/                   # 제품/참조/설계/운영 문서
+│   ├── product/            # 기능 요구사항과 제품 정책
+│   ├── reference/          # API처럼 값과 계약을 찾는 참조 문서
+│   ├── design/             # UI/UX와 디자인 시스템 기준
+│   ├── architecture/       # 구조 판단, 파이프라인, 확장 로드맵
+│   ├── operations/         # 배포와 모니터링 운영 절차
+│   ├── testing/            # 부하테스트와 검증 결과
+│   └── mobile/             # 모바일 앱 제출 준비 문서
 └── README.md
 ```
 
 ## 운영 문서
 
-- [기능 요구사항 명세서](FEATURE_REQUIREMENTS.md): 운영 중인 사용자 기능, 제약 조건, 예외 처리 기준을 화면과 유즈케이스 중심으로 정리한 문서입니다.
-- [인프라 문서 인덱스](infrastructure/README.md): 배포, 아키텍처 정합성, 부하테스트, 확장 로드맵을 모아 둔 문서입니다.
-- [운영 배포 유의사항](infrastructure/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
-- [모니터링 v1](monitoring/MONITORING_V1.md): CloudWatch/SNS 기반 저비용 운영 알림과 확장 전환 기준을 정리한 문서입니다.
+- [기능 요구사항 명세서](product/FEATURE_REQUIREMENTS.md): 운영 중인 사용자 기능, 제약 조건, 예외 처리 기준을 화면과 유즈케이스 중심으로 정리한 문서입니다.
+- [API 명세서](reference/API_SPEC.md): 프론트/모바일/백엔드가 공유하는 REST API 계약과 호환 필드를 정리한 문서입니다.
+- [디자인 가이드](design/DESIGN_GUIDE.md): UI 레이어, 컴포넌트, 디자인 톤을 정리한 문서입니다.
+- [구조 문서 인덱스](architecture/README.md): 아키텍처 정합성, 이미지 처리 파이프라인, 확장 로드맵을 모아 둔 문서입니다.
+- [운영 배포 유의사항](operations/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
+- [모니터링 v1](operations/MONITORING_V1.md): CloudWatch/SNS 기반 저비용 운영 알림과 확장 전환 기준을 정리한 문서입니다.
+- [부하테스트 결과](testing/LOAD_TEST_REPORT.md): k6/Playwright로 확인한 처리량, 지연, 실패 양상과 cleanup 기준을 정리한 문서입니다.
 - [모바일 앱 스토어 제출 준비](mobile/STORE_READINESS.md): Expo 모바일 앱 구조, 검증 명령, 스토어 제출 전 외부 설정을 정리한 문서입니다.
+
+## 문서 배치 기준
+
+- `product/`: 사용자가 경험해야 하는 기능, 정책, 예외 처리 요구사항입니다.
+- `reference/`: API처럼 구현자가 값을 정확히 찾아보는 계약 문서입니다.
+- `design/`: 화면 톤, UI 레이어, 컴포넌트 사용 기준입니다.
+- `architecture/`: 구조 선택 이유, 파이프라인, 확장 판단 기준입니다.
+- `operations/`: 배포, 모니터링, 장애 예방처럼 운영자가 절차대로 확인하는 문서입니다.
+- `testing/`: 부하테스트, E2E 검증, 실험 결과처럼 재현 가능한 검증 기록입니다.
+- `mobile/`: 앱스토어/플레이스토어 제출과 네이티브 앱 전용 준비 사항입니다.
 
 ## 백엔드 아키텍처 원칙
 

@@ -16,6 +16,8 @@ interface TestUser {
   nickname: string;
 }
 
+const MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024;
+
 function tokenFor(userId: string) {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -98,6 +100,24 @@ async function dismissInstallNotice(page: Page) {
   if (await close.isVisible().catch(() => false)) {
     await close.click();
   }
+}
+
+async function expectNoHorizontalOverflow(page: Page, path: string) {
+  await page.goto(path);
+  await page.waitForLoadState('domcontentloaded');
+  await dismissInstallNotice(page);
+  await page.waitForTimeout(700);
+
+  const width = await page.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    documentClientWidth: document.documentElement.clientWidth,
+    bodyScrollWidth: document.body.scrollWidth,
+  }));
+
+  expect(width.documentScrollWidth, `${path} document overflow ${JSON.stringify(width)}`)
+    .toBeLessThanOrEqual(width.documentClientWidth + 1);
+  expect(width.bodyScrollWidth, `${path} body overflow ${JSON.stringify(width)}`)
+    .toBeLessThanOrEqual(width.documentClientWidth + 1);
 }
 
 test.describe.serial('Timelink serverless flow', () => {
@@ -208,6 +228,152 @@ test.describe.serial('Timelink serverless flow', () => {
     }));
     expect(disabled.scheduleAlarm).toBe(false);
     expect(disabled.remindSameDay).toBe(false);
+
+    await api.dispose();
+  });
+
+  test('mobile PWA core pages do not create horizontal overflow after responsive assets load', async ({ page }) => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    await loginPageAs(page, user);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const path of ['/', '/calendar', '/groups', '/mypage']) {
+      await expectNoHorizontalOverflow(page, path);
+    }
+  });
+
+  test('schedule duration contract rejects invalid values and preserves calculated end time', async () => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    const api = await apiAs(user);
+
+    const start = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    start.setUTCHours(9, 0, 0, 0);
+
+    const created = await okJson<{
+      title: string;
+      startTime: string;
+      endTime: string;
+      duration: number;
+    }>(await api.post('schedules', {
+      data: {
+        title: `${RUN_ID} duration schedule`,
+        content: `${RUN_ID} duration contract`,
+        category: 'task',
+        startTime: start.toISOString(),
+        duration: 1.5,
+        hasAlarm: false,
+      },
+    }));
+
+    expect(created.duration).toBe(1.5);
+    expect(new Date(created.endTime).getTime() - new Date(created.startTime).getTime()).toBe(90 * 60 * 1000);
+
+    const invalidStep = await api.post('schedules', {
+      data: {
+        title: `${RUN_ID} invalid duration`,
+        category: 'task',
+        startTime: start.toISOString(),
+        duration: 1.25,
+      },
+    });
+    expect(invalidStep.status()).toBeGreaterThanOrEqual(400);
+
+    const lateStart = new Date(start);
+    lateStart.setUTCHours(23, 30, 0, 0);
+    const crossingDay = await api.post('schedules', {
+      data: {
+        title: `${RUN_ID} crossing duration`,
+        category: 'task',
+        startTime: lateStart.toISOString(),
+        duration: 1,
+      },
+    });
+    expect(crossingDay.status()).toBeGreaterThanOrEqual(400);
+
+    await api.dispose();
+  });
+
+  test('image presign API blocks oversized and unsupported images before S3 upload', async () => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    const api = await apiAs(user);
+
+    const oversized = await api.post('storage/images/presign', {
+      data: {
+        purpose: 'MEMBER',
+        fileName: `${RUN_ID}-avatar.png`,
+        contentType: 'image/png',
+        contentLength: MAX_IMAGE_SIZE_BYTES + 1,
+      },
+    });
+    expect(oversized.status()).toBeGreaterThanOrEqual(400);
+    expect(await oversized.text()).toContain('15MB');
+
+    const unsupportedType = await api.post('storage/images/presign', {
+      data: {
+        purpose: 'MEMBER',
+        fileName: `${RUN_ID}-avatar.gif`,
+        contentType: 'image/gif',
+        contentLength: 1024,
+      },
+    });
+    expect(unsupportedType.status()).toBeGreaterThanOrEqual(400);
+    expect(await unsupportedType.text()).toContain('jpg, png, webp');
+
+    await api.dispose();
+  });
+
+  test('notification settings keep push permission separate from schedule reminder gate', async () => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    const api = await apiAs(user);
+
+    const pushOnly = await okJson<{
+      groupAlarm: boolean;
+      pushAlarm: boolean;
+      scheduleAlarm: boolean;
+      remindSameDay: boolean;
+    }>(await api.patch('settings/notifications', {
+      data: {
+        pushAlarm: true,
+        scheduleAlarm: false,
+        remindSameDay: false,
+        remindOneDayBefore: false,
+        importantAlarm: false,
+      },
+    }));
+    expect(pushOnly.groupAlarm).toBe(true);
+    expect(pushOnly.pushAlarm).toBe(true);
+    expect(pushOnly.scheduleAlarm).toBe(false);
+    expect(pushOnly.remindSameDay).toBe(false);
+
+    const reminderBlocked = await api.patch('settings/notifications', {
+      data: {
+        scheduleAlarm: false,
+        remindSameDay: true,
+      },
+    });
+    expect(reminderBlocked.status()).toBeGreaterThanOrEqual(400);
+
+    const reminderEnabled = await okJson<{
+      pushAlarm: boolean;
+      scheduleAlarm: boolean;
+      remindSameDay: boolean;
+    }>(await api.patch('settings/notifications', {
+      data: {
+        pushAlarm: true,
+        scheduleAlarm: true,
+        remindSameDay: true,
+        remindOneDayBefore: false,
+        importantAlarm: false,
+      },
+    }));
+    expect(reminderEnabled.pushAlarm).toBe(true);
+    expect(reminderEnabled.scheduleAlarm).toBe(true);
+    expect(reminderEnabled.remindSameDay).toBe(true);
 
     await api.dispose();
   });

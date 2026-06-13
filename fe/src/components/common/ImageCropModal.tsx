@@ -27,6 +27,7 @@ interface CropMetrics {
   naturalHeight: number;
 }
 
+// 이미지 선택 후 실제 업로드 전에 자르기, 이동, 확대를 처리하는 공용 모달이다.
 const ImageCropModal: React.FC<ImageCropModalProps> = ({
   file,
   title,
@@ -46,6 +47,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
   const offsetRef = useRef(offset);
   const zoomRef = useRef(zoom);
   const metricsRef = useRef<CropMetrics | null>(metrics);
+  // 포인터 상태는 렌더링과 분리해 드래그와 핀치가 끊기지 않도록 관리한다.
   const activePointersRef = useRef<Map<number, Point>>(new Map());
   const dragRef = useRef<{ pointerId: number; x: number; y: number; offset: Point } | null>(null);
   const pinchRef = useRef<{ ids: [number, number]; distance: number; center: Point; zoom: number; offset: Point } | null>(null);
@@ -163,6 +165,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
     const pinch = pinchRef.current;
     if (pinch && activePointersRef.current.size >= 2) {
+      // 핀치 중심 이동도 offset에 반영해 손가락 아래 이미지가 자연스럽게 따라오게 한다.
       const first = activePointersRef.current.get(pinch.ids[0]);
       const second = activePointersRef.current.get(pinch.ids[1]);
       if (!first || !second) {
@@ -236,6 +239,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
       const context = canvas.getContext('2d');
       if (!context) throw new Error('이미지 편집을 시작할 수 없습니다');
 
+      // 화면에서 보이는 crop frame을 원본 이미지 좌표로 환산한 뒤 WebP 파일로 만든다.
       const crop = getCrop(currentMetrics, zoomRef.current, offsetRef.current);
       context.drawImage(
         image,
@@ -377,6 +381,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
 };
 
 function getCrop(metrics: CropMetrics, zoom: number, offset: Point) {
+  // CSS transform과 동일한 비율을 canvas 원본 좌표로 되돌린다.
   const scale = getBaseScale(metrics) * zoom;
   const cropWidth = metrics.frameWidth / scale;
   const cropHeight = metrics.frameHeight / scale;

@@ -13,7 +13,7 @@
 - 버전: 모니터링 v1
 - 기준일: 2026-06-12
 - 기준 환경: AWS account `160885253413`, region `ap-northeast-2`, 운영 도메인 `https://timelink.cloud`
-- 근거 문서: [부하테스트 결과](../infrastructure/LOAD_TEST_REPORT.md), [확장 로드맵](../infrastructure/SCALING_ROADMAP.md)
+- 근거 문서: [부하테스트 결과](../testing/LOAD_TEST_REPORT.md), [확장 로드맵](../architecture/SCALING_ROADMAP.md)
 
 ## 현재 모니터링 구조
 
