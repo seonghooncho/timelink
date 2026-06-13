@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import BrandMark from '@/components/common/BrandMark';
-import TabBar from '@/components/common/TabBar';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import Timetable from '@/components/schedule/Timetable';
 import GroupAvatar from '@/components/common/GroupAvatar';
@@ -30,6 +29,7 @@ import { trackEvent } from '@/lib/analytics';
 
 type DemoTab = 'home' | 'coordination' | 'group' | 'community' | 'calendar';
 type CoordinationDemoStage = 'mine' | 'all';
+type DemoNavKey = 'home' | 'coordinationMine' | 'coordinationAll' | 'group' | 'community' | 'calendar';
 
 interface LoginPrompt {
   title: string;
@@ -37,12 +37,13 @@ interface LoginPrompt {
   redirect: string;
 }
 
-const tabs = [
-  { key: 'home', label: '홈' },
-  { key: 'coordination', label: '시간 조율' },
-  { key: 'group', label: '모임' },
-  { key: 'community', label: '커뮤니티' },
-  { key: 'calendar', label: '캘린더' },
+const demoNavItems: { key: DemoNavKey; ariaLabel: string; labelParts: string[] }[] = [
+  { key: 'home', ariaLabel: '홈', labelParts: ['홈'] },
+  { key: 'coordinationMine', ariaLabel: '시간조율(1)', labelParts: ['시간', '조율', '(1)'] },
+  { key: 'coordinationAll', ariaLabel: '시간조율(2)', labelParts: ['시간', '조율', '(2)'] },
+  { key: 'group', ariaLabel: '모임', labelParts: ['모임'] },
+  { key: 'community', ariaLabel: '커뮤니티', labelParts: ['커뮤', '니티'] },
+  { key: 'calendar', ariaLabel: '캘린더', labelParts: ['캘린', '더'] },
 ];
 
 const demoTabOrder: DemoTab[] = ['home', 'coordination', 'group', 'community', 'calendar'];
@@ -137,6 +138,9 @@ const DemoPage: React.FC = () => {
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === 'demo-group');
   const groupedGroupSchedules = useGroupedSchedules(groupSchedules);
   const selectedSlot = coordination.slots.find((slot) => `${slot.date}-${slot.hour}` === selectedSlotKey) ?? coordination.recommended;
+  const activeNavKey: DemoNavKey = activeTab === 'coordination'
+    ? coordinationStage === 'mine' ? 'coordinationMine' : 'coordinationAll'
+    : activeTab;
 
   useEffect(() => {
     trackEvent('demo_view', { tab: activeTab });
@@ -157,11 +161,56 @@ const DemoPage: React.FC = () => {
     openLoginPrompt({ title, description, redirect });
   };
 
+  const activateTab = (tab: DemoTab, nextStage?: CoordinationDemoStage) => {
+    setActiveTab(tab);
+    if (tab === 'coordination') {
+      setCoordinationStage(nextStage ?? 'mine');
+    }
+  };
+
+  const handleNavChange = (key: DemoNavKey) => {
+    trackEvent('demo_top_nav_click', { tab: key });
+    if (key === 'coordinationMine') {
+      activateTab('coordination', 'mine');
+      return;
+    }
+    if (key === 'coordinationAll') {
+      activateTab('coordination', 'all');
+      return;
+    }
+    activateTab(key);
+  };
+
   const handleNextFeature = () => {
+    if (activeTab === 'coordination' && coordinationStage === 'mine') {
+      trackEvent('demo_next_feature_click', { from_tab: 'coordination_mine', to_tab: 'coordination_all' });
+      setCoordinationStage('all');
+      return;
+    }
+
     const currentIndex = demoTabOrder.indexOf(activeTab);
     const nextTab = demoTabOrder[(currentIndex + 1) % demoTabOrder.length];
-    trackEvent('demo_next_feature_click', { from_tab: activeTab, to_tab: nextTab });
-    setActiveTab(nextTab);
+    trackEvent('demo_next_feature_click', {
+      from_tab: activeTab === 'coordination' ? `coordination_${coordinationStage}` : activeTab,
+      to_tab: nextTab,
+    });
+    activateTab(nextTab);
+  };
+
+  const handlePrevFeature = () => {
+    if (activeTab === 'coordination' && coordinationStage === 'all') {
+      trackEvent('demo_prev_feature_click', { from_tab: 'coordination_all', to_tab: 'coordination_mine' });
+      setCoordinationStage('mine');
+      return;
+    }
+
+    const currentIndex = demoTabOrder.indexOf(activeTab);
+    const prevTab = demoTabOrder[(currentIndex - 1 + demoTabOrder.length) % demoTabOrder.length];
+    trackEvent('demo_prev_feature_click', {
+      from_tab: activeTab === 'coordination' ? `coordination_${coordinationStage}` : activeTab,
+      to_tab: prevTab,
+    });
+    activateTab(prevTab, prevTab === 'coordination' ? 'all' : undefined);
   };
 
   const handlePrevDays = () => {
@@ -209,20 +258,13 @@ const DemoPage: React.FC = () => {
             로그인
           </button>
         </div>
-        <TabBar tabs={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as DemoTab)} className="px-3 pt-0" />
+        <DemoTopNav
+          activeKey={activeNavKey}
+          onChange={handleNavChange}
+        />
       </header>
 
-      <main className="space-y-5 px-5 py-4 pb-8">
-        <section>
-          <button
-            type="button"
-            onClick={handleNextFeature}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-transform active:scale-[0.98]"
-          >
-            다음 기능 둘러보기 &gt;&gt;
-          </button>
-        </section>
-
+      <main className="space-y-5 px-5 py-4 pb-32">
         {activeTab === 'home' ? (
           <HomeDemo
             schedules={schedules}
@@ -295,9 +337,60 @@ const DemoPage: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 app-layer-critical px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]">
+        <div className="pointer-events-auto mx-auto grid w-full max-w-lg grid-cols-[0.9fr_1.4fr] gap-2 rounded-2xl border border-border/70 bg-card/95 p-2 shadow-elevated backdrop-blur">
+          <button
+            type="button"
+            onClick={handlePrevFeature}
+            className="rounded-xl bg-muted px-3 py-3 text-xs font-bold text-muted-foreground transition-transform active:scale-[0.98]"
+          >
+            이전 기능
+          </button>
+          <button
+            type="button"
+            onClick={handleNextFeature}
+            className="rounded-xl bg-primary px-3 py-3 text-xs font-bold text-primary-foreground transition-transform active:scale-[0.98]"
+          >
+            다음 기능 둘러보기 &gt;&gt;
+          </button>
+        </div>
+      </div>
     </MobileLayout>
   );
 };
+
+interface DemoTopNavProps {
+  activeKey: DemoNavKey;
+  onChange: (key: DemoNavKey) => void;
+}
+
+const DemoTopNav: React.FC<DemoTopNavProps> = ({ activeKey, onChange }) => (
+  <nav className="grid grid-cols-6 gap-1 px-2 pb-2 pt-0" aria-label="데모 기능">
+    {demoNavItems.map((item) => {
+      const active = activeKey === item.key;
+      return (
+        <button
+          key={item.key}
+          type="button"
+          aria-label={item.ariaLabel}
+          onClick={() => onChange(item.key)}
+          className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center rounded-xl px-1 py-1.5 text-[11px] font-bold leading-[1.05] transition-all ${
+            active
+              ? 'bg-foreground text-background shadow-soft'
+              : 'text-muted-foreground hover:bg-muted'
+          }`}
+        >
+          {item.labelParts.map((part) => (
+            <span key={part} className="block whitespace-nowrap">
+              {part}
+            </span>
+          ))}
+        </button>
+      );
+    })}
+  </nav>
+);
 
 interface HomeDemoProps {
   schedules: Schedule[];
@@ -672,13 +765,6 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
             ))}
           </section>
 
-          <button
-            type="button"
-            onClick={() => onStageChange('all')}
-            className="w-full rounded-2xl bg-coord-green py-3 text-sm font-bold text-primary-foreground"
-          >
-            모두 가능한 시간 보기
-          </button>
         </>
       ) : (
         <>
@@ -754,7 +840,7 @@ const CoordinationDemo: React.FC<CoordinationDemoProps> = ({
       <button
         type="button"
         onClick={() => onRequireLogin('모임 일정으로 확정하려면 로그인이 필요합니다', '확정된 일정은 모임 멤버에게 공유되고 알림센터에 남습니다.', '/schedule/new')}
-        className="w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
+        className="w-full rounded-2xl bg-category-group py-3.5 text-sm font-bold text-primary-foreground shadow-soft"
       >
         추천 시간으로 모임 일정 만들기
       </button>

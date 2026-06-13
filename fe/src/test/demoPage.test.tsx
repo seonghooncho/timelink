@@ -14,7 +14,24 @@ describe('DemoPage', () => {
 
     expect(screen.getByText('Timelink 데모')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다음 기능 둘러보기 >>' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이전 기능' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '시간조율(1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '시간조율(2)' })).toBeInTheDocument();
     expect(screen.getAllByText('기획안 마감').length).toBeGreaterThan(0);
+  });
+
+  it('opens each split coordination top nav item directly', () => {
+    render(
+      <MemoryRouter initialEntries={['/demo']}>
+        <DemoPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '시간조율(1)' }));
+    expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '시간조율(2)' }));
+    expect(screen.getByText('겹치는 시간이 진하게 표시됩니다')).toBeInTheDocument();
   });
 
   it('nudges guests through home, coordination, group, community, and calendar demos', () => {
@@ -28,8 +45,9 @@ describe('DemoPage', () => {
     fireEvent.click(nextButton);
     expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
     expect(screen.getByText('내 일정을 보면서 빈 시간을 고릅니다')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '모두 가능한 시간 보기' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '모두 가능한 시간' }));
+    fireEvent.click(nextButton);
     expect(screen.getByText('겹치는 시간이 진하게 표시됩니다')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '추천 시간으로 모임 일정 만들기' })).toBeInTheDocument();
 
@@ -44,6 +62,27 @@ describe('DemoPage', () => {
     fireEvent.click(nextButton);
     expect(screen.getByText('월간 흐름에서 일정을 확인합니다')).toBeInTheDocument();
     expect(screen.getByText(/월 .*일 일정/)).toBeInTheDocument();
+  });
+
+  it('moves backward through the coordination depth before returning to home', () => {
+    render(
+      <MemoryRouter initialEntries={['/demo']}>
+        <DemoPage />
+      </MemoryRouter>,
+    );
+
+    const nextButton = screen.getByRole('button', { name: '다음 기능 둘러보기 >>' });
+    const prevButton = screen.getByRole('button', { name: '이전 기능' });
+
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
+    expect(screen.getByText('겹치는 시간이 진하게 표시됩니다')).toBeInTheDocument();
+
+    fireEvent.click(prevButton);
+    expect(screen.getByText('내 가능 시간 투표')).toBeInTheDocument();
+
+    fireEvent.click(prevButton);
+    expect(screen.getByText('홈 일정 카드')).toBeInTheDocument();
   });
 
   it('focuses the matching schedule card when a timetable block is selected', () => {
