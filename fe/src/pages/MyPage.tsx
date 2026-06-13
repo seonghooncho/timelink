@@ -25,7 +25,7 @@ const PROFILE_TIPS = [
   '그룹 초대 링크를 공유하면 친구가 링크만 열어도 바로 참여 흐름으로 이동합니다.',
   '프로필 사진과 닉네임을 바꾸면 그룹 멤버 목록에도 최신 정보가 표시돼요.',
   '캘린더에서 날짜를 누르면 그날 일정만 따로 모아 확인할 수 있어요.',
-  '포스터나 안내문 사진으로 일정을 등록하면 AI가 제목과 시간을 먼저 채워줄 수 있어요.',
+  '포스터나 안내문 사진으로 일정을 생성하면 AI가 제목과 시간을 먼저 채워줄 수 있어요.',
   '시간 조율 날짜가 많을 때는 5일 단위로 넘겨 보며 가능한 시간을 비교할 수 있어요.',
   '푸시 권한을 나중에 켜도 그룹 활동은 알림센터에서 먼저 확인할 수 있어요.',
 ];
@@ -64,7 +64,7 @@ const MyPage: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setNickname(profile.nickname || '사용자');
-      setProfileImage(profile.avatarUrl);
+      setProfileImage(profile.thumbnailUrl || profile.avatarUrl);
       setProfileImageStatus(profile.imageStatus);
     }
   }, [profile]);
@@ -224,7 +224,7 @@ const MyPage: React.FC = () => {
       const processed = await waitForImageProcessing(uploadResult.imageId);
       if (processed.status === 'COMPLETED' && processed.url) {
         await updateProfileMutation.mutateAsync({ imageId: uploadResult.imageId });
-        setProfileImage(processed.url);
+        setProfileImage(processed.thumbnailUrl || processed.url);
         setProfileImageStatus('COMPLETED');
         appToast.success('프로필 이미지가 변경되었습니다');
       } else if (processed.status === 'FAILED') {

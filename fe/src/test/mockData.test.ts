@@ -78,7 +78,7 @@ describe('getScheduleColorStyle', () => {
 
 describe('getCategoryLabel', () => {
   it('returns correct Korean labels', () => {
-    expect(getCategoryLabel('task')).toBe('과제');
+    expect(getCategoryLabel('task')).toBe('할일');
     expect(getCategoryLabel('appointment')).toBe('약속');
     expect(getCategoryLabel('group')).toBe('모임');
     expect(getCategoryLabel('important')).toBe('중요');

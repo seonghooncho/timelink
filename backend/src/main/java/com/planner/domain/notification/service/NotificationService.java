@@ -135,7 +135,7 @@ public class NotificationService {
     public void createGroupScheduleNotification(String userId, Schedule schedule) {
         createGroupNotification(
                 userId,
-                "그룹 일정이 추가되었습니다",
+                "모임 일정이 추가되었습니다",
                 "%s 일정이 추가되었습니다.".formatted(schedule.getTitle()),
                 Boolean.TRUE.equals(schedule.getIsImportant())
         );
@@ -144,7 +144,7 @@ public class NotificationService {
     public void createGroupScheduleUpdatedNotification(String userId, Schedule schedule) {
         createGroupNotification(
                 userId,
-                "그룹 일정이 변경되었습니다",
+                "모임 일정이 변경되었습니다",
                 "%s 일정이 변경되었습니다.".formatted(schedule.getTitle()),
                 Boolean.TRUE.equals(schedule.getIsImportant())
         );
@@ -153,7 +153,7 @@ public class NotificationService {
     public void createGroupScheduleDeletedNotification(String userId, Schedule schedule) {
         createGroupNotification(
                 userId,
-                "그룹 일정이 삭제되었습니다",
+                "모임 일정이 삭제되었습니다",
                 "%s 일정이 삭제되었습니다.".formatted(schedule.getTitle()),
                 Boolean.TRUE.equals(schedule.getIsImportant())
         );

@@ -24,6 +24,7 @@ public class CommunityPost {
     private String content;
     private String groupId;
     private Boolean memberOnly;
+    private Boolean anonymous;
     private String imageUrl;
     private String imageId;
     private String imageStatus;

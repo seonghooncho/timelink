@@ -221,6 +221,7 @@ export interface ProfileResponse {
   id: string;
   nickname: string;
   avatarUrl: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   termsVersion?: string;
@@ -246,6 +247,7 @@ export interface GroupListResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   inviteCode?: string;
@@ -283,7 +285,22 @@ export interface GroupMemberResponse {
   role: string;
   nickname: string;
   avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   joinedAt: string;
+}
+
+export interface GroupMemberActivityResponse {
+  id: string;
+  type: 'POST' | string;
+  title?: string;
+  createdAt: string;
+}
+
+export interface GroupMemberProfileResponse extends GroupMemberResponse {
+  mine?: boolean;
+  recentActivities: GroupMemberActivityResponse[];
 }
 
 export interface GroupDetailResponse {
@@ -291,6 +308,7 @@ export interface GroupDetailResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   inviteCode: string;
@@ -365,6 +383,7 @@ export interface GroupIntroResponse {
   name: string;
   description?: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   visibility?: 'PRIVATE' | 'PUBLIC';
@@ -375,6 +394,7 @@ export interface GroupIntroResponse {
   images: GroupIntroImageResponse[];
   notices: GroupIntroNoticeResponse[];
   postPreviews: GroupIntroPostPreviewResponse[];
+  memberPreviews?: GroupMemberResponse[];
   member: boolean;
   canEditIntro: boolean;
   canWriteNotice: boolean;
@@ -411,6 +431,10 @@ export const groupApi = {
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
+  getMemberProfile: (groupId: string, memberUserId: string) =>
+    request<GroupMemberProfileResponse>('GET', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}/profile`),
+  updateMyMemberProfile: (groupId: string, data: { nickname?: string; avatarUrl?: string; imageId?: string }) =>
+    request<GroupMemberProfileResponse>('PATCH', `/groups/${groupId}/members/me/profile`, data),
   requestToJoin: (groupId: string, message?: string) =>
     request<GroupJoinRequestResponse>('POST', `/groups/${groupId}/join-requests`, { message }),
   getJoinRequests: (groupId: string) =>
@@ -431,10 +455,11 @@ export interface CommunityPostResponse {
   groupId?: string;
   memberOnly?: boolean;
   locked?: boolean;
+  anonymous?: boolean;
   imageUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
-  authorUserId: string;
+  authorUserId?: string;
   authorNickname: string;
   authorAvatarUrl?: string;
   likeCount: number;
@@ -443,6 +468,34 @@ export interface CommunityPostResponse {
   mine: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommunityActivityResponse {
+  id: string;
+  type: 'POST' | string;
+  title?: string;
+  createdAt: string;
+}
+
+export interface CommunityPublicGroupResponse {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  imageStatus?: ImageStatus;
+  memberCount: number;
+  myRole?: string | null;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+}
+
+export interface CommunityPublicProfileResponse {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
+  publicGroups: CommunityPublicGroupResponse[];
+  recentActivities: CommunityActivityResponse[];
 }
 
 export interface CommunityCommentResponse {
@@ -459,7 +512,7 @@ export interface CommunityCommentResponse {
 
 export const communityApi = {
   getPosts: (params?: PaginationParams) => requestPage<CommunityPostResponse>('/community/posts', params),
-  createPost: (data: { title: string; content: string }) =>
+  createPost: (data: { title: string; content: string; anonymous?: boolean }) =>
     request<CommunityPostResponse>('POST', '/community/posts', data),
   getPost: (postId: string) => request<CommunityPostResponse>('GET', `/community/posts/${postId}`),
   updatePost: (postId: string, data: { title?: string; content?: string; imageId?: string }) =>
@@ -475,6 +528,8 @@ export const communityApi = {
     request<CommunityCommentResponse>('PATCH', `/community/posts/${postId}/comments/${commentId}`, { content }),
   deleteComment: (postId: string, commentId: string) =>
     request<void>('DELETE', `/community/posts/${postId}/comments/${commentId}`),
+  getPublicProfile: (userId: string) =>
+    request<CommunityPublicProfileResponse>('GET', `/community/profiles/${encodeURIComponent(userId)}`),
 };
 
 export const groupPostApi = {
@@ -642,7 +697,7 @@ export const pushApi = {
 
 // ── Storage ──
 
-export type ImagePurpose = 'MEMBER' | 'GROUP' | 'SCHEDULE' | 'GROUP_INTRO' | 'GROUP_POST';
+export type ImagePurpose = 'MEMBER' | 'GROUP' | 'SCHEDULE' | 'GROUP_INTRO' | 'GROUP_POST' | 'COMMUNITY_POST';
 export type ImageStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface ImageUploadResponse {
@@ -650,6 +705,8 @@ export interface ImageUploadResponse {
   objectKey?: string;
   uploadKey?: string;
   publicKey?: string;
+  thumbnailKey?: string;
+  thumbnailUrl?: string;
   url?: string;
   status?: ImageStatus;
   failureReason?: string;

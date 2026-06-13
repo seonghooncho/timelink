@@ -9,6 +9,7 @@ public class ProfileResDTO {
     private String id;
     private String nickname;
     private String avatarUrl;
+    private String thumbnailUrl;
     private String imageId;
     private String imageStatus;
     private String termsVersion;

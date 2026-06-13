@@ -6,10 +6,11 @@ interface FABProps {
   to?: string;
   onClick?: () => void;
   icon?: React.ReactNode;
-  variant?: 'default' | 'group';
+  variant?: 'default' | 'group' | 'community';
+  ariaLabel?: string;
 }
 
-const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default' }) => {
+const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default', ariaLabel }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -17,10 +18,17 @@ const FAB: React.FC<FABProps> = ({ to, onClick, icon, variant = 'default' }) => 
     else if (to) navigate(to);
   };
 
+  const colorClassName = {
+    default: 'bg-primary text-primary-foreground',
+    group: 'bg-category-group text-primary-foreground',
+    community: 'bg-coord-green text-primary-foreground',
+  }[variant];
+
   return (
     <button
       onClick={handleClick}
-      className="fixed app-floating-action right-5 app-layer-floating w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable bg-primary text-primary-foreground"
+      aria-label={ariaLabel}
+      className={`fixed app-floating-action right-5 app-layer-floating w-14 h-14 rounded-2xl shadow-fab flex items-center justify-center pressable ${colorClassName}`}
     >
       {icon || <Plus className="w-6 h-6" strokeWidth={2.2} />}
     </button>

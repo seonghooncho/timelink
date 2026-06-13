@@ -12,6 +12,7 @@ public class GroupIntroResDTO {
     private String name;
     private String description;
     private String imageUrl;
+    private String thumbnailUrl;
     private String imageId;
     private String imageStatus;
     private String visibility;
@@ -22,6 +23,7 @@ public class GroupIntroResDTO {
     private List<GroupIntroImageDTO> images;
     private List<GroupIntroNoticeDTO> notices;
     private List<GroupIntroPostPreviewDTO> postPreviews;
+    private List<GroupMemberResDTO> memberPreviews;
     private boolean member;
     private boolean canEditIntro;
     private boolean canWriteNotice;

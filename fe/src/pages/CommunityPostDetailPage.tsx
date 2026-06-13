@@ -6,6 +6,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import CommunityProfileSheet from '@/components/community/CommunityProfileSheet';
 import {
   useCommunityComments,
   useCommunityPost,
@@ -16,9 +17,11 @@ import {
   useUpdateCommunityComment,
   useUpdateCommunityPost,
 } from '@/hooks/useCommunity';
-import { CommunityCommentResponse } from '@/services/api';
+import { communityApi, CommunityCommentResponse, CommunityPublicProfileResponse } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import { COMMUNITY_POST_TITLE_MAX_LENGTH } from '@/lib/textLimits';
+import { getProcessingImageLabel } from '@/lib/images';
 
 const CommunityPostDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
@@ -46,6 +49,9 @@ const CommunityPostDetailPage: React.FC = () => {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
   const [deleteCommentTarget, setDeleteCommentTarget] = useState<CommunityCommentResponse | null>(null);
+  const [profileTarget, setProfileTarget] = useState<CommunityPublicProfileResponse | null>(null);
+  const [showProfileSheet, setShowProfileSheet] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
   useEffect(() => {
     if (!post) return;
@@ -139,6 +145,21 @@ const CommunityPostDetailPage: React.FC = () => {
     }
   };
 
+  const openProfile = async (userId?: string) => {
+    if (!userId) return;
+    setProfileTarget(null);
+    setShowProfileSheet(true);
+    setIsProfileLoading(true);
+    try {
+      setProfileTarget(await communityApi.getPublicProfile(userId));
+    } catch (error) {
+      appToast.error('프로필을 불러오지 못했습니다', error);
+      setShowProfileSheet(false);
+    } finally {
+      setIsProfileLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <MobileLayout>
@@ -209,7 +230,7 @@ const CommunityPostDetailPage: React.FC = () => {
               <input
                 value={editTitle}
                 onChange={(event) => setEditTitle(event.target.value)}
-                maxLength={80}
+                maxLength={COMMUNITY_POST_TITLE_MAX_LENGTH}
                 className="w-full rounded-xl border border-border bg-muted px-3 py-3 text-base font-bold outline-none focus:ring-2 focus:ring-primary/30"
               />
               <Textarea
@@ -239,7 +260,14 @@ const CommunityPostDetailPage: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!post.anonymous) openProfile(post.authorUserId);
+                }}
+                disabled={post.anonymous || !post.authorUserId}
+                className="flex max-w-full items-center gap-3 text-left disabled:cursor-default"
+              >
                 <Avatar className="h-10 w-10 border border-border/70">
                   <AvatarImage src={post.authorAvatarUrl} alt={post.authorNickname} />
                   <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
@@ -250,10 +278,17 @@ const CommunityPostDetailPage: React.FC = () => {
                   <p className="truncate text-sm font-bold text-foreground">{post.authorNickname}</p>
                   <p className="text-[11px] text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
                 </div>
-              </div>
+              </button>
 
               <h1 className="mt-4 text-lg font-bold leading-7 text-foreground">{post.title}</h1>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{post.content}</p>
+              {post.imageUrl ? (
+                <img src={post.imageUrl} alt="" className="mt-4 aspect-square w-full rounded-xl object-cover" />
+              ) : getProcessingImageLabel(post.imageStatus) ? (
+                <p className="mt-4 rounded-xl bg-muted px-3 py-3 text-xs font-semibold text-muted-foreground">
+                  {getProcessingImageLabel(post.imageStatus)}
+                </p>
+              ) : null}
 
               <div className="mt-5 flex items-center gap-2">
                 <button
@@ -327,6 +362,7 @@ const CommunityPostDetailPage: React.FC = () => {
                   }}
                   onSaveEdit={handleUpdateComment}
                   onDelete={() => setDeleteCommentTarget(comment)}
+                  onAuthorClick={() => openProfile(comment.authorUserId)}
                   isSaving={updateComment.isPending}
                 />
               ))
@@ -362,6 +398,20 @@ const CommunityPostDetailPage: React.FC = () => {
         description="삭제한 댓글은 다시 복구할 수 없습니다."
         variant="destructive"
       />
+      <CommunityProfileSheet
+        open={showProfileSheet}
+        profile={profileTarget}
+        isLoading={isProfileLoading}
+        onClose={() => setShowProfileSheet(false)}
+        onGroupClick={(groupId) => {
+          setShowProfileSheet(false);
+          navigate(`/groups/${groupId}/intro`);
+        }}
+        onActivityClick={(activityPostId) => {
+          setShowProfileSheet(false);
+          navigate(`/community/posts/${activityPostId}`);
+        }}
+      />
     </MobileLayout>
   );
 };
@@ -376,6 +426,7 @@ interface CommentItemProps {
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onDelete: () => void;
+  onAuthorClick: () => void;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
@@ -388,19 +439,24 @@ const CommentItem: React.FC<CommentItemProps> = ({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  onAuthorClick,
 }) => (
   <div className="border-b border-border/60 py-3 last:border-b-0">
     <div className="flex items-start gap-3">
-      <Avatar className="h-8 w-8 border border-border/70">
-        <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
-        <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-          {comment.authorNickname.slice(0, 1)}
-        </AvatarFallback>
-      </Avatar>
+      <button type="button" onClick={onAuthorClick} aria-label={`${comment.authorNickname} 프로필 보기`}>
+        <Avatar className="h-8 w-8 border border-border/70">
+          <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
+          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+            {comment.authorNickname.slice(0, 1)}
+          </AvatarFallback>
+        </Avatar>
+      </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-foreground">{comment.authorNickname}</p>
+            <button type="button" onClick={onAuthorClick} className="block max-w-full truncate text-left text-xs font-bold text-foreground">
+              {comment.authorNickname}
+            </button>
             <p className="text-[10px] text-muted-foreground">{formatRelativeTime(comment.createdAt)}</p>
           </div>
           {comment.mine && !isEditing ? (

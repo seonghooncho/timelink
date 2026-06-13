@@ -23,6 +23,8 @@ public class Group {
     private String imageStatus;
     private String imageUploadKey;
     private String imageObjectKey;
+    private String thumbnailUrl;
+    private String thumbnailObjectKey;
     private String createdBy;
     private String visibility;
     private String inviteCode;

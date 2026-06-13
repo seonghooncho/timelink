@@ -100,9 +100,16 @@ class CoordinationServiceTest {
             assertThat(result.getDescription()).isEqualTo("가능한 시간을 남겨주세요");
             assertThat(result.getStatus()).isEqualTo("active");
             then(notificationService).should()
-                    .createGroupNotification(eq("user-2"), eq("새 시간 조율이 시작되었습니다"), contains("조율에 참여해 주세요"));
+                    .createGroupNotification(
+                            eq("user-2"),
+                            eq("새 시간 조율이 시작되었습니다"),
+                            contains("조율에 참여해 주세요"),
+                            eq("COORDINATION"),
+                            anyString(),
+                            contains("/groups/group-1/coordination/")
+                    );
             then(notificationService).should(never())
-                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString(), anyString(), anyString(), anyString());
         }
 
         @Test
@@ -232,9 +239,16 @@ class CoordinationServiceTest {
 
             assertThat(result.getStatus()).isEqualTo("closed");
             then(notificationService).should()
-                    .createGroupNotification(eq("user-2"), eq("시간 조율이 마감되었습니다"), contains("조율이 마감되었습니다"));
+                    .createGroupNotification(
+                            eq("user-2"),
+                            eq("시간 조율이 마감되었습니다"),
+                            contains("조율이 마감되었습니다"),
+                            eq("COORDINATION"),
+                            eq(COORD_ID),
+                            eq("/groups/group-1/coordination/coord-1/timetable")
+                    );
             then(notificationService).should(never())
-                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString(), anyString(), anyString(), anyString());
         }
 
         @Test
@@ -291,8 +305,10 @@ class CoordinationServiceTest {
             then(repository).should().deleteResponse(eq(COORD_ID), anyString());
             then(repository).should(times(2)).saveResponse(any());
             then(repository).should().updateResponseCount(GROUP_ID, COORD_ID, 1);
-            then(notificationService).should()
-                    .createGroupNotification(eq("creator"), eq("조율 응답이 등록되었습니다"), contains("새 응답이 등록되었습니다"));
+            then(notificationService).should(never())
+                    .createGroupNotification(anyString(), anyString(), anyString());
+            then(notificationService).should(never())
+                    .createGroupNotification(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         }
 
         @Test
@@ -367,9 +383,16 @@ class CoordinationServiceTest {
 
             then(repository).should().deleteCoordination(GROUP_ID, COORD_ID);
             then(notificationService).should()
-                    .createGroupNotification(eq("user-2"), eq("시간 조율이 삭제되었습니다"), contains("조율이 삭제되었습니다"));
+                    .createGroupNotification(
+                            eq("user-2"),
+                            eq("시간 조율이 삭제되었습니다"),
+                            contains("조율이 삭제되었습니다"),
+                            eq("COORDINATION"),
+                            eq(COORD_ID),
+                            eq("/groups/group-1")
+                    );
             then(notificationService).should(never())
-                    .createGroupNotification(eq(USER_ID), anyString(), anyString());
+                    .createGroupNotification(eq(USER_ID), anyString(), anyString(), anyString(), anyString(), anyString());
         }
 
         @Test

@@ -12,6 +12,7 @@ public class GroupDetailResDTO {
     private String name;
     private String description;
     private String imageUrl;
+    private String thumbnailUrl;
     private String imageId;
     private String imageStatus;
     private String inviteCode;

@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class CommunityPostCreateReqDTO {
     @NotBlank
-    @Size(max = 80)
+    @Size(max = 40)
     private String title;
 
     @NotBlank
@@ -15,4 +15,5 @@ public class CommunityPostCreateReqDTO {
     private String content;
 
     private Boolean memberOnly = false;
+    private Boolean anonymous = false;
 }

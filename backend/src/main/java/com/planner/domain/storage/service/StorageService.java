@@ -209,7 +209,7 @@ public class StorageService {
 
     private String resolveInitialTargetId(String userId, ImagePurpose purpose, String requestedTargetId) {
         if (purpose == ImagePurpose.MEMBER) {
-            return userId;
+            return StringUtils.hasText(requestedTargetId) ? requestedTargetId.trim() : userId;
         }
         return StringUtils.hasText(requestedTargetId) ? requestedTargetId.trim() : null;
     }
@@ -286,6 +286,8 @@ public class StorageService {
                 .objectKey(upload.getPublicKey())
                 .uploadKey(upload.getUploadKey())
                 .publicKey(upload.getPublicKey())
+                .thumbnailKey(upload.getThumbnailKey())
+                .thumbnailUrl(upload.getThumbnailUrl())
                 .url(upload.getPublicUrl())
                 .status(upload.getStatus())
                 .failureReason(upload.getFailureReason())

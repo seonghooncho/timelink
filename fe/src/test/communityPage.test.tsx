@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,6 +71,30 @@ describe('CommunityPage', () => {
     expect(screen.getByText('게시물 작성')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('제목을 입력해주세요')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('나누고 싶은 이야기를 적어주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /익명으로 작성하기/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이미지 추가/ })).toBeInTheDocument();
+  });
+
+  it('creates an anonymous community post', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: 'post-new' });
+    mocks.useCreateCommunityPost.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    });
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /글쓰기/ }));
+    fireEvent.change(screen.getByPlaceholderText('제목을 입력해주세요'), { target: { value: '익명 질문' } });
+    fireEvent.change(screen.getByPlaceholderText('나누고 싶은 이야기를 적어주세요.'), { target: { value: '친구 초대는 어떻게 하나요?' } });
+    fireEvent.click(screen.getByRole('button', { name: /익명으로 작성하기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '등록하기' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({
+      title: '익명 질문',
+      content: '친구 초대는 어떻게 하나요?',
+      anonymous: true,
+    }));
   });
 
   it('renders post list item counts', () => {

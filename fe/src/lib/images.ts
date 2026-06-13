@@ -10,6 +10,7 @@ export interface ProcessedImageUploadResult {
   imageId: string;
   status: ImageStatus;
   url?: string;
+  thumbnailUrl?: string;
   uploadKey?: string;
 }
 

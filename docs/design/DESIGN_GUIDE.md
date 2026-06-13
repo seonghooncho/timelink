@@ -34,13 +34,15 @@
 
 ### 1.3 카테고리 컬러
 
+일정 카드와 타임블럭은 카테고리별 색 계열을 유지하되, 같은 카테고리 안에서 5개 톤을 일정 ID 기준으로 순환해 서로 다른 일정임을 구분한다.
+
 | 카테고리 | Base | Light | Strong |
 |---------|------|-------|--------|
-| `task` (과제) | 파랑 220° | 밝은 파랑 | 진한 파랑 |
-| `appointment` (약속) | 초록 160° | 밝은 초록 | 진한 초록 |
+| `task` (할일) | 파랑 계열 | 선명한 밝은 파랑 | 진한 파랑 |
+| `appointment` (약속) | 초록/청록 계열 | 선명한 밝은 초록 | 진한 초록 |
 | `important` (중요) | 빨강 0° | 밝은 빨강 | 진한 빨강 |
-| `group` (모임 일정) | 보라 260° | 밝은 보라 | 진한 보라 |
-| `repeat` (반복) | 주황 30° | 밝은 주황 | 진한 주황 |
+| `group` (모임 일정) | 보라 계열 | 밝은 보라 | 진한 보라 |
+| `repeat` (반복) | 주황/노랑 계열 | 선명한 밝은 주황 | 진한 주황 |
 
 ### 1.4 간격 & 라운딩
 - `--radius`: `1rem` (16px)
@@ -202,12 +204,12 @@
 ### `CoordinationOneTime`
 > 일회성 시간 조율 폼 (캘린더 날짜 선택)
 - 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
-- 제목은 80자, 설명은 300자로 제한한다.
+- 제목은 40자, 설명은 300자로 제한한다.
 
 ### `CoordinationRepeat`
 > 반복 시간 조율 폼 (요일 선택)
 - 대상은 모임 전체 멤버로 고정 표시하며 생성자를 자동 포함한다.
-- 제목은 80자, 설명은 300자로 제한한다.
+- 제목은 40자, 설명은 300자로 제한한다.
 
 ### `CoordinationStrip`
 > 조율 중인 일정용 수평 스크롤 카드 목록
@@ -255,7 +257,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | 함수 | 파일 | 설명 |
 |------|------|------|
 | `getCategoryColor(category, variant)` | `category.ts` | 카테고리별 Tailwind 클래스 반환 |
-| `getCategoryLabel(category)` | `category.ts` | 카테고리 한글 라벨 (과제/약속/모임/중요/반복) |
+| `getCategoryLabel(category)` | `category.ts` | 카테고리 한글 라벨 (할일/약속/모임/중요/반복) |
 | `formatTime(iso)` | `category.ts` | `HH:MM` 형태 시간 포맷 |
 | `formatDate(iso)` | `category.ts` | `M/D` 형태 날짜 포맷 |
 | `getDayLabel(iso)` | `category.ts` | 요일 라벨 (일/월/화/수/목/금/토) |

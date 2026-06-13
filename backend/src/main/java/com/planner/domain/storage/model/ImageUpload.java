@@ -25,6 +25,8 @@ public class ImageUpload {
     private String uploadKey;
     private String publicKey;
     private String publicUrl;
+    private String thumbnailKey;
+    private String thumbnailUrl;
     private String contentType;
     private Long contentLength;
     private String originalFilename;

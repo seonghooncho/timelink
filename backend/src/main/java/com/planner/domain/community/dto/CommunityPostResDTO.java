@@ -12,6 +12,7 @@ public class CommunityPostResDTO {
     private String groupId;
     private Boolean memberOnly;
     private Boolean locked;
+    private Boolean anonymous;
     private String imageUrl;
     private String imageId;
     private String imageStatus;

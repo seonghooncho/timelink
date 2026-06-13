@@ -26,6 +26,7 @@ export interface Group {
   name: string;
   description: string;
   image?: string;
+  thumbnailImage?: string;
   imageId?: string;
   imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
   inviteCode?: string;

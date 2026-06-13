@@ -21,6 +21,12 @@ public class GroupMember {
     private String role;
     private String nickname;
     private String avatarUrl;
+    private String imageId;
+    private String imageStatus;
+    private String imageUploadKey;
+    private String imageObjectKey;
+    private String thumbnailUrl;
+    private String thumbnailObjectKey;
     private String joinedAt;
 
     private String gsi2pk;

@@ -181,7 +181,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |------|------|------|
 | `id` | `uuid` PK | 자동 생성 |
 | `user_id` | `string` | 백엔드 JWT subject (`userId`) |
-| `title` | `text` NOT NULL | 일정 제목. 최대 80자 |
+| `title` | `text` NOT NULL | 일정 제목. 최대 40자 |
 | `content` | `text` | 일정 내용/메모. 최대 1000자 |
 | `category` | `schedule_category` | enum: task, appointment, group, important, repeat |
 | `is_important` | `boolean` | 중요 여부 (기본: false) |
@@ -547,7 +547,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `introText` | string | 선택 | 최대 1000자 |
+| `introText` | string | 선택 | 최대 1000자. 프론트 정보수정 UI는 모임 설명과 맞춰 200자까지 입력 |
 | `imageIds` | string[] | 선택 | 최대 10개. `GROUP_INTRO` 목적 이미지 ID |
 
 **Response** `200 OK` — GroupIntroResDTO 반환
@@ -643,7 +643,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `PATCH` /api/planner/v1/groups/:id
 
-모임 정보 수정. **모임 멤버라면** 수행 가능.
+모임 정보 수정. **manager만** 수행 가능.
 
 **Request Body** (변경할 필드만)
 ```json
@@ -658,6 +658,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Response** `200 OK` — GroupDetailResDTO 반환
 
 **Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
+**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
 
 ---
 
@@ -877,7 +878,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "authorUserId": "user-uuid",
       "authorNickname": "민지",
       "authorAvatarUrl": "https://...",
+      "anonymous": false,
       "groupId": null,
+      "imageUrl": "https://...",
+      "imageId": "image-uuid",
+      "imageStatus": "COMPLETED",
       "likeCount": 3,
       "commentCount": 2,
       "likedByMe": true,
@@ -894,20 +899,22 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/community/posts
 
-커뮤니티 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다.
+커뮤니티 게시물 작성. 작성자의 닉네임과 프로필 사진은 작성 시점 스냅샷으로 저장합니다. 익명 글은 권한 확인용 작성자 ID는 저장하되 응답에서는 `authorUserId`, 닉네임, 프로필 사진을 숨깁니다. 이미지는 게시물 생성 후 `COMMUNITY_POST` presigned 업로드와 `PATCH imageId`로 연결합니다.
 
 **Request Body**
 ```json
 {
   "title": "약속 잡는 팁",
-  "content": "가능한 시간 후보를 너무 많이 열지 않는 것이 좋아요."
+  "content": "가능한 시간 후보를 너무 많이 열지 않는 것이 좋아요.",
+  "anonymous": false
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `title` | string | 필수 | 제목. 최대 80자 |
+| `title` | string | 필수 | 제목. 최대 40자 |
 | `content` | string | 필수 | 본문. 최대 2000자 |
+| `anonymous` | boolean | 선택 | true면 화면에는 익명 작성자로 표시 |
 
 **Response** `201 Created` — CommunityPostResDTO 반환
 
@@ -920,6 +927,41 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Response** `200 OK` — CommunityPostResDTO 반환
 
 **Error** `404 POST_NOT_FOUND` — 게시물이 없는 경우
+
+---
+
+#### `GET` /api/planner/v1/community/profiles/:userId
+
+커뮤니티 작성자 공개 프로필 조회. 익명 글에서는 이 endpoint로 연결하지 않습니다. 공개 프로필에는 이름, 사진, 가입 중인 공개 모임 일부, 익명이 아닌 최근 커뮤니티 활동만 포함됩니다.
+
+**Response** `200 OK`
+```json
+{
+  "data": {
+    "userId": "user-uuid",
+    "nickname": "민지",
+    "avatarUrl": "https://...",
+    "publicGroups": [
+      {
+        "id": "group-uuid",
+        "name": "주말 러닝",
+        "imageUrl": "https://...",
+        "memberCount": 12,
+        "myRole": null,
+        "joinRequestStatus": null
+      }
+    ],
+    "recentActivities": [
+      {
+        "id": "post-uuid",
+        "type": "POST",
+        "title": "약속 잡는 팁",
+        "createdAt": "2026-03-01T00:00:00Z"
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -1162,7 +1204,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `id` | `uuid` PK | 자동 생성 |
 | `group_id` | `uuid` FK | `groups.id` (CASCADE) |
 | `created_by` | `uuid` FK | 생성자 |
-| `title` | `text` NOT NULL | 조율 제목. 최대 80자 |
+| `title` | `text` NOT NULL | 조율 제목. 최대 40자 |
 | `description` | `text` nullable | 조율 설명. 최대 300자 |
 | `mode` | `coordination_mode` | enum: once, repeat |
 | `dates` | `text[]` | 후보 날짜 배열 |
@@ -1381,9 +1423,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `title` | `text` NOT NULL | 알림 제목 |
 | `content` | `text` | 알림 내용 |
 | `category` | `schedule_category` nullable | 일정 카테고리 |
-| `target_type` | `text` nullable | 클릭 이동 대상 타입. 예: `GROUP_JOIN_REQUEST`, `GROUP` |
+| `target_type` | `text` nullable | 클릭 이동 대상 타입. 예: `GROUP_JOIN_REQUEST`, `GROUP`, `COORDINATION` |
 | `target_id` | `text` nullable | 클릭 이동 대상 ID |
-| `target_url` | `text` nullable | 프론트 이동 경로. 예: `/groups/{id}?panel=joinRequests` |
+| `target_url` | `text` nullable | 프론트 이동 경로. 예: `/groups/{id}?panel=joinRequests`, `/groups/{id}/coordination/{coordId}/timetable` |
 | `is_important` | `boolean` | 중요 여부 (기본: false) |
 | `is_read` | `boolean` | 읽음 여부 (기본: false) |
 | `created_at` | `timestamptz` | 생성일 |
@@ -1523,7 +1565,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 12. 푸시 알림 (Push Notifications)
 
-그룹 활동 알림은 알림센터 저장을 기본으로 한다. 일정 알림은 사용자가 `schedule_alarm`을 켠 경우에만 예약 알림을 생성한다. Web Push는 `push_alarm`과 브라우저 Push Subscription이 준비된 사용자에게만 함께 전송한다.
+모임 활동 알림은 알림센터 저장을 기본으로 한다. 모임 일정 생성·변경·삭제, 시간 조율 생성·마감·재개·삭제, 가입요청, 공지처럼 흐름상 놓치면 안 되는 이벤트만 저장한다. 이미 지난 모임 일정의 생성·수정·삭제는 알림을 만들지 않으며, 수정 후 미래 일정이 된 경우에는 변경 알림을 생성한다. 일정 알림은 사용자가 `schedule_alarm`을 켠 경우에만 예약 알림을 생성한다. Web Push는 `push_alarm`과 브라우저 Push Subscription이 준비된 사용자에게만 함께 전송한다.
 
 일정 알림은 운영 초기 기준으로 알림 job마다 EventBridge Scheduler one-time schedule을 생성한다. Scheduler는 notification worker Lambda를 호출하고, Lambda는 DynamoDB 알림 저장과 Web Push 전송을 수행한다.
 
@@ -1605,6 +1647,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 - 일정 결과: `public/schedule/`
 - 모임 소개 결과: `public/group-intro/`
 - 모임 글 결과: `public/group-post/`
+- 커뮤니티 글 결과: `public/community-post/`
 - 허용 타입: `jpg`, `jpeg`, `png`, `webp`
 - 최대 크기: 15MB
 - 처리 상태: `PROCESSING`, `COMPLETED`, `FAILED`
@@ -1630,7 +1673,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `purpose` | enum | 필수 | `MEMBER`, `GROUP`, `SCHEDULE`, `GROUP_INTRO`, `GROUP_POST` |
+| `purpose` | enum | 필수 | `MEMBER`, `GROUP`, `SCHEDULE`, `GROUP_INTRO`, `GROUP_POST`, `COMMUNITY_POST` |
 | `fileName` | string | 필수 | 원본 파일명 |
 | `contentType` | string | 필수 | `image/jpeg`, `image/png`, `image/webp` |
 | `contentLength` | number | 필수 | 15MB 이하 |
@@ -1668,8 +1711,10 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
   "data": {
     "imageId": "image-uuid",
     "uploadKey": "upload/group/user-1/image-uuid/original.png",
-    "publicKey": "public/group/group-1/image-uuid.webp",
-    "url": "https://timelink.cloud/public/group/group-1/image-uuid.webp",
+    "publicKey": "public/group/group-1/image-uuid/full.webp",
+    "thumbnailKey": "public/group/group-1/image-uuid/thumbnail.webp",
+    "thumbnailUrl": "https://timelink.cloud/public/group/group-1/image-uuid/thumbnail.webp",
+    "url": "https://timelink.cloud/public/group/group-1/image-uuid/full.webp",
     "status": "COMPLETED",
     "failureReason": null
   }
@@ -1793,7 +1838,8 @@ Community
 
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
 - 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
-- 업로드 이미지는 S3 public assets bucket의 `upload/`에 임시 저장되고, Lambda WebP 변환 후 `public/{member|group|schedule|group-intro|group-post}/` URL과 `imageStatus`를 저장합니다.
+- 업로드 이미지는 S3 public assets bucket의 `upload/`에 임시 저장되고, Lambda WebP 변환 후 `public/{member|group|schedule|group-intro|group-post|community-post}/` URL과 `imageStatus`를 저장합니다.
+- `publicUrl/url`은 확대 가능한 full WebP이며, `MEMBER`, `GROUP` 목적은 작은 아바타/모임 대표 이미지용 `thumbnailUrl`을 추가로 저장합니다.
 
 ---
 
@@ -1830,6 +1876,7 @@ Community
 | `GET` | `/community/posts` | 커뮤니티 게시물 목록 | 인증 | 구현됨 |
 | `POST` | `/community/posts` | 커뮤니티 게시물 작성 | 인증 | 구현됨 |
 | `GET` | `/community/posts/:postId` | 커뮤니티 게시물 상세 | 인증 | 구현됨 |
+| `GET` | `/community/profiles/:userId` | 커뮤니티 공개 프로필 | 인증 | 구현됨 |
 | `PATCH` | `/community/posts/:postId` | 커뮤니티 게시물 수정 | 작성자 | 구현됨 |
 | `DELETE` | `/community/posts/:postId` | 커뮤니티 게시물 삭제 | 작성자 | 구현됨 |
 | `PUT` | `/community/posts/:postId/like` | 게시물 좋아요 | 인증 | 구현됨 |

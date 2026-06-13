@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   useCreateGroupPostComment: vi.fn(),
   useToggleGroupPostLike: vi.fn(),
   getMembers: vi.fn(),
+  getMemberProfile: vi.fn(),
+  updateMyMemberProfile: vi.fn(),
   getCoordinationPage: vi.fn(),
 }));
 
@@ -52,6 +54,8 @@ vi.mock('@/services/api', async () => {
     ...actual,
     groupApi: {
       getMembers: mocks.getMembers,
+      getMemberProfile: mocks.getMemberProfile,
+      updateMyMemberProfile: mocks.updateMyMemberProfile,
       update: vi.fn(),
       removeMember: vi.fn(),
       getJoinRequests: vi.fn(),
@@ -108,6 +112,8 @@ describe('GroupDetailPage group posts', () => {
     mocks.useCreateGroupPostComment.mockReset();
     mocks.useToggleGroupPostLike.mockReset();
     mocks.getMembers.mockReset();
+    mocks.getMemberProfile.mockReset();
+    mocks.updateMyMemberProfile.mockReset();
     mocks.getCoordinationPage.mockReset();
 
     mocks.useGroups.mockReturnValue({
@@ -155,6 +161,26 @@ describe('GroupDetailPage group posts', () => {
     mocks.getMembers.mockResolvedValue([
       { id: 'member-1', userId: 'user-1', nickname: '민지', avatarUrl: '', role: 'manager', joinedAt: '2026-06-13T00:00:00Z' },
     ]);
+    mocks.getMemberProfile.mockResolvedValue({
+      id: 'member-1',
+      userId: 'user-1',
+      nickname: '민지',
+      avatarUrl: '',
+      role: 'manager',
+      joinedAt: '2026-06-13T00:00:00Z',
+      mine: true,
+      recentActivities: [],
+    });
+    mocks.updateMyMemberProfile.mockResolvedValue({
+      id: 'member-1',
+      userId: 'user-1',
+      nickname: '모임민지',
+      avatarUrl: '',
+      role: 'manager',
+      joinedAt: '2026-06-13T00:00:00Z',
+      mine: true,
+      recentActivities: [],
+    });
     mocks.getCoordinationPage.mockResolvedValue({ data: [], meta: { perPage: 10, nextCursor: null } });
   });
 
@@ -184,6 +210,7 @@ describe('GroupDetailPage group posts', () => {
       data: [{
         id: 'coord-1',
         title: '회식 시간 조율',
+        description: '상세 설명은 카드에서 숨깁니다',
         mode: 'one_time',
         dates: ['2026-06-14'],
         startHour: 18,
@@ -201,6 +228,7 @@ describe('GroupDetailPage group posts', () => {
     expect(await screen.findByRole('heading', { name: /약속\(1개\)/ })).toBeInTheDocument();
     expect(screen.getByText('정기 스터디')).toBeInTheDocument();
     expect(await screen.findByText('회식 시간 조율')).toBeInTheDocument();
+    expect(screen.queryByText('상세 설명은 카드에서 숨깁니다')).not.toBeInTheDocument();
   });
 
   it('hides past group schedules by default and reveals them with the past toggle', async () => {
@@ -243,6 +271,17 @@ describe('GroupDetailPage group posts', () => {
     fireEvent.click(await screen.findByRole('button', { name: '모임 메뉴 열기' }));
 
     expect(screen.getByRole('button', { name: '모임 소개' })).toBeInTheDocument();
+  });
+
+  it('opens my meetup profile editor from the header menu', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '모임 메뉴 열기' }));
+    fireEvent.click(screen.getByRole('button', { name: '모임 프로필 수정' }));
+
+    expect(await screen.findByText('모임 프로필 수정')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('민지')).toBeInTheDocument();
+    expect(mocks.getMemberProfile).toHaveBeenCalledWith('group-1', 'user-1');
   });
 
   it('loads closed coordinations only after the closed coordination toggle is selected', async () => {

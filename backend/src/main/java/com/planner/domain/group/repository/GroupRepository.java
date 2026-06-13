@@ -185,6 +185,14 @@ public class GroupRepository {
             updateExpression.append(", imageUrl = :imageUrl");
             values.put(":imageUrl", AttributeValue.builder().s(group.getImageUrl()).build());
         }
+        if (group.getThumbnailObjectKey() != null && !group.getThumbnailObjectKey().isBlank()) {
+            updateExpression.append(", thumbnailObjectKey = :thumbnailObjectKey");
+            values.put(":thumbnailObjectKey", AttributeValue.builder().s(group.getThumbnailObjectKey()).build());
+        }
+        if (group.getThumbnailUrl() != null && !group.getThumbnailUrl().isBlank()) {
+            updateExpression.append(", thumbnailUrl = :thumbnailUrl");
+            values.put(":thumbnailUrl", AttributeValue.builder().s(group.getThumbnailUrl()).build());
+        }
 
         try {
             dynamoDbClient.updateItem(UpdateItemRequest.builder()
@@ -208,12 +216,17 @@ public class GroupRepository {
     }
 
     public List<GroupMember> findMembersByGroupId(String groupId) {
+        return findMembersByGroupId(groupId, 0);
+    }
+
+    public List<GroupMember> findMembersByGroupId(String groupId, int limit) {
         var request = QueryEnhancedRequest.builder()
                 .queryConditional(QueryConditional.sortBeginsWith(
                         k -> k.partitionValue("GROUP#" + groupId).sortValue("MEMBER#")
-                ))
-                .build();
-        return memberTable.query(request).stream()
+                ));
+        if (limit > 0) request.limit(limit);
+
+        return memberTable.query(request.build()).stream()
                 .flatMap(page -> page.items().stream())
                 .collect(Collectors.toList());
     }

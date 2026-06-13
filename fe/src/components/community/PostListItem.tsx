@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface PostListItemProps {
   post: CommunityPostResponse;
   onClick?: () => void;
+  onAuthorClick?: () => void;
   actions?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
@@ -16,56 +17,95 @@ interface PostListItemProps {
 const PostListItem: React.FC<PostListItemProps> = ({
   post,
   onClick,
+  onAuthorClick,
   actions,
   children,
   className,
 }) => {
-  const body = (
-    <>
-      <div className="flex items-start gap-3">
-        <Avatar className="h-9 w-9 shrink-0 border border-border/60">
-          <AvatarImage src={post.authorAvatarUrl} alt={post.authorNickname} />
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-            {post.authorNickname.slice(0, 1)}
-          </AvatarFallback>
-        </Avatar>
+  const authorName = post.authorNickname || '사용자';
+  const canOpenAuthor = Boolean(onAuthorClick && !post.anonymous && post.authorUserId);
 
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-xs font-bold text-foreground">{post.authorNickname}</p>
-            <span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/30" />
-            <p className="shrink-0 text-[10px] text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
-            {post.mine ? (
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                내 글
-              </span>
-            ) : null}
-            {post.memberOnly ? (
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                모임 공개
-              </span>
-            ) : null}
-          </div>
-          <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-foreground">{post.title}</h3>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{post.content}</p>
+  const authorNode = (
+    <div className="flex min-w-0 items-start gap-3">
+      <Avatar className="h-9 w-9 shrink-0 border border-border/60">
+        <AvatarImage src={post.authorAvatarUrl} alt={authorName} />
+        <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+          {authorName.slice(0, 1)}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-xs font-bold text-foreground">{authorName}</p>
+          <span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/30" />
+          <p className="shrink-0 text-[10px] text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
+          {post.anonymous ? (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              익명
+            </span>
+          ) : null}
+          {post.mine ? (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              내 글
+            </span>
+          ) : null}
+          {post.memberOnly ? (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              모임 공개
+            </span>
+          ) : null}
         </div>
       </div>
+    </div>
+  );
+
+  const contentNode = (
+    <>
+      <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-foreground">{post.title}</h3>
+      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{post.content}</p>
 
       {post.imageUrl ? (
-        <div className="mt-3 pl-12">
+        <div className="mt-3">
           <img
             src={post.imageUrl}
             alt=""
-            className="h-36 w-full max-w-full rounded-xl object-cover"
+            className="aspect-square w-full max-w-full rounded-xl object-cover"
             loading="lazy"
           />
         </div>
       ) : post.imageStatus === 'PROCESSING' ? (
-        <div className="ml-12 mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-3 text-[11px] font-semibold text-muted-foreground">
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-3 text-[11px] font-semibold text-muted-foreground">
           <ImageIcon className="h-4 w-4 shrink-0 text-primary" />
           이미지 처리 중입니다
         </div>
       ) : null}
+    </>
+  );
+
+  const body = (
+    <>
+      <div className="flex items-start gap-3">
+        {canOpenAuthor ? (
+          <button
+            type="button"
+            onClick={onAuthorClick}
+            className="min-w-0 flex-1 text-left"
+            aria-label={`${authorName} 프로필 보기`}
+          >
+            {authorNode}
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1">{authorNode}</div>
+        )}
+      </div>
+
+      {onClick ? (
+        <button type="button" onClick={onClick} className="mt-2 w-full pl-12 text-left">
+          {contentNode}
+        </button>
+      ) : (
+        <div className="mt-2 pl-12">{contentNode}</div>
+      )}
 
       {actions ? (
         <div className="mt-3">{actions}</div>
@@ -91,14 +131,6 @@ const PostListItem: React.FC<PostListItemProps> = ({
     onClick && 'hover:bg-muted/25',
     className,
   );
-
-  if (onClick && !actions && !children) {
-    return (
-      <button type="button" onClick={onClick} className={rootClassName}>
-        {body}
-      </button>
-    );
-  }
 
   return <article className={rootClassName}>{body}</article>;
 };

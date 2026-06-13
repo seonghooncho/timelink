@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getIntro: vi.fn(),
   requestToJoin: vi.fn(),
   updateIntro: vi.fn(),
+  update: vi.fn(),
   createNotice: vi.fn(),
   getIntroPosts: vi.fn(),
 }));
@@ -22,6 +23,7 @@ vi.mock('@/services/api', async () => {
       getIntro: mocks.getIntro,
       requestToJoin: mocks.requestToJoin,
       updateIntro: mocks.updateIntro,
+      update: mocks.update,
       createNotice: mocks.createNotice,
       getIntroPosts: mocks.getIntroPosts,
     },
@@ -49,8 +51,10 @@ describe('GroupIntroPage', () => {
     mocks.getIntro.mockReset();
     mocks.requestToJoin.mockReset();
     mocks.updateIntro.mockReset();
+    mocks.update.mockReset();
     mocks.createNotice.mockReset();
     mocks.getIntroPosts.mockReset();
+    mocks.update.mockResolvedValue({});
 
     mocks.getIntro.mockResolvedValue({
       id: 'group-1',
@@ -72,6 +76,9 @@ describe('GroupIntroPage', () => {
         authorNickname: '민지',
         createdAt: '2026-06-13T00:00:00Z',
       }],
+      memberPreviews: [
+        { id: 'member-1', userId: 'user-2', role: 'member', nickname: '러닝민지', avatarUrl: '', joinedAt: '2026-06-01T00:00:00Z' },
+      ],
       member: false,
       canEditIntro: false,
       canWriteNotice: false,
@@ -102,8 +109,11 @@ describe('GroupIntroPage', () => {
     renderPage();
 
     expect(await screen.findByText('주말 러닝')).toBeInTheDocument();
+    expect(screen.getByText('공개 모임')).toBeInTheDocument();
     expect(screen.getByText('천천히 함께 달립니다.')).toBeInTheDocument();
-    expect(screen.getByText('지난주 후기')).toBeInTheDocument();
+    expect(screen.getByText('함께하는 멤버')).toBeInTheDocument();
+    expect(screen.getByText('러닝민지')).toBeInTheDocument();
+    expect(await screen.findByText('지난주 후기')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /지난주 후기/ }));
 
@@ -141,7 +151,7 @@ describe('GroupIntroPage', () => {
     expect(screen.getByText('가입 후 글 전체와 댓글을 볼 수 있어요.')).toBeInTheDocument();
   });
 
-  it('uses the meetup description as the intro edit value when introText is empty', async () => {
+  it('opens group info editing from intro page and uses the meetup description when introText is empty', async () => {
     mocks.getIntro.mockResolvedValue({
       id: 'group-1',
       name: '주말 러닝',
@@ -156,6 +166,7 @@ describe('GroupIntroPage', () => {
       images: [],
       notices: [],
       postPreviews: [],
+      memberPreviews: [],
       member: true,
       canEditIntro: true,
       canWriteNotice: true,
@@ -163,8 +174,11 @@ describe('GroupIntroPage', () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: '소개 편집' }));
+    expect(await screen.findByText('주말 러닝')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '정보수정' }));
 
+    expect(screen.getByDisplayValue('주말 러닝')).toBeInTheDocument();
     expect(screen.getByDisplayValue('한강 러닝')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '공개' })).toBeInTheDocument();
   });
 });

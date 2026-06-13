@@ -23,7 +23,7 @@ import { validateImageFile } from '@/lib/images';
 import { trackEvent } from '@/lib/analytics';
 
 const categories: { value: ScheduleCategory; label: string }[] = [
-  { value: 'task', label: '할 일' },
+  { value: 'task', label: '할일' },
   { value: 'appointment', label: '약속' },
   { value: 'repeat', label: '반복' },
   { value: 'group', label: '모임' },
@@ -61,6 +61,11 @@ const getExtractedDuration = (data: Awaited<ReturnType<typeof aiApi.extractSched
   return duration > 0 && Number.isInteger(duration * 2) ? String(duration) : null;
 };
 
+const isPastScheduleStart = (startTime: string) => {
+  const start = new Date(startTime);
+  return Number.isFinite(start.getTime()) && start.getTime() < Date.now();
+};
+
 const ScheduleFormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -96,6 +101,7 @@ const ScheduleFormPage: React.FC = () => {
   const [showMemberSearch, setShowMemberSearch] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showPastScheduleConfirm, setShowPastScheduleConfirm] = useState(false);
   const [showCloseCoordinationConfirm, setShowCloseCoordinationConfirm] = useState(false);
   const [isClosingCoordination, setIsClosingCoordination] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -221,7 +227,7 @@ const ScheduleFormPage: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (skipPastConfirm = false) => {
     const result = buildScheduleCreateRequest({
       title,
       content,
@@ -240,6 +246,12 @@ const ScheduleFormPage: React.FC = () => {
       return;
     }
 
+    if (!skipPastConfirm && isPastScheduleStart(result.data.startTime)) {
+      setShowPastScheduleConfirm(true);
+      return;
+    }
+
+    setShowPastScheduleConfirm(false);
     try {
       trackEvent('schedule_create_start', {
         category: isGroupSchedule ? 'group' : category,
@@ -249,28 +261,28 @@ const ScheduleFormPage: React.FC = () => {
         source: initialContext.sourceLabel ? 'coordination' : 'manual',
       });
       await createMutation.mutateAsync(result.data);
-      appToast.success('일정이 등록되었습니다');
+      appToast.success('일정이 생성되었습니다');
       if (initialContext.groupId && initialContext.coordinationId) {
         setShowCloseCoordinationConfirm(true);
         return;
       }
       navigate('/');
     } catch (err) {
-      appToast.error('등록 실패', err, '일정 등록에 실패했습니다.');
+      appToast.error('생성 실패', err, '일정 생성에 실패했습니다.');
     }
   };
 
   return (
     <MobileLayout>
-      <PageHeader title="일정 등록" showBack backTo={initialContext.groupId ? `/groups/${initialContext.groupId}` : '/'} />
+      <PageHeader title="일정 생성" showBack backTo={initialContext.groupId ? `/groups/${initialContext.groupId}` : '/'} />
       <div className="px-4 py-4 space-y-5">
         {initialContext.sourceLabel ? (
           <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
             <p className="text-xs font-semibold text-primary">
-              {initialContext.sourceLabel}에서 가져온 그룹 일정입니다.
+              {initialContext.sourceLabel}에서 가져온 모임 일정입니다.
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              일시와 소요시간을 확인한 뒤 등록하세요.
+              일시와 소요시간을 확인한 뒤 생성하세요.
             </p>
           </div>
         ) : null}
@@ -300,7 +312,7 @@ const ScheduleFormPage: React.FC = () => {
                 ) : (
                   <>
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center"><Camera className="w-5 h-5 text-primary" /></div>
-                    <span className="text-xs font-semibold text-primary">사진으로 일정 등록</span>
+                    <span className="text-xs font-semibold text-primary">사진으로 일정 생성</span>
                     <span className="max-w-full px-3 text-center text-[10px] text-muted-foreground">15MB 이하 사진을 맞춘 뒤 AI가 일정 정보를 채워줘요</span>
                   </>
                 )}
@@ -339,7 +351,7 @@ const ScheduleFormPage: React.FC = () => {
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">참여 멤버</label>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  선택된 멤버의 캘린더에도 일정이 등록됩니다.
+                  선택된 멤버의 캘린더에도 일정이 생성됩니다.
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -472,9 +484,9 @@ const ScheduleFormPage: React.FC = () => {
         ) : null}
 
         {/* Submit */}
-        <button type="button" onClick={handleSubmit} disabled={createMutation.isPending}
+        <button type="button" onClick={() => handleSubmit()} disabled={createMutation.isPending}
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-50">
-          {createMutation.isPending ? '등록 중...' : '등록하기'}
+          {createMutation.isPending ? '생성 중...' : '생성하기'}
         </button>
       </div>
       {cropSourceFile ? (
@@ -495,6 +507,15 @@ const ScheduleFormPage: React.FC = () => {
           }}
         />
       ) : null}
+      <ConfirmModal
+        open={showPastScheduleConfirm}
+        onClose={() => setShowPastScheduleConfirm(false)}
+        onConfirm={() => handleSubmit(true)}
+        title="이미 지난 일정입니다"
+        description="과거 일정으로 저장할까요? 지난 일정은 알림 없이 기록만 남습니다."
+        confirmLabel={createMutation.isPending ? '생성 중...' : '그래도 만들기'}
+        cancelLabel="다시 확인"
+      />
       <ConfirmModal
         open={showCloseCoordinationConfirm}
         onClose={handleSkipCloseCoordination}

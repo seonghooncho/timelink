@@ -8,9 +8,13 @@ import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
+import com.planner.domain.group.dto.GroupIntroNoticeDTO;
 import com.planner.domain.group.dto.GroupIntroResDTO;
 import com.planner.domain.group.dto.GroupIntroUpdateReqDTO;
+import com.planner.domain.group.dto.GroupMemberProfileResDTO;
+import com.planner.domain.group.dto.GroupMemberProfileUpdateReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
+import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupException;
@@ -25,7 +29,11 @@ import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.domain.storage.model.ImagePurpose;
+import com.planner.domain.storage.model.ImageStatus;
+import com.planner.domain.storage.model.ImageUpload;
 import com.planner.domain.storage.repository.ImageUploadRepository;
+import com.planner.domain.storage.service.StorageService;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +61,7 @@ class GroupServiceTest {
     @Mock private CursorCodec cursorCodec;
     @Mock private ScheduleRepository scheduleRepository;
     @Mock private ImageUploadRepository imageUploadRepository;
+    @Mock private StorageService storageService;
     @Mock private CommunityRepository communityRepository;
     @Mock private CoordinationRepository coordinationRepository;
     @InjectMocks private GroupService service;
@@ -62,6 +71,8 @@ class GroupServiceTest {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
         lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
         lenient().when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(true);
+        lenient().when(repository.findMembersByGroupId(anyString(), anyInt())).thenReturn(List.of());
+        lenient().when(imageUploadRepository.findById(anyString())).thenReturn(Optional.empty());
         lenient().when(scheduleRepository.findUpcomingByGroupId(anyString(), anyString(), anyInt())).thenReturn(List.of());
         lenient().when(coordinationRepository.findByGroupIdPaged(anyString(), anyInt(), isNull()))
                 .thenReturn(CursorPageResult.<Coordination>builder().items(List.of()).build());
@@ -333,6 +344,11 @@ class GroupServiceTest {
                 .imageIds(List.of())
                 .build()));
         when(repository.findNoticesByGroupId("g1", 5)).thenReturn(List.of());
+        when(repository.findMembersByGroupId("g1", 6)).thenReturn(List.of(sampleMember("g1", "manager", "manager")));
+        when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of(
+                "manager",
+                Profile.builder().id("USER#manager").sk("PROFILE").nickname("러닝장").avatarUrl("https://img/runner.png").build()
+        ));
         when(communityRepository.findGroupPostsPaged("g1", 5, null))
                 .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of(sampleGroupPost("g1"))).build());
 
@@ -343,6 +359,8 @@ class GroupServiceTest {
         assertThat(result.getIntroText()).isEqualTo("천천히 함께 달립니다.");
         assertThat(result.getPostPreviews()).hasSize(1);
         assertThat(result.getPostPreviews().get(0).getTitle()).isEqualTo("지난주 후기");
+        assertThat(result.getMemberPreviews()).hasSize(1);
+        assertThat(result.getMemberPreviews().get(0).getNickname()).isEqualTo("러닝장");
     }
 
     @Test
@@ -399,11 +417,52 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("update — 그룹 멤버라면 정보 수정 가능")
-    void update_memberCanUpdate() {
+    @DisplayName("createNotice — 공지 작성자는 제외하고 모임 멤버에게 알림을 보낸다")
+    void createNotice_notifiesMembersExceptAuthor() {
+        Group group = sampleGroup("g1", "manager");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "manager")).thenReturn(Optional.of(sampleMember("g1", "manager", "manager")));
+        when(repository.findMembersByGroupId("g1")).thenReturn(
+                List.of(sampleMember("g1", "manager", "manager"), sampleMember("g1", "member-2", "member")));
+        when(profileRepository.findByUserId("manager")).thenReturn(Optional.of(
+                Profile.builder().id("USER#manager").sk("PROFILE").nickname("관리자").avatarUrl("https://img/manager.png").build()
+        ));
+
+        GroupNoticeCreateReqDTO req = new GroupNoticeCreateReqDTO();
+        req.setTitle("긴급 공지");
+        req.setContent("이번 주 장소가 변경되었습니다");
+
+        GroupIntroNoticeDTO result = service.createNotice("manager", "g1", req);
+
+        assertThat(result.getTitle()).isEqualTo("긴급 공지");
+        verify(repository).saveNotice(argThat(notice ->
+                "긴급 공지".equals(notice.getTitle())
+                        && "이번 주 장소가 변경되었습니다".equals(notice.getContent())
+        ));
+        verify(notificationService).createGroupNotification(
+                eq("member-2"),
+                eq("새 공지사항이 등록되었습니다"),
+                contains("Study 모임: 긴급 공지"),
+                eq("GROUP"),
+                eq("g1"),
+                eq("/groups/g1/intro")
+        );
+        verify(notificationService, never()).createGroupNotification(
+                eq("manager"),
+                anyString(),
+                anyString(),
+                anyString(),
+                anyString(),
+                anyString()
+        );
+    }
+
+    @Test
+    @DisplayName("update — 그룹 관리자라면 정보 수정 가능")
+    void update_managerCanUpdate() {
         Group group = sampleGroup("g1", "other");
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
-        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
         when(repository.findMembersByGroupId("g1")).thenReturn(List.of(sampleMember("g1", "user1", "member")));
 
         GroupUpdateReqDTO req = new GroupUpdateReqDTO();
@@ -419,11 +478,25 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("update — 그룹 정보 변경 시 수정자를 제외한 멤버에게 알림을 보낸다")
-    void update_notifiesOtherMembers() {
+    @DisplayName("update — 일반 멤버는 정보 수정 불가")
+    void update_memberCannotUpdate() {
         Group group = sampleGroup("g1", "other");
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
         when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "member")));
+
+        GroupUpdateReqDTO req = new GroupUpdateReqDTO();
+        req.setName("Updated");
+
+        assertThatThrownBy(() -> service.update("user1", "g1", req))
+                .isInstanceOf(GroupException.class);
+    }
+
+    @Test
+    @DisplayName("update — 그룹 정보 변경은 피로 알림을 만들지 않는다")
+    void update_doesNotNotifyOtherMembers() {
+        Group group = sampleGroup("g1", "other");
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
         when(repository.findMembersByGroupId("g1")).thenReturn(
                 List.of(sampleMember("g1", "user1", "member"), sampleMember("g1", "user2", "member")));
 
@@ -432,12 +505,7 @@ class GroupServiceTest {
 
         service.update("user1", "g1", req);
 
-        verify(notificationService).createGroupNotification(
-                eq("user2"),
-                eq("그룹 정보가 변경되었습니다"),
-                contains("Updated 그룹 정보가 변경되었습니다")
-        );
-        verify(notificationService, never()).createGroupNotification(eq("user1"), anyString(), anyString());
+        verify(notificationService, never()).createGroupNotification(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -468,8 +536,8 @@ class GroupServiceTest {
         verify(repository).deleteGroup("g1");
         verify(notificationService).createGroupNotification(
                 eq("user2"),
-                eq("그룹이 삭제되었습니다"),
-                contains("Study 그룹이 삭제되었습니다")
+                eq("모임이 삭제되었습니다"),
+                contains("Study 모임이 삭제되었습니다")
         );
     }
 
@@ -511,12 +579,7 @@ class GroupServiceTest {
                         && "https://img/join.png".equals(m.getAvatarUrl())
         ));
         verify(repository).updateMemberCount("g1", 1);
-        verify(notificationService).createGroupNotification(
-                eq("other"),
-                eq("새 멤버가 참여했습니다"),
-                contains("테스터님이 들어왔습니다")
-        );
-        verify(notificationService, never()).createGroupNotification(eq("user1"), anyString(), anyString());
+        verify(notificationService, never()).createGroupNotification(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -588,9 +651,6 @@ class GroupServiceTest {
         when(repository.findMember("g1", "manager")).thenReturn(Optional.of(sampleMember("g1", "manager", "manager")));
         when(repository.findJoinRequest("g1", "user1")).thenReturn(Optional.of(joinRequest));
         when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
-        when(repository.findMembersByGroupId("g1")).thenReturn(
-                List.of(sampleMember("g1", "manager", "manager"), sampleMember("g1", "user1", "member"))
-        );
 
         GroupJoinRequestDecisionReqDTO req = new GroupJoinRequestDecisionReqDTO();
         req.setStatus("APPROVED");
@@ -629,11 +689,11 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("getMembers — group_member 닉네임보다 프로필 닉네임을 우선한다")
-    void getMembers_prefersProfileDisplayFields() {
+    @DisplayName("getMembers — 모임별 프로필 값이 있으면 전역 프로필로 덮어쓰지 않는다")
+    void getMembers_prefersGroupMemberDisplayFields() {
         GroupMember staleMember = sampleMember("g1", "user1", "member");
-        staleMember.setNickname("예전그룹닉");
-        staleMember.setAvatarUrl("https://img/old.png");
+        staleMember.setNickname("모임닉");
+        staleMember.setAvatarUrl("https://img/group-member.png");
         when(repository.findMember("g1", "user1")).thenReturn(Optional.of(staleMember));
         when(repository.findMembersByGroupId("g1")).thenReturn(List.of(staleMember));
         when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of(
@@ -644,10 +704,95 @@ class GroupServiceTest {
         List<GroupMemberResDTO> result = service.getMembers("user1", "g1");
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getNickname()).isEqualTo("변경된닉네임");
-        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://img/new.png");
+        assertThat(result.get(0).getNickname()).isEqualTo("모임닉");
+        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://img/group-member.png");
         verify(profileRepository).findByUserIds(argThat(userIds -> userIds.contains("user1")));
         verify(profileRepository, never()).findByUserId("user1");
+    }
+
+    @Test
+    @DisplayName("getMemberProfile — 멤버 상세는 모임별 이름과 최근 작성 글을 반환한다")
+    void getMemberProfile_returnsGroupMemberProfileAndRecentActivity() {
+        GroupMember viewer = sampleMember("g1", "user1", "member");
+        GroupMember target = sampleMember("g1", "user2", "member");
+        target.setNickname("모임민지");
+        target.setAvatarUrl("https://img/group-minji.png");
+        CommunityPost post = sampleGroupPost("g1");
+        post.setAuthorUserId("user2");
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(viewer));
+        when(repository.findMember("g1", "user2")).thenReturn(Optional.of(target));
+        when(communityRepository.findGroupPostsPaged("g1", 20, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of(post)).build());
+
+        GroupMemberProfileResDTO result = service.getMemberProfile("user1", "g1", "user2");
+
+        assertThat(result.getNickname()).isEqualTo("모임민지");
+        assertThat(result.getAvatarUrl()).isEqualTo("https://img/group-minji.png");
+        assertThat(result.getMine()).isFalse();
+        assertThat(result.getRecentActivities()).hasSize(1);
+        assertThat(result.getRecentActivities().get(0).getTitle()).isEqualTo("지난주 후기");
+    }
+
+    @Test
+    @DisplayName("updateMyMemberProfile — 모임별 이름과 사진 처리 상태를 저장한다")
+    void updateMyMemberProfile_savesGroupScopedProfile() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(member));
+        when(storageService.attachImageToTarget("user1", "img1", ImagePurpose.MEMBER, "GROUP_MEMBER#g1#user1"))
+                .thenReturn(ImageUpload.builder()
+                        .imageId("img1")
+                        .status(ImageStatus.PROCESSING.name())
+                        .uploadKey("upload/member/user1/img1/original.jpg")
+                        .build());
+        when(communityRepository.findGroupPostsPaged("g1", 20, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of()).build());
+        GroupMemberProfileUpdateReqDTO req = new GroupMemberProfileUpdateReqDTO();
+        req.setNickname("모임민지");
+        req.setImageId("img1");
+
+        GroupMemberProfileResDTO result = service.updateMyMemberProfile("user1", "g1", req);
+
+        assertThat(result.getNickname()).isEqualTo("모임민지");
+        assertThat(result.getImageId()).isEqualTo("img1");
+        assertThat(result.getImageStatus()).isEqualTo("PROCESSING");
+        verify(repository, atLeastOnce()).saveMember(argThat(saved ->
+                "모임민지".equals(saved.getNickname())
+                        && "img1".equals(saved.getImageId())
+                        && ImageStatus.PROCESSING.name().equals(saved.getImageStatus())
+        ));
+    }
+
+    @Test
+    @DisplayName("updateMyMemberProfile — 완료된 모임 프로필 이미지는 full과 thumbnail을 저장한다")
+    void updateMyMemberProfile_savesCompletedVariants() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(member));
+        when(storageService.attachImageToTarget("user1", "img1", ImagePurpose.MEMBER, "GROUP_MEMBER#g1#user1"))
+                .thenReturn(ImageUpload.builder()
+                        .imageId("img1")
+                        .status(ImageStatus.COMPLETED.name())
+                        .uploadKey("upload/member/user1/img1/original.jpg")
+                        .publicKey("public/member/GROUP_MEMBER_g1_user1/img1/full.webp")
+                        .publicUrl("https://cdn.test/member/full.webp")
+                        .thumbnailKey("public/member/GROUP_MEMBER_g1_user1/img1/thumbnail.webp")
+                        .thumbnailUrl("https://cdn.test/member/thumb.webp")
+                        .build());
+        when(communityRepository.findGroupPostsPaged("g1", 20, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of()).build());
+        GroupMemberProfileUpdateReqDTO req = new GroupMemberProfileUpdateReqDTO();
+        req.setNickname("모임민지");
+        req.setImageId("img1");
+
+        GroupMemberProfileResDTO result = service.updateMyMemberProfile("user1", "g1", req);
+
+        assertThat(result.getAvatarUrl()).isEqualTo("https://cdn.test/member/full.webp");
+        assertThat(result.getThumbnailUrl()).isEqualTo("https://cdn.test/member/thumb.webp");
+        verify(repository, atLeastOnce()).saveMember(argThat(saved ->
+                "https://cdn.test/member/full.webp".equals(saved.getAvatarUrl())
+                        && "https://cdn.test/member/thumb.webp".equals(saved.getThumbnailUrl())
+                        && "public/member/GROUP_MEMBER_g1_user1/img1/full.webp".equals(saved.getImageObjectKey())
+                        && "public/member/GROUP_MEMBER_g1_user1/img1/thumbnail.webp".equals(saved.getThumbnailObjectKey())
+        ));
     }
 
     @Test
@@ -674,8 +819,8 @@ class GroupServiceTest {
         verify(repository).updateMemberCount("g1", -1);
         verify(notificationService).createGroupNotification(
                 eq("user2"),
-                eq("그룹에서 내보내졌습니다"),
-                contains("Study 그룹에서 내보내졌습니다")
+                eq("모임에서 내보내졌습니다"),
+                contains("Study 모임에서 내보내졌습니다")
         );
     }
 

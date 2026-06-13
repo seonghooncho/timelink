@@ -22,11 +22,13 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
@@ -112,6 +114,29 @@ class StorageServiceTest {
                         && "user-1".equals(upload.getTargetId())
                         && upload.getUploadKey().startsWith("upload/member/user-1/")
         ));
+    }
+
+    @Test
+    @DisplayName("이미지 처리 상태 조회는 full과 thumbnail URL을 함께 반환한다")
+    void getImageUpload_returnsProcessedVariants() {
+        given(imageUploadRepository.findById("img-1")).willReturn(Optional.of(
+                com.planner.domain.storage.model.ImageUpload.builder()
+                        .imageId("img-1")
+                        .ownerUserId("user-1")
+                        .status(ImageStatus.COMPLETED.name())
+                        .publicKey("public/member/user-1/img-1/full.webp")
+                        .publicUrl("https://cdn.test/public/member/user-1/img-1/full.webp")
+                        .thumbnailKey("public/member/user-1/img-1/thumbnail.webp")
+                        .thumbnailUrl("https://cdn.test/public/member/user-1/img-1/thumbnail.webp")
+                        .build()
+        ));
+
+        ImageUploadResDTO result = storageService.getImageUpload("user-1", "img-1");
+
+        assertThat(result.getPublicKey()).isEqualTo("public/member/user-1/img-1/full.webp");
+        assertThat(result.getUrl()).isEqualTo("https://cdn.test/public/member/user-1/img-1/full.webp");
+        assertThat(result.getThumbnailKey()).isEqualTo("public/member/user-1/img-1/thumbnail.webp");
+        assertThat(result.getThumbnailUrl()).isEqualTo("https://cdn.test/public/member/user-1/img-1/thumbnail.webp");
     }
 
     @Test

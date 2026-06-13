@@ -11,6 +11,7 @@ function mapGroup(g: GroupListResponse): Group {
     name: g.name,
     description: g.description || '',
     image: g.imageUrl,
+    thumbnailImage: g.thumbnailUrl,
     imageId: g.imageId,
     imageStatus: g.imageStatus,
     inviteCode: g.inviteCode,

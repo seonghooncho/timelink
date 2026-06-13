@@ -608,7 +608,7 @@ function SlotParticipantsModal({
                 return (
                   <div key={userId} className="min-w-0 text-center">
                     <Avatar className="mx-auto h-12 w-12 border border-border/70 shadow-sm">
-                      <AvatarImage src={member?.avatarUrl} alt={name} />
+                      <AvatarImage src={member?.thumbnailUrl || member?.avatarUrl} alt={name} />
                       <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
                         {getParticipantFallback(userId)}
                       </AvatarFallback>

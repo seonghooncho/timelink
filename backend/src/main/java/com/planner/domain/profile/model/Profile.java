@@ -21,6 +21,8 @@ public class Profile {
     private String imageStatus;
     private String imageUploadKey;
     private String imageObjectKey;
+    private String thumbnailUrl;
+    private String thumbnailObjectKey;
     private String termsVersion;
     private String termsAgreedAt;
     private String privacyVersion;

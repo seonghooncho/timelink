@@ -9,10 +9,11 @@ import ImageCropModal from '@/components/common/ImageCropModal';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { groupApi, GroupIntroImageResponse, GroupIntroPostResponse, GroupIntroResponse } from '@/services/api';
+import { groupApi, GroupIntroImageResponse, GroupIntroPostResponse, GroupIntroResponse, GroupMemberResponse } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
+import { GROUP_NOTICE_TITLE_MAX_LENGTH } from '@/lib/textLimits';
 
 const MAX_INTRO_IMAGES = 10;
 const INTRO_POST_PAGE_LIMIT = 3;
@@ -27,10 +28,13 @@ const GroupIntroPage: React.FC = () => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinMessage, setJoinMessage] = useState('');
   const [showEditIntro, setShowEditIntro] = useState(false);
+  const [editGroupName, setEditGroupName] = useState('');
   const [editIntroText, setEditIntroText] = useState('');
+  const [editGroupVisibility, setEditGroupVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
   const [editImages, setEditImages] = useState<GroupIntroImageResponse[]>([]);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [isIntroImageUploading, setIsIntroImageUploading] = useState(false);
+  const [isSavingGroupInfo, setIsSavingGroupInfo] = useState(false);
   const [showNoticeComposer, setShowNoticeComposer] = useState(false);
   const [noticeTitle, setNoticeTitle] = useState('');
   const [noticeContent, setNoticeContent] = useState('');
@@ -93,10 +97,21 @@ const GroupIntroPage: React.FC = () => {
     if (!intro) return;
     setActiveImageIndex(0);
     if (!showEditIntro) {
+      setEditGroupName(intro.name);
       setEditIntroText(intro.introText || intro.description || '');
+      setEditGroupVisibility(intro.visibility ?? 'PRIVATE');
       setEditImages(intro.images || []);
     }
   }, [intro, showEditIntro]);
+
+  const openEditGroupInfo = () => {
+    if (!intro) return;
+    setEditGroupName(intro.name);
+    setEditIntroText(intro.introText || intro.description || '');
+    setEditGroupVisibility(intro.visibility ?? 'PRIVATE');
+    setEditImages(intro.images || []);
+    setShowEditIntro(true);
+  };
 
   const openJoinModal = () => {
     if (intro?.joinRequestStatus === 'PENDING') {
@@ -133,6 +148,14 @@ const GroupIntroPage: React.FC = () => {
       return;
     }
     navigate(`/groups/${id}`);
+  };
+
+  const handleMemberPreviewMore = () => {
+    if (intro?.member) {
+      navigate(`/groups/${id}`);
+      return;
+    }
+    openJoinModal();
   };
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,15 +201,34 @@ const GroupIntroPage: React.FC = () => {
   };
 
   const handleSaveIntro = async () => {
+    if (!id || !intro) return;
+    const name = editGroupName.trim();
+    const introText = editIntroText.trim();
+
+    if (!name) {
+      appToast.error('모임 이름을 입력해주세요');
+      return;
+    }
+
+    setIsSavingGroupInfo(true);
     try {
+      await groupApi.update(id, {
+        name,
+        description: introText,
+        visibility: editGroupVisibility,
+      });
       await updateIntro.mutateAsync({
-        introText: editIntroText,
+        introText,
         imageIds: editImages.map((image) => image.imageId),
       });
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['groups', 'public'] });
       setShowEditIntro(false);
-      appToast.success('모임 소개를 저장했습니다');
+      appToast.success('모임 정보를 저장했습니다');
     } catch (error) {
-      appToast.error('모임 소개를 저장하지 못했습니다', error);
+      appToast.error('모임 정보를 저장하지 못했습니다', error);
+    } finally {
+      setIsSavingGroupInfo(false);
     }
   };
 
@@ -261,22 +303,21 @@ const GroupIntroPage: React.FC = () => {
         <div className="mt-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold text-foreground">{intro.name}</h1>
-            <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-              <Users className="h-4 w-4" />
-              {memberCountLabel}명 참여 중
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <VisibilityBadge visibility={intro.visibility ?? 'PRIVATE'} />
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-4 w-4" />
+                {memberCountLabel}명 참여 중
+              </span>
             </div>
           </div>
           {intro.canEditIntro ? (
             <button
               type="button"
-              onClick={() => {
-                setEditIntroText(intro.introText || intro.description || '');
-                setEditImages(intro.images || []);
-                setShowEditIntro(true);
-              }}
+              onClick={openEditGroupInfo}
               className="shrink-0 rounded-xl border border-border px-3 py-2 text-xs font-bold text-foreground"
             >
-              소개 편집
+              정보수정
             </button>
           ) : null}
         </div>
@@ -284,6 +325,12 @@ const GroupIntroPage: React.FC = () => {
         <p className="mt-4 whitespace-pre-line text-sm leading-7 text-foreground">
           {intro.introText || intro.description || '아직 모임 소개가 없습니다.'}
         </p>
+
+        <MemberPreviewStrip
+          members={intro.memberPreviews || []}
+          memberCount={intro.memberCount}
+          onMore={handleMemberPreviewMore}
+        />
 
         {!intro.member ? (
           <button
@@ -364,8 +411,8 @@ const GroupIntroPage: React.FC = () => {
           >
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <div className="min-w-0">
-                <h3 className="truncate text-base font-bold text-foreground">모임 소개 편집</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">소개 이미지는 최대 10장까지 등록할 수 있습니다.</p>
+                <h3 className="truncate text-base font-bold text-foreground">모임 정보 수정</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">이름, 소개, 공개 설정과 소개 이미지를 관리합니다.</p>
               </div>
               <button
                 type="button"
@@ -377,49 +424,86 @@ const GroupIntroPage: React.FC = () => {
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 scrollbar-thin-soft">
-              <Textarea
-                value={editIntroText}
-                onChange={(event) => setEditIntroText(event.target.value)}
-                maxLength={1000}
-                rows={5}
-                className="resize-none rounded-xl bg-muted text-base"
-                placeholder="모임을 소개해주세요."
-              />
-              <div className="grid grid-cols-3 gap-2">
-                {editImages.map((image) => (
-                  <div key={image.imageId} className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
-                    {image.url ? (
-                      <img src={image.url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <ImageIcon className="h-5 w-5" />
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setEditImages((prev) => prev.filter((item) => item.imageId !== image.imageId))}
-                      className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white"
-                      aria-label="소개 이미지 제거"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-                {editImages.length < MAX_INTRO_IMAGES ? (
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">모임 이름</label>
+                <Input
+                  value={editGroupName}
+                  onChange={(event) => setEditGroupName(event.target.value)}
+                  maxLength={30}
+                  className="rounded-xl bg-muted text-base"
+                  placeholder="모임 이름"
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{editGroupName.length}/30</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">공개 설정</label>
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-muted p-1">
                   <button
                     type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={isIntroImageUploading}
-                    className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-background text-muted-foreground disabled:opacity-50"
-                    aria-label="소개 이미지 추가"
+                    onClick={() => setEditGroupVisibility('PRIVATE')}
+                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${editGroupVisibility === 'PRIVATE' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
                   >
-                    {isIntroImageUploading ? (
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    ) : (
-                      <Plus className="h-5 w-5" />
-                    )}
+                    비공개
                   </button>
-                ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setEditGroupVisibility('PUBLIC')}
+                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${editGroupVisibility === 'PUBLIC' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
+                  >
+                    공개
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">모임 소개</label>
+                <Textarea
+                  value={editIntroText}
+                  onChange={(event) => setEditIntroText(event.target.value)}
+                  maxLength={200}
+                  rows={5}
+                  className="resize-none rounded-xl bg-muted text-base"
+                  placeholder="모임을 소개해주세요."
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{editIntroText.length}/200</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground">소개 이미지</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {editImages.map((image) => (
+                    <div key={image.imageId} className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+                      {image.url ? (
+                        <img src={image.url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditImages((prev) => prev.filter((item) => item.imageId !== image.imageId))}
+                        className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white"
+                        aria-label="소개 이미지 제거"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {editImages.length < MAX_INTRO_IMAGES ? (
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={isIntroImageUploading}
+                      className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-background text-muted-foreground disabled:opacity-50"
+                      aria-label="소개 이미지 추가"
+                    >
+                      {isIntroImageUploading ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      ) : (
+                        <Plus className="h-5 w-5" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <input
                 ref={imageInputRef}
@@ -440,10 +524,10 @@ const GroupIntroPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveIntro}
-                disabled={updateIntro.isPending || isIntroImageUploading}
+                disabled={isSavingGroupInfo || updateIntro.isPending || isIntroImageUploading}
                 className="rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
               >
-                {updateIntro.isPending ? '저장 중...' : '저장'}
+                {isSavingGroupInfo || updateIntro.isPending ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
@@ -462,6 +546,49 @@ const GroupIntroPage: React.FC = () => {
         />
       ) : null}
     </MobileLayout>
+  );
+};
+
+const MemberPreviewStrip: React.FC<{
+  members: GroupMemberResponse[];
+  memberCount: number;
+  onMore: () => void;
+}> = ({ members, memberCount, onMore }) => {
+  if (memberCount <= 0) return null;
+
+  const visibleMembers = members.slice(0, 5);
+
+  return (
+    <div className="mt-5 border-t border-border/50 pt-3">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-bold text-foreground">함께하는 멤버</h2>
+        <button
+          type="button"
+          onClick={onMore}
+          className="text-xs font-bold text-primary"
+        >
+          더보기
+        </button>
+      </div>
+      <div className="flex gap-3 overflow-hidden">
+        {visibleMembers.length > 0 ? visibleMembers.map((member) => {
+          const name = member.nickname || member.userId;
+          return (
+            <div key={member.id || member.userId} className="w-14 shrink-0 text-center">
+              <Avatar className="mx-auto h-12 w-12 border border-border/70">
+                <AvatarImage src={member.thumbnailUrl || member.avatarUrl} alt={name} />
+                <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                  {name.slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <p className="mt-1.5 truncate text-[11px] font-semibold text-foreground">{name}</p>
+            </div>
+          );
+        }) : (
+          <p className="text-xs text-muted-foreground">참여 중인 멤버가 있습니다.</p>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -531,6 +658,16 @@ const IntroHero: React.FC<IntroHeroProps> = ({
   );
 };
 
+const VisibilityBadge: React.FC<{ visibility: 'PRIVATE' | 'PUBLIC' }> = ({ visibility }) => (
+  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
+    visibility === 'PUBLIC'
+      ? 'bg-primary/10 text-primary'
+      : 'bg-muted text-muted-foreground'
+  }`}>
+    {visibility === 'PUBLIC' ? '공개 모임' : '비공개 모임'}
+  </span>
+);
+
 const IntroSection: React.FC<{
   title: string;
   action?: React.ReactNode;
@@ -584,7 +721,7 @@ const NoticeList: React.FC<{
           <Input
             value={noticeTitle}
             onChange={(event) => onNoticeTitleChange(event.target.value)}
-            maxLength={80}
+            maxLength={GROUP_NOTICE_TITLE_MAX_LENGTH}
             className="rounded-xl bg-muted text-base"
             placeholder="공지 제목"
           />
@@ -687,7 +824,7 @@ const IntroPostList: React.FC<{
                 {post.content || post.contentSnippet}
               </p>
               {post.imageUrl ? (
-                <img src={post.imageUrl} alt="" className="mt-3 h-36 w-full rounded-xl object-cover" loading="lazy" />
+                <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
               ) : null}
               <div className="mt-3 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
@@ -751,7 +888,7 @@ const JoinRequestSheet: React.FC<{
       </div>
       <div className="space-y-4 px-5 py-4">
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-3.5 py-3">
-          <GroupAvatar image={intro.imageUrl} name={intro.name} status={intro.imageStatus} size="sm" />
+          <GroupAvatar image={intro.imageUrl} thumbnail={intro.thumbnailUrl} name={intro.name} status={intro.imageStatus} size="sm" />
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-foreground">{intro.name}</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">관리자에게 가입 요청이 전달됩니다.</p>

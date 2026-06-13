@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class GroupNoticeCreateReqDTO {
     @NotBlank
-    @Size(max = 80)
+    @Size(max = 40)
     private String title;
 
     @NotBlank

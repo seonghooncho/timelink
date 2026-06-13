@@ -26,9 +26,25 @@ const PURPOSE_PREFIX = {
   SCHEDULE: 'schedule',
   GROUP_INTRO: 'group-intro',
   GROUP_POST: 'group-post',
+  COMMUNITY_POST: 'community-post',
 };
 
 const ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const THUMBNAIL_PURPOSES = new Set(['MEMBER', 'GROUP']);
+const IMAGE_VARIANTS = {
+  full: {
+    width: 2000,
+    height: 2000,
+    fit: 'inside',
+    quality: 88,
+  },
+  thumbnail: {
+    width: 360,
+    height: 360,
+    fit: 'cover',
+    quality: 68,
+  },
+};
 
 export const handler = async (event) => {
   const records = event.Records || [];
@@ -70,35 +86,52 @@ async function processRecord(record) {
     targetId = metadata['target-id'] || getString(uploadRecord, 'targetId') || null;
     const source = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     const inputBuffer = await streamToBuffer(source.Body);
-    // 원본 방향 정보를 반영하고, 과도하게 큰 이미지는 공개용 최대 크기로 줄인다.
-    const webpBuffer = await sharp(inputBuffer)
-      .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-
-    const destinationKey = buildDestinationKey(purpose, targetId || ownerUserId, imageId);
+    const destinationOwner = targetId || ownerUserId;
+    const fullVariant = await createVariant(inputBuffer, IMAGE_VARIANTS.full);
+    const destinationKey = buildDestinationKey(purpose, destinationOwner, imageId, 'full');
     await s3.send(new PutObjectCommand({
       Bucket: bucket,
       Key: destinationKey,
-      Body: webpBuffer,
+      Body: fullVariant,
       ContentType: 'image/webp',
       CacheControl: 'public, max-age=31536000, immutable',
       Metadata: {
         'source-upload-key': key,
         'image-id': imageId,
         purpose,
+        variant: 'full',
       },
     }));
 
-    const publicUrl = buildPublicUrl(destinationKey);
-    await markImageCompleted(imageId, destinationKey, publicUrl);
-    if (targetId) {
-      // 생성 직후 targetId가 연결된 경우 최종 WebP URL까지 대상 엔티티에 반영한다.
-      await updateTargetEntity({ purpose, targetId, ownerUserId, imageId, destinationKey, publicUrl });
+    let thumbnailKey = null;
+    let thumbnailUrl = null;
+    if (shouldCreateThumbnail(purpose)) {
+      const thumbnailVariant = await createVariant(inputBuffer, IMAGE_VARIANTS.thumbnail);
+      thumbnailKey = buildDestinationKey(purpose, destinationOwner, imageId, 'thumbnail');
+      await s3.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: thumbnailKey,
+        Body: thumbnailVariant,
+        ContentType: 'image/webp',
+        CacheControl: 'public, max-age=31536000, immutable',
+        Metadata: {
+          'source-upload-key': key,
+          'image-id': imageId,
+          purpose,
+          variant: 'thumbnail',
+        },
+      }));
+      thumbnailUrl = buildPublicUrl(thumbnailKey);
     }
 
-    console.log('Image processed', { imageId, purpose, targetId, destinationKey });
+    const publicUrl = buildPublicUrl(destinationKey);
+    await markImageCompleted(imageId, destinationKey, publicUrl, thumbnailKey, thumbnailUrl);
+    if (targetId) {
+      // 생성 직후 targetId가 연결된 경우 최종 WebP URL까지 대상 엔티티에 반영한다.
+      await updateTargetEntity({ purpose, targetId, ownerUserId, imageId, destinationKey, publicUrl, thumbnailKey, thumbnailUrl });
+    }
+
+    console.log('Image processed', { imageId, purpose, targetId, destinationKey, thumbnailKey });
   } catch (error) {
     await markImageFailed(imageId, purpose, ownerUserId, targetId, error);
     throw error;
@@ -170,9 +203,26 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
-function buildDestinationKey(purpose, targetOrOwnerId, imageId) {
+function createVariant(inputBuffer, variant) {
+  return sharp(inputBuffer)
+    .rotate()
+    .resize({
+      width: variant.width,
+      height: variant.height,
+      fit: variant.fit,
+      withoutEnlargement: true,
+    })
+    .webp({ quality: variant.quality })
+    .toBuffer();
+}
+
+function shouldCreateThumbnail(purpose) {
+  return THUMBNAIL_PURPOSES.has(purpose);
+}
+
+function buildDestinationKey(purpose, targetOrOwnerId, imageId, variantName) {
   const prefix = PURPOSE_PREFIX[purpose];
-  return `public/${prefix}/${sanitizePathPart(targetOrOwnerId)}/${imageId}.webp`;
+  return `public/${prefix}/${sanitizePathPart(targetOrOwnerId)}/${imageId}/${variantName}.webp`;
 }
 
 function sanitizePathPart(value) {
@@ -186,44 +236,73 @@ function buildPublicUrl(key) {
   return `/${key}`;
 }
 
-async function markImageCompleted(imageId, publicKey, publicUrl) {
+async function markImageCompleted(imageId, publicKey, publicUrl, thumbnailKey, thumbnailUrl) {
+  const updateParts = [
+    '#status = :status',
+    'publicKey = :publicKey',
+    'publicUrl = :publicUrl',
+    'updatedAt = :updatedAt',
+  ];
+  const values = {
+    ':status': { S: 'COMPLETED' },
+    ':publicKey': { S: publicKey },
+    ':publicUrl': { S: publicUrl },
+    ':updatedAt': { S: new Date().toISOString() },
+  };
+
+  if (thumbnailKey && thumbnailUrl) {
+    updateParts.push('thumbnailKey = :thumbnailKey', 'thumbnailUrl = :thumbnailUrl');
+    values[':thumbnailKey'] = { S: thumbnailKey };
+    values[':thumbnailUrl'] = { S: thumbnailUrl };
+  }
+
   await dynamodb.send(new UpdateItemCommand({
     TableName: TABLE_NAME,
     Key: {
       PK: { S: `IMAGE#${imageId}` },
       SK: { S: 'METADATA' },
     },
-    UpdateExpression: 'SET #status = :status, publicKey = :publicKey, publicUrl = :publicUrl, updatedAt = :updatedAt REMOVE failureReason',
+    UpdateExpression: `SET ${updateParts.join(', ')} REMOVE failureReason`,
     ExpressionAttributeNames: {
       '#status': 'status',
     },
-    ExpressionAttributeValues: {
-      ':status': { S: 'COMPLETED' },
-      ':publicKey': { S: publicKey },
-      ':publicUrl': { S: publicUrl },
-      ':updatedAt': { S: new Date().toISOString() },
-    },
+    ExpressionAttributeValues: values,
   }));
 }
 
-async function updateTargetEntity({ purpose, targetId, ownerUserId, imageId, destinationKey, publicUrl }) {
+async function updateTargetEntity({ purpose, targetId, ownerUserId, imageId, destinationKey, publicUrl, thumbnailKey, thumbnailUrl }) {
   const key = getTargetKey(purpose, targetId, ownerUserId);
   if (!key) return;
 
   const urlAttribute = purpose === 'MEMBER' ? 'avatarUrl' : 'imageUrl';
+  const updateParts = [
+    `${urlAttribute} = :url`,
+    'imageId = :imageId',
+    'imageStatus = :status',
+    'imageObjectKey = :objectKey',
+    'updatedAt = :updatedAt',
+  ];
+  const values = {
+    ':url': { S: publicUrl },
+    ':imageId': { S: imageId },
+    ':status': { S: 'COMPLETED' },
+    ':objectKey': { S: destinationKey },
+    ':updatedAt': { S: new Date().toISOString() },
+  };
+
+  if (thumbnailKey && thumbnailUrl) {
+    updateParts.push('thumbnailUrl = :thumbnailUrl', 'thumbnailObjectKey = :thumbnailObjectKey');
+    values[':thumbnailUrl'] = { S: thumbnailUrl };
+    values[':thumbnailObjectKey'] = { S: thumbnailKey };
+  }
+
   try {
     await dynamodb.send(new UpdateItemCommand({
       TableName: TABLE_NAME,
       Key: key,
-      UpdateExpression: `SET ${urlAttribute} = :url, imageId = :imageId, imageStatus = :status, imageObjectKey = :objectKey, updatedAt = :updatedAt`,
+      UpdateExpression: `SET ${updateParts.join(', ')}`,
       ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-      ExpressionAttributeValues: {
-        ':url': { S: publicUrl },
-        ':imageId': { S: imageId },
-        ':status': { S: 'COMPLETED' },
-        ':objectKey': { S: destinationKey },
-        ':updatedAt': { S: new Date().toISOString() },
-      },
+      ExpressionAttributeValues: values,
     }));
   } catch (error) {
     if (error?.name === 'ConditionalCheckFailedException') {
@@ -237,6 +316,13 @@ async function updateTargetEntity({ purpose, targetId, ownerUserId, imageId, des
 
 function getTargetKey(purpose, targetId, ownerUserId) {
   if (purpose === 'MEMBER') {
+    const groupMemberTarget = parseGroupMemberTarget(targetId);
+    if (groupMemberTarget) {
+      return {
+        PK: { S: `GROUP#${groupMemberTarget.groupId}` },
+        SK: { S: `MEMBER#${groupMemberTarget.userId}` },
+      };
+    }
     return {
       PK: { S: `USER#${targetId}` },
       SK: { S: 'PROFILE' },
@@ -254,11 +340,19 @@ function getTargetKey(purpose, targetId, ownerUserId) {
       SK: { S: `SCHEDULE#${targetId}` },
     };
   }
-  if (purpose === 'GROUP_POST') {
+  if (purpose === 'GROUP_POST' || purpose === 'COMMUNITY_POST') {
     return {
       PK: { S: `POST#${targetId}` },
       SK: { S: 'METADATA' },
     };
+  }
+  return null;
+}
+
+function parseGroupMemberTarget(targetId) {
+  const parts = String(targetId || '').split('#');
+  if (parts.length === 3 && parts[0] === 'GROUP_MEMBER' && parts[1] && parts[2]) {
+    return { groupId: parts[1], userId: parts[2] };
   }
   return null;
 }

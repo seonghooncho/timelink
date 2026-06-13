@@ -158,7 +158,7 @@ describe('GroupsPage', () => {
     renderPage();
 
     expect(screen.getByText('이번 주 모임 시간')).toBeInTheDocument();
-    expect(screen.getByText('가능한 시간을 남겨주세요')).toBeInTheDocument();
+    expect(screen.queryByText('가능한 시간을 남겨주세요')).not.toBeInTheDocument();
     expect(screen.getByText('조율 중')).toBeInTheDocument();
   });
 

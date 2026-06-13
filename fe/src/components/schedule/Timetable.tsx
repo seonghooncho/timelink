@@ -17,15 +17,26 @@ interface TimetableProps {
   startDate: Date;
   days: number;
   onBlockClick: (schedule: Schedule) => void;
+  onEmptyBlockClick?: () => void;
   onPrev: () => void;
   onNext: () => void;
+  selectedScheduleId?: string | null;
 }
 
 const HOUR_START = TIMETABLE_HOUR_START;
 const HOUR_END = TIMETABLE_HOUR_END;
 const HOUR_HEIGHT = TIMETABLE_HOUR_HEIGHT;
 
-const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlockClick, onPrev, onNext }) => {
+const Timetable: React.FC<TimetableProps> = ({
+  schedules,
+  startDate,
+  days,
+  onBlockClick,
+  onEmptyBlockClick,
+  onPrev,
+  onNext,
+  selectedScheduleId,
+}) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const dragStateRef = useRef<{ startY: number; startScrollTop: number; moved: boolean } | null>(null);
@@ -159,6 +170,12 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
               key={dayIdx}
               className="flex-1 relative border-l border-border"
               data-testid={`timetable-day-column-${dayIdx}`}
+              onClick={() => {
+                if (suppressClickRef.current) {
+                  return;
+                }
+                onEmptyBlockClick?.();
+              }}
               style={{ height: gridHeight }}
             >
               {/* Hour lines */}
@@ -179,6 +196,7 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
               {/* Schedule segments */}
               {segments.map((seg, idx) => {
                 const s = seg.schedule;
+                const isSelected = selectedScheduleId === s.id;
                 // Dynamic border-radius: remove rounding on connected edges
                 const radius = 6;
                 const borderRadius = [
@@ -191,20 +209,27 @@ const Timetable: React.FC<TimetableProps> = ({ schedules, startDate, days, onBlo
                 return (
                   <React.Fragment key={`${seg.scheduleId}-${idx}`}>
                     <button
-                      onClick={() => {
+                      data-testid={`timetable-schedule-${s.id}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
                         if (suppressClickRef.current) {
                           return;
                         }
                         onBlockClick(s);
                       }}
-                      className="absolute px-1 py-0.5 text-left overflow-hidden border transition-transform active:scale-[0.97] z-10"
+                      className={`absolute overflow-hidden border px-1 py-0.5 text-left transition-all duration-200 active:scale-[0.97] ${
+                        isSelected ? 'z-20 scale-[1.02] ring-2 ring-foreground/20' : 'z-10'
+                      }`}
                       style={{
                         top: seg.connectedTop ? seg.top - 1 : seg.top,
                         height: seg.connectedTop ? seg.height + 1 : seg.height,
                         left: seg.left,
                         width: seg.width,
                         borderRadius,
-                        ...getScheduleColorStyle(s, s.isImportant ? 'strong' : 'soft'),
+                        ...getScheduleColorStyle(s, s.isImportant ? 'strong' : 'solid'),
+                        ...(isSelected ? {
+                          boxShadow: '0 0 0 2px hsl(var(--background)), 0 10px 18px hsl(var(--foreground) / 0.18)',
+                        } : {}),
                       }}
                     >
                       {seg.isFirst && (

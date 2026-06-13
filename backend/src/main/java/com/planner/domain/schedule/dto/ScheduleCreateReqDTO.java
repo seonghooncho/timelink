@@ -8,7 +8,7 @@ import java.util.List;
 
 @Data
 public class ScheduleCreateReqDTO {
-    @NotBlank @Size(max = 80) private String title;
+    @NotBlank @Size(max = 40) private String title;
     @Size(max = 1000) private String content;
     @NotBlank private String category;
     private Boolean isImportant = false;
