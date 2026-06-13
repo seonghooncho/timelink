@@ -345,7 +345,9 @@ describe('GroupDetailPage group posts', () => {
     renderPage();
 
     await screen.findByText('모임 글');
-    fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
+    const writeButton = screen.getByRole('button', { name: '글쓰기' });
+    expect(writeButton).toHaveClass('app-floating-action-above-group-actions');
+    fireEvent.click(writeButton);
     const titleInput = screen.getByPlaceholderText('제목을 입력해주세요');
     const contentInput = screen.getByPlaceholderText('멤버들에게 공유할 내용을 적어주세요.');
     expect(titleInput).toHaveAttribute('maxLength', '40');
