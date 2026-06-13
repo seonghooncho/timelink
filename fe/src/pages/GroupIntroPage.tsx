@@ -814,13 +814,11 @@ const IntroPostList: React.FC<{
             <>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span className="font-semibold">{post.authorNickname || '멤버'}</span>
-                <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                <span>{formatRelativeTime(post.createdAt)}</span>
                 {post.memberOnly ? (
                   <span className="rounded-full bg-muted px-1.5 py-0.5 font-semibold">모임 공개</span>
                 ) : null}
               </div>
-              <h3 className="mt-2 line-clamp-2 text-sm font-bold text-foreground">{post.title}</h3>
+              <h3 className="mt-1 line-clamp-2 text-sm font-bold text-foreground">{post.title}</h3>
               <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
                 {post.content || post.contentSnippet}
               </p>
@@ -828,6 +826,7 @@ const IntroPostList: React.FC<{
                 <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
               ) : null}
               <div className="mt-3 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+                <span className="font-medium">{formatRelativeTime(post.createdAt)}</span>
                 <span className="inline-flex items-center gap-1">
                   <Heart className="h-3.5 w-3.5" />
                   {post.likeCount}
