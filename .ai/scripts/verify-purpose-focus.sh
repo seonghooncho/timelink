@@ -20,17 +20,17 @@ EOF
 section_exists() {
   local text="$1"
   local heading="$2"
-  printf '%s\n' "$text" | grep -Eq "^##[[:space:]]*${heading}([[:space:]].*)?$"
+  grep -Eq "^##[[:space:]]*${heading}([[:space:]].*)?$" <<< "$text"
 }
 
 extract_section() {
   local text="$1"
   local heading="$2"
-  printf '%s\n' "$text" | awk -v h="$heading" '
+  awk -v h="$heading" '
     $0 ~ "^##[[:space:]]*" h "([[:space:]].*)?$" { in_section=1; next }
     in_section && $0 ~ "^##[[:space:]]+" { exit }
     in_section { print }
-  '
+  ' <<< "$text"
 }
 
 normalize_line() {

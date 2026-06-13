@@ -8,4 +8,5 @@ public class GroupUpdateReqDTO {
     private String description;
     private String imageUrl;
     private String imageId;
+    private String visibility;
 }

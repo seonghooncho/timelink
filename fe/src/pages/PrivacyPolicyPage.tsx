@@ -17,7 +17,7 @@ const PrivacyPolicyPage: React.FC = () => {
         <section className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm font-bold text-foreground">Timelink 개인정보처리방침</p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            Timelink는 개인 일정과 그룹 일정 조율을 제공하기 위해 필요한 최소한의 개인정보를 처리합니다.
+            Timelink는 개인 일정과 모임 일정 조율을 제공하기 위해 필요한 최소한의 개인정보를 처리합니다.
             본 방침은 2026년 6월 10일부터 적용됩니다.
           </p>
         </section>
@@ -26,7 +26,7 @@ const PrivacyPolicyPage: React.FC = () => {
           <ul className="list-disc pl-4 space-y-1.5">
             <li>공통: 사용자 식별자, 닉네임, 프로필 이미지, 생성·수정 시각</li>
             <li>소셜 로그인: 제공자가 전달한 계정 식별자, 동의한 경우 닉네임과 프로필 이미지</li>
-            <li>서비스 이용 정보: 일정, 그룹, 그룹원, 일정 조율 응답, 알림 설정, 앱 사용 중 생성한 이미지 URL</li>
+            <li>서비스 이용 정보: 일정, 모임, 모임 멤버, 공개 모임 가입요청 인삿말, 일정 조율 응답, 알림 설정, 앱 사용 중 생성한 이미지 URL</li>
             <li>푸시 알림 사용 시: 브라우저 푸시 구독 endpoint, 공개키, 인증키, user agent</li>
             <li>서비스 이용 분석: 페이지 조회, 버튼 클릭 등 이벤트 정보, 접속 환경, 대략적인 유입 정보</li>
           </ul>
@@ -35,8 +35,9 @@ const PrivacyPolicyPage: React.FC = () => {
         <Section title="2. 이용 목적">
           <ul className="list-disc pl-4 space-y-1.5">
             <li>로그인 상태 유지와 사용자 식별</li>
-            <li>개인·그룹 일정 관리, 일정 조율, 그룹원 표시</li>
-            <li>일정 리마인드, 그룹 활동, 중요 일정에 대한 알림 제공</li>
+            <li>개인·모임 일정 관리, 일정 조율, 모임 멤버 표시</li>
+            <li>공개 모임 가입요청 전달과 관리자 승인 처리</li>
+            <li>일정 리마인드, 모임 활동, 중요 일정에 대한 알림 제공</li>
             <li>서비스 사용 흐름 분석과 기능 개선</li>
             <li>서비스 안정성 확인, 오류 대응, 부정 이용 방지</li>
           </ul>

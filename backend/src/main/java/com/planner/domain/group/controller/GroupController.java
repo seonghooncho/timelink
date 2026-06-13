@@ -2,6 +2,9 @@ package com.planner.domain.group.controller;
 
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupJoinReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
@@ -34,6 +37,17 @@ public class GroupController {
         String userId = AuthUtil.getCurrentUserId();
         int size = resolveLimit(limit);
         CursorPageResult<GroupResDTO> page = service.getMyGroupsPaged(userId, size, cursor);
+        CustomResponse.PageMeta meta = service.toPageMeta(page, size);
+        return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
+    }
+
+    @GetMapping("/public")
+    public ResponseEntity<CustomResponse<List<GroupResDTO>>> getPublicGroups(
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String cursor) {
+        String userId = AuthUtil.getCurrentUserId();
+        int size = resolveLimit(limit);
+        CursorPageResult<GroupResDTO> page = service.getPublicGroupsPaged(userId, size, cursor);
         CustomResponse.PageMeta meta = service.toPageMeta(page, size);
         return ResponseEntity.ok(CustomResponse.ok(page.getItems(), meta));
     }
@@ -84,6 +98,30 @@ public class GroupController {
     public ResponseEntity<CustomResponse<List<GroupMemberResDTO>>> getMembers(@PathVariable String id) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.getMembers(userId, id)));
+    }
+
+    @PostMapping("/{id}/join-requests")
+    public ResponseEntity<CustomResponse<GroupJoinRequestResDTO>> requestToJoin(
+            @PathVariable String id,
+            @Valid @RequestBody GroupJoinRequestCreateReqDTO req) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(CustomResponse.ok(service.requestToJoin(userId, id, req)));
+    }
+
+    @GetMapping("/{id}/join-requests")
+    public ResponseEntity<CustomResponse<List<GroupJoinRequestResDTO>>> getJoinRequests(@PathVariable String id) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.getJoinRequests(userId, id)));
+    }
+
+    @PatchMapping("/{id}/join-requests/{memberUserId}")
+    public ResponseEntity<CustomResponse<GroupJoinRequestResDTO>> decideJoinRequest(
+            @PathVariable String id,
+            @PathVariable String memberUserId,
+            @Valid @RequestBody GroupJoinRequestDecisionReqDTO req) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.decideJoinRequest(userId, id, memberUserId, req)));
     }
 
     @DeleteMapping("/{id}/members/me")

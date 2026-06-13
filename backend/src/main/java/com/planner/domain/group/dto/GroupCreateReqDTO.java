@@ -9,4 +9,5 @@ public class GroupCreateReqDTO {
     private String description;
     private String imageUrl;
     private String imageId;
+    private String visibility;
 }

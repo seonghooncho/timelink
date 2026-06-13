@@ -19,7 +19,7 @@ const GroupsPage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title="나의 그룹" rightElement={
+      <PageHeader title="나의 모임" rightElement={
         <button onClick={() => navigate('/notifications')} className="p-2 rounded-xl text-muted-foreground hover:bg-muted transition-all">
           <Bell className="w-5 h-5" />
         </button>
@@ -34,9 +34,9 @@ const GroupsPage: React.FC = () => {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Users className="h-7 w-7" />
             </div>
-            <h2 className="mt-5 text-lg font-bold text-foreground">아직 참여한 그룹이 없습니다</h2>
+            <h2 className="mt-5 text-lg font-bold text-foreground">아직 참여한 모임이 없습니다</h2>
             <p className="mt-2 max-w-[280px] text-sm leading-6 text-muted-foreground">
-              스터디, 팀, 모임을 만들면 함께 가능한 시간을 조율하고 그룹 일정을 바로 등록할 수 있어요.
+              스터디, 팀, 약속 모임을 만들면 함께 가능한 시간을 조율하고 모임 일정을 바로 등록할 수 있어요.
             </p>
 
             <button
@@ -45,13 +45,13 @@ const GroupsPage: React.FC = () => {
               className="mt-6 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
-              그룹 만들기
+              모임 만들기
             </button>
 
             <div className="mt-4 flex max-w-xs items-start gap-2 rounded-xl bg-muted px-3 py-3 text-left">
               <UserPlus className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <p className="text-[11px] leading-5 text-muted-foreground">
-                초대를 받았다면 공유받은 링크를 열면 자동으로 그룹 참여 화면으로 이동합니다.
+                초대를 받았다면 공유받은 링크를 열면 자동으로 모임 참여 화면으로 이동합니다.
               </p>
             </div>
           </div>
@@ -75,7 +75,7 @@ const GroupsPage: React.FC = () => {
                 disabled={isFetchingNextPage}
                 className="w-full rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
-                {isFetchingNextPage ? '불러오는 중...' : '그룹 더보기'}
+                {isFetchingNextPage ? '불러오는 중...' : '모임 더보기'}
               </button>
             ) : null}
           </>

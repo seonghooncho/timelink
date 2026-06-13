@@ -11,6 +11,9 @@ public class NotificationResDTO {
     private String title;
     private String content;
     private String category;
+    private String targetType;
+    private String targetId;
+    private String targetUrl;
     private Boolean isImportant;
     private Boolean isRead;
     private String createdAt;

@@ -20,7 +20,8 @@ DynamoDB 단일 테이블의 key pattern과 운영 lookup 기준을 문서화해
 # │ NotificationSettings│ USER#{userId}                │ NOTIF_SETTINGS   │
 # │ Notification        │ USER#{userId}                │ NOTIF#{ts}#{id}  │
 # │ Group               │ GROUP#{groupId}              │ METADATA         │
-# │ GroupMember          │ GROUP#{groupId}              │ MEMBER#{userId}  │
+# │ GroupMember         │ GROUP#{groupId}              │ MEMBER#{userId}  │
+# │ GroupJoinRequest    │ GROUP#{groupId}              │ JOIN_REQUEST#{userId} │
 # │ Coordination        │ GROUP#{groupId}              │ COORD#{coordId}  │
 # │ CoordinationResponse│ COORD#{coordId}              │ RESP#{userId}#.. │
 # │ ImageUpload         │ IMAGE#{imageId}              │ METADATA         │
@@ -32,9 +33,13 @@ DynamoDB 단일 테이블의 key pattern과 운영 lookup 기준을 문서화해
 # GSI2: user-groups
 #   PK: USER#{userId}  SK: GROUP#{groupId}
 #
+# GSI3: public-groups
+#   PK: GROUP#PUBLIC  SK: CREATED_AT#{createdAt}#GROUP#{groupId}
+#
 # PartiQL reference:
 # - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')
+# - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'JOIN_REQUEST#')
 # - SELECT * FROM "planner_prod_main" WHERE SK='METADATA' AND inviteCode='ABC123'
 # - SELECT * FROM "planner_prod_main" WHERE PK='IMAGE#{imageId}' AND SK='METADATA'
 #

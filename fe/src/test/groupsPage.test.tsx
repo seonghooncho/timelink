@@ -34,17 +34,17 @@ describe('GroupsPage', () => {
     });
   });
 
-  it('shows a creation-focused placeholder when the user has no groups', () => {
+  it('shows a creation-focused placeholder when the user has no meetups', () => {
     render(
       <MemoryRouter>
         <GroupsPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('아직 참여한 그룹이 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('아직 참여한 모임이 없습니다')).toBeInTheDocument();
     expect(screen.getByText(/초대를 받았다면 공유받은 링크/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /그룹 만들기/ }));
+    fireEvent.click(screen.getByRole('button', { name: /모임 만들기/ }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/groups/new');
   });
@@ -73,7 +73,7 @@ describe('GroupsPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '그룹 더보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '모임 더보기' }));
 
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
   });

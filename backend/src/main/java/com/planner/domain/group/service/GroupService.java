@@ -3,6 +3,9 @@ package com.planner.domain.group.service;
 import com.planner.domain.group.converter.GroupConverter;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
 import com.planner.domain.group.dto.GroupDetailResDTO;
+import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
+import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
@@ -10,6 +13,7 @@ import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.model.Group;
 import com.planner.domain.group.model.GroupInvite;
+import com.planner.domain.group.model.GroupJoinRequest;
 import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
@@ -40,6 +44,11 @@ import java.util.stream.Collectors;
 public class GroupService {
 
     private static final int INVITE_CODE_RETRY_LIMIT = 10;
+    private static final String VISIBILITY_PRIVATE = "PRIVATE";
+    private static final String VISIBILITY_PUBLIC = "PUBLIC";
+    private static final String JOIN_REQUEST_PENDING = "PENDING";
+    private static final String JOIN_REQUEST_APPROVED = "APPROVED";
+    private static final String JOIN_REQUEST_REJECTED = "REJECTED";
 
     private final GroupRepository repository;
     private final ProfileRepository profileRepository;
@@ -56,10 +65,12 @@ public class GroupService {
                 .pk("GROUP#" + groupId).sk("METADATA")
                 .id(groupId).name(req.getName()).description(req.getDescription())
                 .imageUrl(req.getImageUrl()).createdBy(userId)
+                .visibility(normalizeVisibility(req.getVisibility()))
                 .inviteCode(inviteCode)
                 .memberCount(1)
                 .createdAt(now).updatedAt(now)
                 .build();
+        applyPublicIndexFields(group);
         repository.saveGroup(group);
         applyGroupImage(userId, group, req.getImageId());
 
@@ -88,6 +99,30 @@ public class GroupService {
 
         return CursorPageResult.<GroupResDTO>builder()
                 .items(toGroupListResponses(page.getItems()))
+                .nextCursor(page.getNextCursor())
+                .build();
+    }
+
+    public CursorPageResult<GroupResDTO> getPublicGroupsPaged(String userId, Integer limit, String cursorToken) {
+        int size = (limit != null && limit > 0) ? limit : 20;
+        Cursor cursor = (cursorToken != null) ? cursorCodec.decode(cursorToken) : null;
+        CursorPageResult<Group> page = repository.findPublicGroupsPaged(size, cursor);
+
+        return CursorPageResult.<GroupResDTO>builder()
+                .items(page.getItems().stream()
+                        .map(group -> {
+                            GroupMember membership = repository.findMember(group.getId(), userId).orElse(null);
+                            GroupJoinRequest joinRequest = membership == null
+                                    ? repository.findJoinRequest(group.getId(), userId).orElse(null)
+                                    : null;
+                            return GroupConverter.toPublicListResponse(
+                                    group,
+                                    membership,
+                                    joinRequest,
+                                    resolveMemberCount(group, group.getId())
+                            );
+                        })
+                        .collect(Collectors.toList()))
                 .nextCursor(page.getNextCursor())
                 .build();
     }
@@ -129,15 +164,20 @@ public class GroupService {
         String previousDescription = group.getDescription();
         String previousImageId = group.getImageId();
         String previousImageUrl = group.getImageUrl();
+        String previousVisibility = resolveVisibility(group);
 
         if (req.getName() != null) group.setName(req.getName());
         if (req.getDescription() != null) group.setDescription(req.getDescription());
         if (req.getImageUrl() != null) group.setImageUrl(req.getImageUrl());
+        if (req.getVisibility() != null) {
+            group.setVisibility(normalizeVisibility(req.getVisibility()));
+            applyPublicIndexFields(group);
+        }
         group.setUpdatedAt(Instant.now().toString());
 
         repository.saveGroup(group);
         applyGroupImage(userId, group, req.getImageId());
-        if (hasGroupDisplayChange(group, previousName, previousDescription, previousImageId, previousImageUrl)) {
+        if (hasGroupDisplayChange(group, previousName, previousDescription, previousImageId, previousImageUrl, previousVisibility)) {
             notifyGroupInfoUpdated(userId, group);
         }
         return getDetail(userId, groupId);
@@ -218,6 +258,77 @@ public class GroupService {
         notifyMemberRemoved(group, target);
     }
 
+    public GroupJoinRequestResDTO requestToJoin(String userId, String groupId, GroupJoinRequestCreateReqDTO req) {
+        Group group = findGroupOrThrow(groupId);
+        if (!VISIBILITY_PUBLIC.equals(resolveVisibility(group))) {
+            throw new GroupException(GroupErrorCode.NOT_PUBLIC_GROUP);
+        }
+
+        if (repository.findMember(groupId, userId).isPresent()) {
+            return GroupJoinRequestResDTO.builder()
+                    .groupId(groupId)
+                    .userId(userId)
+                    .status(JOIN_REQUEST_APPROVED)
+                    .nickname(getProfileNickname(userId))
+                    .avatarUrl(getProfileAvatarUrl(userId))
+                    .build();
+        }
+
+        GroupJoinRequest existing = repository.findJoinRequest(groupId, userId).orElse(null);
+        if (existing != null && JOIN_REQUEST_PENDING.equals(existing.getStatus())) {
+            return GroupConverter.toJoinRequestResponse(existing);
+        }
+
+        String now = Instant.now().toString();
+        GroupJoinRequest joinRequest = GroupJoinRequest.builder()
+                .pk("GROUP#" + groupId)
+                .sk("JOIN_REQUEST#" + userId)
+                .id(UUID.randomUUID().toString())
+                .groupId(groupId)
+                .userId(userId)
+                .message(req.getMessage())
+                .status(JOIN_REQUEST_PENDING)
+                .nickname(getProfileNickname(userId))
+                .avatarUrl(getProfileAvatarUrl(userId))
+                .createdAt(now)
+                .build();
+        repository.saveJoinRequest(joinRequest);
+        notifyJoinRequested(group, joinRequest);
+        return GroupConverter.toJoinRequestResponse(joinRequest);
+    }
+
+    public List<GroupJoinRequestResDTO> getJoinRequests(String managerUserId, String groupId) {
+        verifyManager(groupId, managerUserId);
+        return repository.findJoinRequestsByGroupId(groupId).stream()
+                .filter(request -> JOIN_REQUEST_PENDING.equals(request.getStatus()))
+                .sorted((a, b) -> nullSafe(b.getCreatedAt()).compareTo(nullSafe(a.getCreatedAt())))
+                .map(GroupConverter::toJoinRequestResponse)
+                .collect(Collectors.toList());
+    }
+
+    public GroupJoinRequestResDTO decideJoinRequest(String managerUserId, String groupId, String targetUserId, GroupJoinRequestDecisionReqDTO req) {
+        Group group = findGroupOrThrow(groupId);
+        verifyManager(groupId, managerUserId);
+        GroupJoinRequest joinRequest = repository.findJoinRequest(groupId, targetUserId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.JOIN_REQUEST_NOT_FOUND));
+        if (!JOIN_REQUEST_PENDING.equals(joinRequest.getStatus())) {
+            throw new GroupException(GroupErrorCode.INVALID_JOIN_REQUEST_STATUS);
+        }
+
+        String decision = normalizeJoinRequestDecision(req.getStatus());
+        joinRequest.setStatus(decision);
+        joinRequest.setDecidedAt(Instant.now().toString());
+
+        if (JOIN_REQUEST_APPROVED.equals(decision)) {
+            approveJoinRequest(group, joinRequest);
+        } else {
+            notifyJoinRequestRejected(group, joinRequest);
+        }
+
+        repository.saveJoinRequest(joinRequest);
+        return GroupConverter.toJoinRequestResponse(joinRequest);
+    }
+
     // ── private helpers ──
 
     private Group findGroupOrThrow(String groupId) {
@@ -244,6 +355,14 @@ public class GroupService {
     private void verifyMembership(String groupId, String userId) {
         repository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+    }
+
+    private void verifyManager(String groupId, String userId) {
+        GroupMember member = repository.findMember(groupId, userId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+        if (!"manager".equals(member.getRole())) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
+        }
     }
 
     private List<GroupMember> findMembersWithProfiles(String groupId) {
@@ -379,11 +498,113 @@ public class GroupService {
             String previousName,
             String previousDescription,
             String previousImageId,
-            String previousImageUrl
+            String previousImageUrl,
+            String previousVisibility
     ) {
         return !Objects.equals(previousName, group.getName())
                 || !Objects.equals(previousDescription, group.getDescription())
                 || !Objects.equals(previousImageId, group.getImageId())
-                || !Objects.equals(previousImageUrl, group.getImageUrl());
+                || !Objects.equals(previousImageUrl, group.getImageUrl())
+                || !Objects.equals(previousVisibility, resolveVisibility(group));
+    }
+
+    private void applyPublicIndexFields(Group group) {
+        if (VISIBILITY_PUBLIC.equals(resolveVisibility(group))) {
+            group.setGsi3pk("GROUP#PUBLIC");
+            group.setGsi3sk(nullSafe(group.getCreatedAt()) + "#" + group.getId());
+            return;
+        }
+
+        group.setGsi3pk(null);
+        group.setGsi3sk(null);
+    }
+
+    private String normalizeVisibility(String visibility) {
+        if (!StringUtils.hasText(visibility)) {
+            return VISIBILITY_PRIVATE;
+        }
+
+        String normalized = visibility.trim().toUpperCase();
+        if (VISIBILITY_PRIVATE.equals(normalized) || VISIBILITY_PUBLIC.equals(normalized)) {
+            return normalized;
+        }
+        throw new GroupException(GroupErrorCode.INVALID_GROUP_VISIBILITY);
+    }
+
+    private String resolveVisibility(Group group) {
+        return StringUtils.hasText(group.getVisibility()) ? group.getVisibility() : VISIBILITY_PRIVATE;
+    }
+
+    private String normalizeJoinRequestDecision(String status) {
+        if (!StringUtils.hasText(status)) {
+            throw new GroupException(GroupErrorCode.INVALID_JOIN_REQUEST_STATUS);
+        }
+
+        String normalized = status.trim().toUpperCase();
+        if (JOIN_REQUEST_APPROVED.equals(normalized) || JOIN_REQUEST_REJECTED.equals(normalized)) {
+            return normalized;
+        }
+        throw new GroupException(GroupErrorCode.INVALID_JOIN_REQUEST_STATUS);
+    }
+
+    private void approveJoinRequest(Group group, GroupJoinRequest request) {
+        if (repository.findMember(group.getId(), request.getUserId()).isEmpty()) {
+            GroupMember member = GroupMember.builder()
+                    .pk("GROUP#" + group.getId()).sk("MEMBER#" + request.getUserId())
+                    .id(UUID.randomUUID().toString()).groupId(group.getId()).userId(request.getUserId())
+                    .role("member")
+                    .nickname(getProfileNickname(request.getUserId()))
+                    .avatarUrl(getProfileAvatarUrl(request.getUserId()))
+                    .gsi2pk("USER#" + request.getUserId()).gsi2sk("GROUP#" + group.getId())
+                    .joinedAt(Instant.now().toString())
+                    .build();
+            repository.saveMember(member);
+            refreshMemberCountAfterChange(group, 1);
+            notifyMemberJoined(group, member);
+        }
+
+        notificationService.createGroupNotification(
+                request.getUserId(),
+                "모임 가입요청이 승인되었습니다",
+                "%s 모임에 참여할 수 있습니다.".formatted(group.getName()),
+                "GROUP",
+                group.getId(),
+                "/groups/%s".formatted(group.getId())
+        );
+    }
+
+    private void notifyJoinRequested(Group group, GroupJoinRequest request) {
+        String requesterName = StringUtils.hasText(request.getNickname()) ? request.getNickname() : request.getUserId();
+        String content = StringUtils.hasText(request.getMessage())
+                ? request.getMessage()
+                : "%s 모임에 가입하고 싶어합니다.".formatted(group.getName());
+
+        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
+            if ("manager".equals(member.getRole())) {
+                notificationService.createGroupNotification(
+                        member.getUserId(),
+                        "%s님이 모임 가입을 요청했습니다".formatted(requesterName),
+                        content,
+                        "GROUP_JOIN_REQUEST",
+                        group.getId(),
+                        "/groups/%s?panel=joinRequests".formatted(group.getId())
+                );
+            }
+        }
+    }
+
+    private void notifyJoinRequestRejected(Group group, GroupJoinRequest request) {
+        notificationService.createGroupNotification(
+                request.getUserId(),
+                "모임 가입요청이 거절되었습니다",
+                "%s 모임 가입요청이 거절되었습니다.".formatted(group.getName()),
+                "GROUP",
+                group.getId(),
+                "/community"
+        );
+    }
+
+    private String nullSafe(String value) {
+        return value != null ? value : "";
     }
 }

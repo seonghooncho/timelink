@@ -1,7 +1,7 @@
 # Timelink — RESTful API 명세서
 
-> **Base URL**: `api/planner/v1`  
-> **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)  
+> **Base URL**: `api/planner/v1`
+> **인증**: 모든 요청에 `Authorization: Bearer <JWT>` 헤더 필요 (별도 명시 없는 한)
 > **Content-Type**: `application/json`
 
 ## 근본 목적
@@ -20,8 +20,8 @@
 2. [인증 (Auth)](#2-인증-auth)
 3. [프로필 (Profiles)](#3-프로필-profiles)
 4. [일정 (Schedules)](#4-일정-schedules)
-5. [그룹 (Groups)](#5-그룹-groups)
-6. [그룹 멤버 (Group Members)](#6-그룹-멤버-group-members)
+5. [모임 (Groups)](#5-모임-groups)
+6. [모임 멤버 (Group Members)](#6-모임-멤버-group-members)
 7. [시간 조율 (Coordinations)](#7-시간-조율-coordinations)
 8. [시간 조율 응답 (Coordination Responses)](#8-시간-조율-응답-coordination-responses)
 9. [알림 (Notifications)](#9-알림-notifications)
@@ -304,7 +304,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 5. 그룹 (Groups)
+## 5. 모임 (Groups)
 
 ### DynamoDB 키 설계
 
@@ -312,11 +312,17 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 |--------|----|----|
 | Group | `GROUP#{groupId}` | `METADATA` |
 | GroupMember | `GROUP#{groupId}` | `MEMBER#{userId}` |
+| GroupJoinRequest | `GROUP#{groupId}` | `JOIN_REQUEST#{userId}` |
 
-**GSI2** (사용자별 그룹 조회):  
+**GSI2** (사용자별 그룹 조회):
 | GSI2PK | GSI2SK |
 |--------|--------|
 | `USER#{userId}` | `GROUP#{groupId}` |
+
+**GSI3** (공개 모임 탐색):
+| GSI3PK | GSI3SK |
+|--------|--------|
+| `GROUP#PUBLIC` | `CREATED_AT#{createdAt}#GROUP#{groupId}` |
 
 ### Endpoints
 
@@ -324,7 +330,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `GET` /api/planner/v1/groups
 
-내 그룹 목록 (내가 멤버인 그룹). 커서 페이지네이션을 사용하며 `limit` 기본값은 20, 최대값은 100입니다.
+내 모임 목록 (내가 멤버인 모임). 커서 페이지네이션을 사용하며 `limit` 기본값은 20, 최대값은 100입니다.
 
 **Query Parameters**
 | 이름 | 타입 | 필수 | 설명 |
@@ -344,8 +350,47 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "imageId": "image-uuid",
       "imageStatus": "COMPLETED",
       "inviteCode": "ABC123",
+      "visibility": "PRIVATE",
       "memberCount": 4,
       "myRole": "manager",
+      "joinRequestStatus": null,
+      "createdAt": "2026-03-01T00:00:00Z"
+    }
+  ],
+  "meta": {
+    "perPage": 20,
+    "nextCursor": "opaque-cursor"
+  }
+}
+```
+
+---
+
+#### `GET` /api/planner/v1/groups/public
+
+커뮤니티에서 탐색 가능한 공개 모임 목록. `visibility=PUBLIC` 모임만 반환하며, 커서 페이지네이션을 사용합니다.
+
+**Query Parameters**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `limit` | number | 선택 | 한 번에 조회할 개수. 기본 20, 최대 100 |
+| `cursor` | string | 선택 | 다음 페이지 조회용 opaque cursor |
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "주말 러닝 모임",
+      "description": "한강에서 가볍게 달립니다",
+      "imageUrl": "https://...",
+      "imageId": "image-uuid",
+      "imageStatus": "COMPLETED",
+      "visibility": "PUBLIC",
+      "memberCount": 12,
+      "myRole": null,
+      "joinRequestStatus": "PENDING",
       "createdAt": "2026-03-01T00:00:00Z"
     }
   ],
@@ -360,7 +405,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `GET` /api/planner/v1/groups/:id
 
-그룹 상세 (멤버 포함). **그룹 멤버만** 접근 가능.
+모임 상세 (멤버 포함). **모임 멤버만** 접근 가능.
 
 **Response** `200 OK`
 ```json
@@ -373,6 +418,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "imageId": "image-uuid",
     "imageStatus": "COMPLETED",
     "inviteCode": "ABC123",
+    "visibility": "PRIVATE",
     "createdBy": "uuid",
     "members": [
       {
@@ -389,30 +435,32 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-**Error** `403 NOT_GROUP_MEMBER` — 멤버가 아닌 경우  
-**Error** `404 GROUP_NOT_FOUND` — 존재하지 않는 그룹
+**Error** `403 NOT_GROUP_MEMBER` — 멤버가 아닌 경우
+**Error** `404 GROUP_NOT_FOUND` — 존재하지 않는 모임
 
 ---
 
 #### `POST` /api/planner/v1/groups
 
-그룹 생성. 생성자는 자동으로 `manager` 역할로 등록됨.
+모임 생성. 생성자는 자동으로 `manager` 역할로 등록됨.
 
 **Request Body**
 ```json
 {
   "name": "졸업 프로젝트",
   "description": "졸프 팀",
-  "imageId": "image-uuid"
+  "imageId": "image-uuid",
+  "visibility": "PRIVATE"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | 필수 | 그룹 이름 |
+| `name` | string | 필수 | 모임 이름 |
 | `description` | string | 선택 | 설명 |
 | `imageId` | string | 선택 | `storage/images/presign`으로 생성한 이미지 업로드 ID |
-| `imageUrl` | string | 선택 | 하위 호환용 그룹 이미지 URL |
+| `imageUrl` | string | 선택 | 하위 호환용 모임 이미지 URL |
+| `visibility` | string | 선택 | `PRIVATE` 또는 `PUBLIC`. 생략 시 `PRIVATE` |
 
 **Response** `201 Created` — GroupDetailResDTO 반환
 
@@ -420,27 +468,28 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `PATCH` /api/planner/v1/groups/:id
 
-그룹 정보 수정. **그룹 멤버라면** 수행 가능.
+모임 정보 수정. **모임 멤버라면** 수행 가능.
 
 **Request Body** (변경할 필드만)
 ```json
 {
   "name": "졸업 프로젝트 (수정)",
   "description": "업데이트된 설명",
-  "imageId": "image-uuid"
+  "imageId": "image-uuid",
+  "visibility": "PUBLIC"
 }
 ```
 
 **Response** `200 OK` — GroupDetailResDTO 반환
 
-**Error** `403 NOT_GROUP_MEMBER` — 그룹 멤버가 아닌 경우
+**Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
 
 ---
 
 #### `DELETE` /api/planner/v1/groups/:id
 
-그룹 삭제. **manager만** 수행 가능.  
-> 그룹 삭제 시 모든 멤버 데이터도 함께 정리됩니다.
+모임 삭제. **manager만** 수행 가능.
+> 모임 삭제 시 모든 멤버 데이터도 함께 정리됩니다.
 
 **Response** `204 No Content`
 
@@ -448,7 +497,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ---
 
-## 6. 그룹 멤버 (Group Members)
+## 6. 모임 멤버 (Group Members)
 
 ### Endpoints
 
@@ -456,7 +505,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `POST` /api/planner/v1/groups/join
 
-초대 코드로 그룹 가입. `member` 역할로 자동 등록.
+초대 코드로 모임 가입. `member` 역할로 자동 등록.
 
 **Request Body**
 ```json
@@ -465,7 +514,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-**Response** `200 OK` — GroupDetailResDTO 반환 (가입한 그룹의 상세 정보)
+**Response** `200 OK` — GroupDetailResDTO 반환 (가입한 모임의 상세 정보)
 ```json
 {
   "data": {
@@ -478,14 +527,100 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-**Error** `400 INVALID_INVITE_CODE` — 유효하지 않은 초대 코드  
-**Error** `409 ALREADY_MEMBER` — 이미 그룹 멤버인 경우
+**Error** `400 INVALID_INVITE_CODE` — 유효하지 않은 초대 코드
+**Error** `409 ALREADY_MEMBER` — 이미 모임 멤버인 경우
+
+---
+
+#### `POST` /api/planner/v1/groups/:groupId/join-requests
+
+공개 모임 가입 요청. 공개 모임에 아직 가입하지 않은 사용자만 요청할 수 있으며, 요청자의 프로필 스냅샷과 인삿말을 저장합니다.
+
+**Request Body**
+```json
+{
+  "message": "안녕하세요. 주말 러닝에 함께 참여하고 싶어요."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `message` | string | 선택 | 가입 인삿말. 최대 200자 |
+
+**Response** `201 Created`
+```json
+{
+  "data": {
+    "id": "request-uuid",
+    "groupId": "group-uuid",
+    "userId": "user-uuid",
+    "message": "안녕하세요. 주말 러닝에 함께 참여하고 싶어요.",
+    "status": "PENDING",
+    "nickname": "타임러너",
+    "avatarUrl": "https://...",
+    "createdAt": "2026-03-01T00:00:00Z",
+    "decidedAt": null
+  }
+}
+```
+
+**Error** `400 NOT_PUBLIC_GROUP` — 공개 모임이 아닌 경우
+**Error** `409 ALREADY_MEMBER` — 이미 모임 멤버인 경우
+
+---
+
+#### `GET` /api/planner/v1/groups/:groupId/join-requests
+
+공개 모임 가입 요청 목록. **manager만** 조회 가능하며 기본적으로 대기 중인 요청을 반환합니다.
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "request-uuid",
+      "groupId": "group-uuid",
+      "userId": "user-uuid",
+      "message": "함께 참여하고 싶어요.",
+      "status": "PENDING",
+      "nickname": "타임러너",
+      "avatarUrl": "https://...",
+      "createdAt": "2026-03-01T00:00:00Z",
+      "decidedAt": null
+    }
+  ]
+}
+```
+
+**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+
+---
+
+#### `PATCH` /api/planner/v1/groups/:groupId/join-requests/:memberUserId
+
+공개 모임 가입 요청 승인 또는 거절. **manager만** 수행 가능합니다.
+
+**Request Body**
+```json
+{
+  "status": "APPROVED"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `status` | string | 필수 | `APPROVED` 또는 `REJECTED` |
+
+**Response** `200 OK` — GroupJoinRequestResDTO 반환
+
+**Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+**Error** `404 JOIN_REQUEST_NOT_FOUND` — 가입 요청이 없는 경우
 
 ---
 
 #### `GET` /api/planner/v1/groups/:groupId/members
 
-그룹 멤버 목록. **그룹 멤버만** 조회 가능.
+모임 멤버 목록. **모임 멤버만** 조회 가능.
 
 **Response** `200 OK`
 ```json
@@ -507,7 +642,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `DELETE` /api/planner/v1/groups/:groupId/members/me
 
-그룹 나가기 (본인).
+모임 나가기 (본인).
 
 **Response** `204 No Content`
 
@@ -515,14 +650,14 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `DELETE` /api/planner/v1/groups/:groupId/members/:memberUserId`
 
-그룹 멤버 내보내기. **manager만** 수행 가능.
+모임 멤버 내보내기. **manager만** 수행 가능.
 자기 자신은 이 엔드포인트로 내보낼 수 없으며, 본인 탈퇴는 `/members/me`를 사용합니다.
 
 **Response** `204 No Content`
 
 **Error** `400 CANNOT_REMOVE_SELF` — 자기 자신을 내보내려는 경우
 **Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
-**Error** `403 NOT_GROUP_MEMBER` — 요청자 또는 대상자가 그룹 멤버가 아닌 경우
+**Error** `403 NOT_GROUP_MEMBER` — 요청자 또는 대상자가 모임 멤버가 아닌 경우
 
 ---
 
@@ -746,6 +881,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 | `title` | `text` NOT NULL | 알림 제목 |
 | `content` | `text` | 알림 내용 |
 | `category` | `schedule_category` nullable | 일정 카테고리 |
+| `target_type` | `text` nullable | 클릭 이동 대상 타입. 예: `GROUP_JOIN_REQUEST`, `GROUP` |
+| `target_id` | `text` nullable | 클릭 이동 대상 ID |
+| `target_url` | `text` nullable | 프론트 이동 경로. 예: `/groups/{id}?panel=joinRequests` |
 | `is_important` | `boolean` | 중요 여부 (기본: false) |
 | `is_read` | `boolean` | 읽음 여부 (기본: false) |
 | `created_at` | `timestamptz` | 생성일 |
@@ -776,9 +914,12 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
       "title": "데이터베이스 LAB 2",
       "content": "마감까지 3시간 전 입니다",
       "category": "task",
-      "is_important": false,
-      "is_read": false,
-      "created_at": "2026-03-08T09:00:00Z"
+      "targetType": null,
+      "targetId": null,
+      "targetUrl": null,
+      "isImportant": false,
+      "isRead": false,
+      "createdAt": "2026-03-08T09:00:00Z"
     }
   ],
   "meta": { "perPage": 20, "nextCursor": "opaque-cursor" }
@@ -1131,7 +1272,8 @@ auth-session (JWT subject = userId)
   ├── Schedule (PK: USER#{userId}, SK: SCHEDULE#{id})
   ├── Notification (PK: USER#{userId}, SK: NOTIF#{id})
   └── GroupMember (GSI2PK: USER#{userId}, GSI2SK: GROUP#{groupId})
-        └── Group (PK: GROUP#{groupId}, SK: METADATA)
+        └── Group (PK: GROUP#{groupId}, SK: METADATA, GSI3: 공개 모임 탐색)
+              └── GroupJoinRequest (PK: GROUP#{groupId}, SK: JOIN_REQUEST#{userId})
               └── Coordination (PK: GROUP#{groupId}, SK: COORD#{id})
                     └── CoordinationResponse (PK: COORD#{coordId}, SK: RESP#{userId}#{date}#{hour})
 ```
@@ -1160,14 +1302,18 @@ auth-session (JWT subject = userId)
 | `POST` | `/schedules` | 일정 생성 | 인증 | 구현됨 |
 | `PATCH` | `/schedules/:id` | 일정 수정 | 인증(본인) | 구현됨 |
 | `DELETE` | `/schedules/:id` | 일정 삭제 | 인증(본인) | 구현됨 |
-| `GET` | `/groups` | 내 그룹 목록 | 인증 | 구현됨 |
-| `GET` | `/groups/:id` | 그룹 상세 | 멤버 | 구현됨 |
-| `POST` | `/groups` | 그룹 생성 | 인증 | 구현됨 |
-| `PATCH` | `/groups/:id` | 그룹 수정 | 멤버 | 구현됨 |
-| `DELETE` | `/groups/:id` | 그룹 삭제 (멤버 cleanup 포함) | manager | 구현됨 |
+| `GET` | `/groups` | 내 모임 목록 | 인증 | 구현됨 |
+| `GET` | `/groups/public` | 공개 모임 탐색 | 인증 | 구현됨 |
+| `GET` | `/groups/:id` | 모임 상세 | 멤버 | 구현됨 |
+| `POST` | `/groups` | 모임 생성 | 인증 | 구현됨 |
+| `PATCH` | `/groups/:id` | 모임 수정 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:id` | 모임 삭제 (멤버 cleanup 포함) | manager | 구현됨 |
 | `POST` | `/groups/join` | 초대코드 가입 | 인증 | 구현됨 |
+| `POST` | `/groups/:gid/join-requests` | 공개 모임 가입 요청 | 인증 | 구현됨 |
+| `GET` | `/groups/:gid/join-requests` | 가입 요청 목록 | manager | 구현됨 |
+| `PATCH` | `/groups/:gid/join-requests/:memberUserId` | 가입 요청 승인/거절 | manager | 구현됨 |
 | `GET` | `/groups/:gid/members` | 멤버 목록 | 멤버 | 구현됨 |
-| `DELETE` | `/groups/:gid/members/me` | 그룹 나가기 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:gid/members/me` | 모임 나가기 | 멤버 | 구현됨 |
 | `DELETE` | `/groups/:gid/members/:memberUserId` | 멤버 내보내기 | manager | 구현됨 |
 | `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | 구현됨 |
 | `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | 구현됨 |
@@ -1189,11 +1335,11 @@ auth-session (JWT subject = userId)
 | `POST` | `/storage/images/presign` | 이미지 presigned 업로드 URL 발급 | 인증 | 구현됨 |
 | `GET` | `/storage/images/:imageId` | 이미지 처리 상태 조회 | 인증(소유자) | 구현됨 |
 | `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | 구현됨 |
-| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | 구현됨 |
+| `POST` | `/storage/images/group` | 모임 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | 구현됨 |
 
-> **Base URL prefix**: `api/planner/v1`  
+> **Base URL prefix**: `api/planner/v1`
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`)
 
 ---
 
-*마지막 업데이트: 2026-06-12 (이미지 presigned 업로드 및 WebP 처리 상태 API 반영)*
+*마지막 업데이트: 2026-06-13 (커뮤니티 공개 모임 및 가입 요청 API 반영)*

@@ -128,6 +128,10 @@ public class NotificationService {
         createGroupNotification(userId, title, content, false);
     }
 
+    public void createGroupNotification(String userId, String title, String content, String targetType, String targetId, String targetUrl) {
+        createGroupNotification(userId, title, content, false, targetType, targetId, targetUrl);
+    }
+
     public void createGroupScheduleNotification(String userId, Schedule schedule) {
         createGroupNotification(
                 userId,
@@ -156,6 +160,18 @@ public class NotificationService {
     }
 
     private void createGroupNotification(String userId, String title, String content, boolean important) {
+        createGroupNotification(userId, title, content, important, null, null, null);
+    }
+
+    private void createGroupNotification(
+            String userId,
+            String title,
+            String content,
+            boolean important,
+            String targetType,
+            String targetId,
+            String targetUrl
+    ) {
         NotificationSettings settings = repository.findSettings(userId)
                 .orElseGet(() -> createDefaultSettings(userId));
 
@@ -167,6 +183,9 @@ public class NotificationService {
                 content,
                 CATEGORY_GROUP,
                 important,
+                targetType,
+                targetId,
+                targetUrl,
                 isPushEnabled(settings)
         );
     }
@@ -188,6 +207,9 @@ public class NotificationService {
                 event.getContent(),
                 event.getCategory(),
                 Boolean.TRUE.equals(event.getImportant()),
+                null,
+                null,
+                null,
                 isPushEnabled(settings)
         );
         reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
@@ -229,7 +251,7 @@ public class NotificationService {
             String category,
             boolean important
     ) {
-        createNotificationIfAbsent(userId, id, type, title, content, category, important, true);
+        createNotificationIfAbsent(userId, id, type, title, content, category, important, null, null, null, true);
     }
 
     private void createNotificationIfAbsent(
@@ -240,6 +262,9 @@ public class NotificationService {
             String content,
             String category,
             boolean important,
+            String targetType,
+            String targetId,
+            String targetUrl,
             boolean pushEnabled
     ) {
         if (repository.findByUserIdAndNotifId(userId, id).isPresent()) {
@@ -255,6 +280,9 @@ public class NotificationService {
                 .title(title)
                 .content(content)
                 .category(category)
+                .targetType(targetType)
+                .targetId(targetId)
+                .targetUrl(targetUrl)
                 .isImportant(important)
                 .isRead(false)
                 .createdAt(Instant.now().toString())
