@@ -2,12 +2,16 @@ const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() || '';
 
 type AnalyticsValue = string | number | boolean | null | undefined;
 type AnalyticsParams = Record<string, AnalyticsValue>;
-type GtagCommand = 'config' | 'event' | 'js' | 'set';
+type GtagArguments =
+  | ['js', Date]
+  | ['config', string, AnalyticsParams?]
+  | ['event', string, AnalyticsParams?]
+  | ['set', string, AnalyticsValue | AnalyticsParams];
 
 declare global {
   interface Window {
     dataLayer?: unknown[];
-    gtag?: (command: GtagCommand, targetId: string | Date, params?: AnalyticsParams) => void;
+    gtag?: (...args: GtagArguments) => void;
   }
 }
 
@@ -39,9 +43,11 @@ export const initializeAnalytics = () => {
   if (initialized || !isAnalyticsEnabled()) return false;
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = window.gtag || ((command, targetId, params) => {
-    window.dataLayer?.push([command, targetId, params]);
-  });
+  // GA 표준 스니펫과 같은 큐 형식으로 쌓아 gtag.js가 명령을 안정적으로 처리하게 함
+  window.gtag = window.gtag || (function gtag() {
+    // eslint-disable-next-line prefer-rest-params
+    window.dataLayer?.push(arguments);
+  } as (...args: GtagArguments) => void);
 
   appendGoogleTagScript();
   window.gtag('js', new Date());
@@ -53,7 +59,7 @@ export const initializeAnalytics = () => {
 export const trackPageView = (path: string, title = document.title) => {
   if (!initializeAnalytics() || !window.gtag) return;
 
-  window.gtag('event', 'page_view', {
+  window.gtag('config', GA_MEASUREMENT_ID, {
     page_path: path,
     page_title: title,
     page_location: `${window.location.origin}${path}`,
