@@ -15,6 +15,7 @@ interface ScheduleStripProps {
   onComplete?: (schedule: Schedule) => void;
   emptyMessage?: string;
   initialScheduleId?: string;
+  nudgeLeftKey?: string | number;
 }
 
 const ScheduleStrip: React.FC<ScheduleStripProps> = ({
@@ -23,6 +24,7 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   onComplete,
   emptyMessage = '일정이 없습니다',
   initialScheduleId,
+  nudgeLeftKey,
 }) => {
   const {
     scrollRef,
@@ -33,6 +35,7 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   } = useScrollAffordance<HTMLDivElement>({ axis: 'horizontal' });
   const scheduleRefs = React.useRef(new Map<string, HTMLDivElement>());
   const lastInitialScheduleIdRef = React.useRef<string | undefined>();
+  const lastNudgeLeftKeyRef = React.useRef<string | number | undefined>();
 
   React.useLayoutEffect(() => {
     refresh();
@@ -60,6 +63,42 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
     window.requestAnimationFrame(refresh);
     lastInitialScheduleIdRef.current = initialScheduleId;
   }, [groups, initialScheduleId, refresh, scrollRef]);
+
+  React.useEffect(() => {
+    if (nudgeLeftKey === undefined || lastNudgeLeftKeyRef.current === nudgeLeftKey) {
+      return;
+    }
+
+    const container = scrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const scrollToLeft = (left: number, behavior: ScrollBehavior) => {
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({ left, behavior });
+      } else {
+        container.scrollLeft = left;
+      }
+    };
+
+    lastNudgeLeftKeyRef.current = nudgeLeftKey;
+    const timerId = window.setTimeout(() => {
+      const originalLeft = container.scrollLeft;
+      const hintDistance = Math.min(72, originalLeft);
+      if (hintDistance <= 0) {
+        return;
+      }
+
+      scrollToLeft(originalLeft - hintDistance, 'smooth');
+      window.setTimeout(() => {
+        scrollToLeft(originalLeft, 'smooth');
+        window.requestAnimationFrame(refresh);
+      }, 420);
+    }, 120);
+
+    return () => window.clearTimeout(timerId);
+  }, [nudgeLeftKey, refresh, scrollRef]);
 
   if (groups.length === 0) {
     return <p className="text-xs text-muted-foreground/60 py-4 px-4">{emptyMessage}</p>;

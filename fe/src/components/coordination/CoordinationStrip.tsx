@@ -9,6 +9,7 @@ interface CoordinationStripProps {
   onCoordinationClick: (coordination: CoordinationResponse) => void;
   onReachEnd?: () => void;
   isLoadingMore?: boolean;
+  variant?: 'active' | 'closed';
 }
 
 const formatHourLabel = (hour: number) => `${hour}:00`;
@@ -18,6 +19,7 @@ const CoordinationStrip: React.FC<CoordinationStripProps> = ({
   onCoordinationClick,
   onReachEnd,
   isLoadingMore = false,
+  variant = 'active',
 }) => {
   const {
     scrollRef,
@@ -39,7 +41,12 @@ const CoordinationStrip: React.FC<CoordinationStripProps> = ({
               key={coordination.id}
               type="button"
               onClick={() => onCoordinationClick(coordination)}
-              className="flex h-[104px] w-[156px] shrink-0 flex-col justify-between rounded-xl border border-border/70 bg-card px-3 py-3 text-left shadow-soft transition-colors hover:bg-muted/30"
+              className={cn(
+                'flex h-[104px] w-[156px] shrink-0 flex-col justify-between rounded-xl border px-3 py-3 text-left shadow-soft transition-colors hover:bg-muted/30',
+                variant === 'closed'
+                  ? 'border-border/50 bg-muted/45 text-muted-foreground'
+                  : 'border-border/70 bg-card',
+              )}
             >
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold text-muted-foreground">
@@ -52,7 +59,7 @@ const CoordinationStrip: React.FC<CoordinationStripProps> = ({
               <div className="flex items-end justify-between gap-2">
                 <p className="min-w-0 text-[10px] font-medium text-muted-foreground">
                   응답 {coordination.responseCount ?? 0}건<br />
-                  {formatHourLabel(coordination.startHour)} - {formatHourLabel(coordination.endHour)}
+                  {variant === 'closed' ? '완료된 조율' : `${formatHourLabel(coordination.startHour)} - ${formatHourLabel(coordination.endHour)}`}
                 </p>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </div>

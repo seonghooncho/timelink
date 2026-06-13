@@ -89,6 +89,9 @@ const GroupDetailPage: React.FC = () => {
   const [coordinationNextCursor, setCoordinationNextCursor] = useState<string | null>(null);
   const [isCoordinationLoading, setIsCoordinationLoading] = useState(false);
   const [isFetchingMoreCoordinations, setIsFetchingMoreCoordinations] = useState(false);
+  const [showClosedCoordinations, setShowClosedCoordinations] = useState(false);
+  const [showPastSchedules, setShowPastSchedules] = useState(false);
+  const [pastScheduleNudgeKey, setPastScheduleNudgeKey] = useState(0);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [postTitle, setPostTitle] = useState('');
@@ -109,6 +112,7 @@ const GroupDetailPage: React.FC = () => {
 
   const group = groups.find((item) => item.id === id);
   const groupSchedules = schedules.filter((schedule) => schedule.groupId === id);
+  const coordinationStatus = showClosedCoordinations ? 'closed' : 'active';
 
   const loadCoordinations = useCallback(async (cursor?: string | null) => {
     if (!id) return;
@@ -119,7 +123,7 @@ const GroupDetailPage: React.FC = () => {
     }
 
     try {
-      const page = await coordinationApi.getPage(id, { status: 'active', limit: 10, cursor });
+      const page = await coordinationApi.getPage(id, { status: coordinationStatus, limit: 10, cursor });
       setCoordinations(prev => cursor ? [...prev, ...page.data] : page.data);
       setCoordinationNextCursor(page.meta?.nextCursor ?? null);
     } catch (error) {
@@ -131,7 +135,7 @@ const GroupDetailPage: React.FC = () => {
       setIsCoordinationLoading(false);
       setIsFetchingMoreCoordinations(false);
     }
-  }, [id]);
+  }, [coordinationStatus, id]);
 
   useEffect(() => {
     setCoordinations([]);
@@ -171,17 +175,25 @@ const GroupDetailPage: React.FC = () => {
   const sortedGroupSchedules = useMemo(() => {
     return [...groupSchedules].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [groupSchedules]);
+  const todayStartTime = useMemo(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  }, []);
+  const pastGroupSchedules = useMemo(() => {
+    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() < todayStartTime);
+  }, [sortedGroupSchedules, todayStartTime]);
   const upcomingGroupSchedules = useMemo(() => {
-    const now = Date.now();
-    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() >= now);
-  }, [sortedGroupSchedules]);
-  const groupedUpcomingSchedules = useGroupedSchedules(upcomingGroupSchedules);
+    return sortedGroupSchedules.filter((schedule) => new Date(schedule.startTime).getTime() >= todayStartTime);
+  }, [sortedGroupSchedules, todayStartTime]);
+  const visibleGroupSchedules = showPastSchedules ? sortedGroupSchedules : upcomingGroupSchedules;
+  const groupedVisibleSchedules = useGroupedSchedules(visibleGroupSchedules);
+  const firstUpcomingScheduleId = upcomingGroupSchedules[0]?.id;
 
   const memberCount = members.length || group?.memberCount || 0;
   const memberCountLabel = memberCount > 99 ? '99+' : String(memberCount);
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
-  const groupScheduleCountLabel = `${upcomingGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
+  const groupScheduleCountLabel = `${visibleGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
   const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
 
@@ -560,15 +572,36 @@ const GroupDetailPage: React.FC = () => {
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-foreground">일정({groupScheduleCountLabel})</h2>
           </div>
+          {pastGroupSchedules.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowPastSchedules((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    setPastScheduleNudgeKey((key) => key + 1);
+                  }
+                  return next;
+                });
+              }}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                showPastSchedules ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {showPastSchedules ? '지난 약속 숨기기' : '지난 약속 보기'}
+            </button>
+          ) : null}
         </div>
-        {groupedUpcomingSchedules.length > 0 ? (
+        {groupedVisibleSchedules.length > 0 ? (
           <ScheduleStrip
-            groups={groupedUpcomingSchedules}
+            groups={groupedVisibleSchedules}
             onScheduleClick={handleScheduleClick}
+            initialScheduleId={showPastSchedules ? firstUpcomingScheduleId : undefined}
+            nudgeLeftKey={showPastSchedules ? pastScheduleNudgeKey : undefined}
           />
         ) : (
           <p className="border-y border-dashed border-border/70 px-5 py-5 text-xs text-muted-foreground">
-            아직 일정이 없습니다.
+            {showPastSchedules ? '표시할 약속이 없습니다.' : '아직 예정된 약속이 없습니다.'}
           </p>
         )}
         {hasNextSchedulePage ? (
@@ -586,8 +619,17 @@ const GroupDetailPage: React.FC = () => {
       </section>
 
       <section className="mt-5 border-t border-border/50 pt-3">
-        <div className="mb-2 px-5">
+        <div className="mb-2 flex items-center justify-between gap-3 px-5">
           <h2 className="text-sm font-bold text-foreground">시간 조율({coordinationCountLabel})</h2>
+          <button
+            type="button"
+            onClick={() => setShowClosedCoordinations((prev) => !prev)}
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+              showClosedCoordinations ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {showClosedCoordinations ? '진행 중 보기' : '닫힌 조율 보기'}
+          </button>
         </div>
         {isCoordinationLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -599,10 +641,11 @@ const GroupDetailPage: React.FC = () => {
             onCoordinationClick={(coord) => navigate(`/groups/${id}/coordination/${coord.id}/timetable`)}
             onReachEnd={handleLoadMoreCoordinations}
             isLoadingMore={isFetchingMoreCoordinations}
+            variant={showClosedCoordinations ? 'closed' : 'active'}
           />
         ) : (
           <p className="border-y border-dashed border-border/70 px-5 py-5 text-xs text-muted-foreground">
-            아직 시간 조율이 없습니다.
+            {showClosedCoordinations ? '닫힌 시간 조율이 없습니다.' : '아직 시간 조율이 없습니다.'}
           </p>
         )}
       </section>

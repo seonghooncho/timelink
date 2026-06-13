@@ -1176,6 +1176,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 그룹 내 조율 목록
 
+모임 상세 화면은 기본적으로 `active` 조율만 조회한다. 사용자가 닫힌 조율 보기를 켜면 `status=closed`로 다시 조회한다.
+
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
@@ -1258,6 +1260,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `PATCH` /api/planner/v1/groups/:groupId/coordinations/:id
 
 조율 수정/종료 (**생성자만**)
+
+모두 가능한 시간에서 모임 일정 생성 후 사용자가 닫기를 선택하면 프론트는 이 API로 `status=closed`를 저장한다.
 
 **Request Body**
 ```json

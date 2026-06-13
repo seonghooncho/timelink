@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ImageCropModal from '@/components/common/ImageCropModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import { ScheduleCategory } from '@/types/types';
 import { Bell, Camera, Check, Loader2, ImageIcon, Search, Star } from 'lucide-react';
-import { aiApi, groupApi } from '@/services/api';
+import { aiApi, coordinationApi, groupApi } from '@/services/api';
 import { useCreateSchedule } from '@/hooks/useSchedules';
 import { appToast, getErrorMessage } from '@/lib/appToast';
 import {
@@ -35,6 +36,8 @@ interface ScheduleFormLocationState {
   startTime?: string;
   duration?: string | number;
   sourceLabel?: string;
+  coordinationId?: string;
+  returnTo?: string;
 }
 
 const getExtractedDuration = (data: Awaited<ReturnType<typeof aiApi.extractSchedule>>) => {
@@ -73,6 +76,8 @@ const ScheduleFormPage: React.FC = () => {
       startTime: state?.startTime ? normalizeTimeToHalfHour(state.startTime) : '',
       duration: state?.duration !== undefined ? String(state.duration) : '1',
       sourceLabel: state?.sourceLabel,
+      coordinationId: state?.coordinationId,
+      returnTo: state?.returnTo,
     };
   }, [location.state]);
 
@@ -88,6 +93,8 @@ const ScheduleFormPage: React.FC = () => {
   const [showMemberSearch, setShowMemberSearch] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showCloseCoordinationConfirm, setShowCloseCoordinationConfirm] = useState(false);
+  const [isClosingCoordination, setIsClosingCoordination] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const { data: groupMembers = [], isLoading: isGroupMembersLoading } = useQuery({
@@ -119,6 +126,36 @@ const ScheduleFormPage: React.FC = () => {
 
   const selectAllParticipants = () => {
     setParticipantUserIds(groupMembers.map(member => member.userId));
+  };
+
+  const navigateAfterCoordinationSchedule = () => {
+    navigate(initialContext.returnTo || (initialContext.groupId ? `/groups/${initialContext.groupId}` : '/'));
+  };
+
+  const handleSkipCloseCoordination = () => {
+    if (isClosingCoordination) {
+      return;
+    }
+    setShowCloseCoordinationConfirm(false);
+    navigateAfterCoordinationSchedule();
+  };
+
+  const handleCloseCoordination = async () => {
+    if (!initialContext.groupId || !initialContext.coordinationId || isClosingCoordination) {
+      return;
+    }
+
+    setIsClosingCoordination(true);
+    try {
+      await coordinationApi.update(initialContext.groupId, initialContext.coordinationId, { status: 'closed' });
+      appToast.success('시간 조율을 닫았습니다');
+    } catch (error) {
+      appToast.error('시간 조율을 닫지 못했습니다', error);
+    } finally {
+      setIsClosingCoordination(false);
+      setShowCloseCoordinationConfirm(false);
+      navigateAfterCoordinationSchedule();
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,6 +227,10 @@ const ScheduleFormPage: React.FC = () => {
       });
       await createMutation.mutateAsync(result.data);
       appToast.success('일정이 등록되었습니다');
+      if (initialContext.groupId && initialContext.coordinationId) {
+        setShowCloseCoordinationConfirm(true);
+        return;
+      }
       navigate('/');
     } catch (err) {
       appToast.error('등록 실패', err, '일정 등록에 실패했습니다.');
@@ -423,6 +464,15 @@ const ScheduleFormPage: React.FC = () => {
           }}
         />
       ) : null}
+      <ConfirmModal
+        open={showCloseCoordinationConfirm}
+        onClose={handleSkipCloseCoordination}
+        onConfirm={handleCloseCoordination}
+        title="시간 조율을 닫으시겠습니까?"
+        description="닫으면 모임 페이지의 시간 조율 섹션에서 기본으로 보이지 않습니다."
+        confirmLabel={isClosingCoordination ? '닫는 중...' : '예, 닫기'}
+        cancelLabel="아니오"
+      />
     </MobileLayout>
   );
 };
