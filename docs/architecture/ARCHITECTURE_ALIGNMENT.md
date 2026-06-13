@@ -36,7 +36,7 @@
 
 ## 추후 구조 개선 후보
 
-- 그룹 목록은 현재 membership 조회 뒤 그룹 metadata를 추가 조회하므로, 그룹 수가 커지면 목록 표시 필드를 membership에 denormalize하거나 batch get으로 묶어야 한다.
+- 그룹 목록은 membership 조회 뒤 필요한 그룹 metadata를 batch get으로 묶어 가져온다. 사용자당 그룹 수가 더 커지면 목록 표시 필드를 membership에 denormalize하는 방식으로 넘어간다.
 - 알림/조율 목록은 일부 필터를 페이지 조회 뒤 메모리에서 적용하므로, 데이터가 늘면 필터 조건을 반영한 key 또는 GSI가 필요하다.
 - 조율 상세 heatmap은 응답 전체를 매번 읽어 계산하므로, 응답 slot이 많아지면 slot별 집계 item을 별도로 유지해야 한다.
 - 그룹 멤버 목록은 현재 전체 배열을 반환하므로, 그룹 규모가 커지면 cursor pagination 계약을 추가해야 한다.

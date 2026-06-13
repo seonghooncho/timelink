@@ -16,10 +16,13 @@ import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedExce
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.enhanced.dynamodb.*;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -33,6 +36,9 @@ import java.util.stream.Collectors;
 @Repository
 public class GroupRepository {
 
+    private static final int BATCH_GET_LIMIT = 100;
+
+    private final DynamoDbEnhancedClient enhancedClient;
     private final DynamoDbTable<Group> groupTable;
     private final DynamoDbTable<GroupIntro> introTable;
     private final DynamoDbTable<GroupMember> memberTable;
@@ -47,6 +53,7 @@ public class GroupRepository {
     public GroupRepository(DynamoDbEnhancedClient client, DynamoDbClient dynamoDbClient, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
         this.tableName = prefix + "main";
+        this.enhancedClient = client;
         this.groupTable = client.table(tableName, TableSchema.fromBean(Group.class));
         this.introTable = client.table(tableName, TableSchema.fromBean(GroupIntro.class));
         this.memberTable = client.table(tableName, TableSchema.fromBean(GroupMember.class));
@@ -65,6 +72,40 @@ public class GroupRepository {
     public Optional<Group> findGroupById(String groupId) {
         var key = Key.builder().partitionValue("GROUP#" + groupId).sortValue("METADATA").build();
         return Optional.ofNullable(groupTable.getItem(key));
+    }
+
+    public Map<String, Group> findGroupsByIds(Collection<String> groupIds) {
+        if (groupIds == null || groupIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<String> distinctGroupIds = groupIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+        if (distinctGroupIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Group> groupsById = new HashMap<>();
+        for (int start = 0; start < distinctGroupIds.size(); start += BATCH_GET_LIMIT) {
+            List<String> batchIds = distinctGroupIds.subList(start, Math.min(start + BATCH_GET_LIMIT, distinctGroupIds.size()));
+            ReadBatch.Builder<Group> readBatch = ReadBatch.builder(Group.class)
+                    .mappedTableResource(groupTable);
+
+            batchIds.forEach(groupId -> readBatch.addGetItem(Key.builder()
+                    .partitionValue("GROUP#" + groupId)
+                    .sortValue("METADATA")
+                    .build()));
+
+            enhancedClient.batchGetItem(BatchGetItemEnhancedRequest.builder()
+                            .readBatches(readBatch.build())
+                            .build())
+                    .resultsForTable(groupTable)
+                    .forEach(group -> groupsById.put(group.getId(), group));
+        }
+
+        return groupsById;
     }
 
     public Optional<GroupIntro> findIntro(String groupId) {

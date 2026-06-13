@@ -169,7 +169,7 @@ curl -I -sS https://timelink.cloud/assets/<current-js-asset>.js
 
 - `https://timelink.cloud`가 새 JS/CSS asset을 내려주는지 확인합니다.
 - Google/Kakao 로그인을 각각 한 번씩 확인합니다.
-- 그룹 상세, 일정 조율, 일정 생성처럼 방금 배포한 핵심 화면을 직접 열어봅니다.
+- 모임 상세, 일정 조율, 일정 생성처럼 방금 배포한 핵심 화면을 직접 열어봅니다.
 - 푸시/알림 관련 백엔드 변경이 있으면 `planner-prod-notification-worker:live` alias와 Scheduler target ARN 설정을 함께 확인합니다.
 
 ## 문제 발생 시 우선 확인 순서

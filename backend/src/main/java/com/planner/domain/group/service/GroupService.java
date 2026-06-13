@@ -184,28 +184,49 @@ public class GroupService {
     }
 
     private List<GroupResDTO> toGroupListResponses(List<GroupMember> memberships) {
+        Map<String, Group> groupsById = repository.findGroupsByIds(
+                memberships.stream()
+                        .map(this::resolveGroupIdFromMembership)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+        );
+
         return memberships.stream()
                 .map(m -> {
-                    String groupId = m.getGsi2sk().replace("GROUP#", "");
-                    return repository.findGroupById(groupId)
-                            .map(group -> {
-                                UpcomingScheduleSummary scheduleSummary = findUpcomingScheduleSummary(groupId);
-                                Coordination activeCoordination = scheduleSummary.nextSchedule == null
-                                        ? findActiveCoordination(groupId)
-                                        : null;
-                                return GroupConverter.toListResponse(
-                                        group,
-                                        m,
-                                        resolveMemberCount(group, groupId),
-                                        scheduleSummary.nextSchedule,
-                                        scheduleSummary.upcomingScheduleCount,
-                                        activeCoordination
-                                );
-                            })
-                            .orElse(null);
+                    String groupId = resolveGroupIdFromMembership(m);
+                    Group group = groupsById.get(groupId);
+                    if (group == null) {
+                        return null;
+                    }
+                    UpcomingScheduleSummary scheduleSummary = findUpcomingScheduleSummary(groupId);
+                    Coordination activeCoordination = scheduleSummary.nextSchedule == null
+                            ? findActiveCoordination(groupId)
+                            : null;
+                    return GroupConverter.toListResponse(
+                            group,
+                            m,
+                            resolveMemberCount(group, groupId),
+                            scheduleSummary.nextSchedule,
+                            scheduleSummary.upcomingScheduleCount,
+                            activeCoordination
+                    );
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    private String resolveGroupIdFromMembership(GroupMember membership) {
+        if (membership == null) {
+            return null;
+        }
+        if (StringUtils.hasText(membership.getGroupId())) {
+            return membership.getGroupId();
+        }
+        String gsi2sk = membership.getGsi2sk();
+        if (StringUtils.hasText(gsi2sk) && gsi2sk.startsWith("GROUP#")) {
+            return gsi2sk.substring("GROUP#".length());
+        }
+        return null;
     }
 
     private List<GroupResDTO> toPublicGroupResponses(String userId, List<Group> groups) {

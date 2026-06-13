@@ -29,7 +29,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       ├── context/        # 모바일 인증 상태
 │       ├── hooks/          # react-query 기반 모바일 도메인 훅
 │       ├── navigation/     # 앱 링크와 탭/스택 네비게이션
-│       ├── screens/        # 홈, 캘린더, 그룹, 조율, 마이페이지
+│       ├── screens/        # 홈, 캘린더, 모임, 조율, 마이페이지
 │       └── services/       # 운영 API 클라이언트와 세션 저장
 ├── backend/                # Spring Boot + Java 21 + DynamoDB
 │   └── src/main/java/com/planner/

@@ -12,7 +12,7 @@
 
 - 테스트 일시: 2026-06-12 03:17:16 ~ 03:27:13 KST
 - 대상: 운영 도메인 `https://timelink.cloud`, AWS account `160885253413`, region `ap-northeast-2`
-- API Lambda: `planner-prod-api:live`, 현 계정 Lambda 동시 실행 quota `10`
+- API Lambda: `planner-prod-api:live`, 측정 당시 계정 Lambda 동시 실행 quota `10`
 - DynamoDB: `planner_prod_main`, on-demand
 - 도구: k6 `v2.0.0`, Playwright `1.60.0` Chromium
 - 테스트 코드: `test/k6/timelink-load-test.js`, `test/playwright/serverless-flow.spec.ts`
@@ -63,17 +63,25 @@ Lambda 실행시간 p95는 낮지만 k6 max 지연은 길었다. 따라서 병�
 
 ## 발견한 문제
 
+아래 문제는 테스트 당시 관측값입니다. 이후 코드와 운영 설정에서 해결된 항목은 각 항목에 현재 상태를 함께 적습니다.
+
 1. 그룹 초대코드가 중복될 수 있다.
 
    테스트 run `tl-load-20260611T181243Z`에서 서로 다른 테스트 그룹이 같은 초대코드 `5S3ZSV`를 받았다. 그 결과 `findByInviteCode`가 scan으로 먼저 찾은 이전 그룹에 멤버를 가입시켰고, 새 그룹 조율 응답 저장은 `NOT_GROUP_MEMBER`로 실패했다. Lambda SnapStart 환경에서 랜덤 상태가 반복될 가능성과 초대코드 유일성 보장 부재를 함께 봐야 한다.
+
+   현재 상태: `INVITE#code` mapping item과 조건부 쓰기로 유일성을 보장하도록 수정했다.
 
 2. 초대코드 조회가 DynamoDB scan이다.
 
    `GroupRepository.findByInviteCode()`는 `inviteCode` filter scan을 사용한다. 데이터가 늘면 O(table) 비용이 되고, 중복 코드가 있으면 어떤 그룹이 선택될지 안정적으로 보장할 수 없다.
 
+   현재 상태: 초대코드 조회는 mapping item 직접 조회로 변경되어 scan 경로를 제거했다.
+
 3. Lambda quota 초과 상태에서 tail latency와 실패가 발생한다.
 
    quota_probe는 HTTP 실패율 0.84%, Lambda throttles 4, k6 max 60초를 기록했다. 짧은 probe에서도 발생했으므로 동시 실행 quota 10을 운영 한계로 취급해야 한다.
+
+   현재 상태: 계정 concurrency quota `1,000` 증액 요청을 진행하고, 승인 후 `planner-prod-api` reserved concurrency `50`을 적용한다.
 
 4. 상단 PWA 설치 안내가 일부 클릭을 가릴 수 있다.
 
@@ -81,7 +89,9 @@ Lambda 실행시간 p95는 낮지만 k6 max 지연은 길었다. 따라서 병�
 
 5. 목록/집계 경로가 규모 증가에 취약하다.
 
-   그룹 목록은 그룹별 `findGroupById`와 `findMembersByGroupId().size()`를 반복한다. 조율 목록은 항목별 `findResponses(coordId).size()`를 수행한다. 현재 소규모에서는 통과했지만 그룹/조율 수가 늘면 N+1 비용으로 tail latency가 커진다.
+   테스트 당시 그룹 목록은 그룹별 `findGroupById`와 `findMembersByGroupId().size()`를 반복했고, 조율 목록은 항목별 `findResponses(coordId).size()`를 수행할 수 있었다. 현재 소규모에서는 통과했지만 모임/조율 수가 늘면 N+1 비용으로 tail latency가 커진다.
+
+   현재 상태: 그룹 metadata 조회는 batch get으로 완화했고, `memberCount`와 `responseCount`가 없는 기존 데이터에서만 전체 수 계산 fallback이 실행된다. 조율 상세 heatmap은 여전히 응답 전체를 읽으므로 별도 집계 item 전환 기준까지 모니터링한다.
 
 ## 정리 확인
 

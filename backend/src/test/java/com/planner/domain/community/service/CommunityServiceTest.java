@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -287,8 +288,10 @@ class CommunityServiceTest {
                 GroupMember.builder().groupId("public1").userId("target").build(),
                 GroupMember.builder().groupId("private1").userId("target").build()
         ));
-        when(groupRepository.findGroupById("public1")).thenReturn(Optional.of(publicGroup));
-        when(groupRepository.findGroupById("private1")).thenReturn(Optional.of(privateGroup));
+        when(groupRepository.findGroupsByIds(List.of("public1", "private1"))).thenReturn(Map.of(
+                "public1", publicGroup,
+                "private1", privateGroup
+        ));
         when(groupRepository.findMember("public1", "user1")).thenReturn(Optional.empty());
         when(groupRepository.findJoinRequest("public1", "user1")).thenReturn(Optional.empty());
         when(repository.findPostsPaged(50, null))
