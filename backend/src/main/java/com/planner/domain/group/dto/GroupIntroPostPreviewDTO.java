@@ -10,5 +10,7 @@ public class GroupIntroPostPreviewDTO {
     private String title;
     private String contentSnippet;
     private String authorNickname;
+    private Boolean memberOnly;
+    private Boolean locked;
     private String createdAt;
 }

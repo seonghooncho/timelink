@@ -478,6 +478,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `GET` /api/planner/v1/groups/:id/intro
 
 모임 소개 페이지 데이터. 공개 모임은 미가입자도 조회 가능하며, 비공개 모임은 멤버만 조회 가능.
+`postPreviews`의 `memberOnly=true` 글은 미가입자에게 `locked=true`와 함께 제목/본문 없이 반환한다.
 화면 노출 범위는 진입 경로가 아니라 조회 사용자의 역할(`member`, `myRole`, `canEditIntro`, `canWriteNotice`)로 결정한다.
 
 **Response** `200 OK`
@@ -512,6 +513,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
         "title": "지난주 러닝 후기",
         "contentSnippet": "처음 오신 분들도 편하게 달렸어요...",
         "authorNickname": "현우",
+        "memberOnly": false,
+        "locked": false,
         "createdAt": "2026-03-01T00:00:00Z"
       }
     ],
@@ -1780,7 +1783,7 @@ Community
 
 - DynamoDB는 단일 테이블 설계를 사용하며 hot path는 PK/SK/GSI 질의를 유지합니다.
 - 운영 점검이나 비정형 lookup은 `infra/terraform/minimum/SCHEMA.md`의 PartiQL 예시를 기준으로 확인합니다.
-- 업로드 이미지는 S3 public assets bucket의 `upload/`에 임시 저장되고, Lambda WebP 변환 후 `public/{member|group|schedule}/` URL과 `imageStatus`를 저장합니다.
+- 업로드 이미지는 S3 public assets bucket의 `upload/`에 임시 저장되고, Lambda WebP 변환 후 `public/{member|group|schedule|group-intro|group-post}/` URL과 `imageStatus`를 저장합니다.
 
 ---
 

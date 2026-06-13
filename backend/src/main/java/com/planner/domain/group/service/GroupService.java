@@ -252,8 +252,7 @@ public class GroupService {
                 .images(toIntroImages(intro))
                 .notices(notices.stream().map(this::toIntroNotice).toList())
                 .postPreviews(postPage.getItems().stream()
-                        .filter(post -> member || !Boolean.TRUE.equals(post.getMemberOnly()))
-                        .map(this::toPostPreview)
+                        .map(post -> toPostPreview(post, member))
                         .toList())
                 .member(member)
                 .canEditIntro(membership != null && "manager".equals(membership.getRole()))
@@ -590,12 +589,16 @@ public class GroupService {
                 .build();
     }
 
-    private GroupIntroPostPreviewDTO toPostPreview(CommunityPost post) {
+    private GroupIntroPostPreviewDTO toPostPreview(CommunityPost post, boolean member) {
+        boolean memberOnly = Boolean.TRUE.equals(post.getMemberOnly());
+        boolean locked = memberOnly && !member;
         return GroupIntroPostPreviewDTO.builder()
                 .id(post.getId())
-                .title(post.getTitle())
-                .contentSnippet(toContentSnippet(post.getContent()))
+                .title(locked ? null : post.getTitle())
+                .contentSnippet(locked ? null : toContentSnippet(post.getContent()))
                 .authorNickname(post.getAuthorNickname())
+                .memberOnly(memberOnly)
+                .locked(locked)
                 .createdAt(post.getCreatedAt())
                 .build();
     }

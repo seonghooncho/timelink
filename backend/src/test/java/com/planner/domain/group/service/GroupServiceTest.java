@@ -284,8 +284,8 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("getIntro — 미가입자에게 멤버 전용 글 미리보기를 노출하지 않는다")
-    void getIntro_publicGroup_filtersMemberOnlyPreviewForNonMember() {
+    @DisplayName("getIntro — 미가입자에게 멤버 전용 글 미리보기를 잠금 상태로 반환한다")
+    void getIntro_publicGroup_returnsLockedMemberOnlyPreviewForNonMember() {
         Group group = samplePublicGroup("g1", "manager");
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
         when(repository.findMember("g1", "user1")).thenReturn(Optional.empty());
@@ -297,9 +297,13 @@ class GroupServiceTest {
 
         GroupIntroResDTO result = service.getIntro("user1", "g1");
 
-        assertThat(result.getPostPreviews())
-                .extracting("title")
-                .containsExactly("지난주 후기");
+        assertThat(result.getPostPreviews()).hasSize(2);
+        assertThat(result.getPostPreviews().get(0).getTitle()).isNull();
+        assertThat(result.getPostPreviews().get(0).getContentSnippet()).isNull();
+        assertThat(result.getPostPreviews().get(0).getMemberOnly()).isTrue();
+        assertThat(result.getPostPreviews().get(0).getLocked()).isTrue();
+        assertThat(result.getPostPreviews().get(1).getTitle()).isEqualTo("지난주 후기");
+        assertThat(result.getPostPreviews().get(1).getLocked()).isFalse();
     }
 
     @Test

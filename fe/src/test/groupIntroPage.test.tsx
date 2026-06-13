@@ -110,4 +110,34 @@ describe('GroupIntroPage', () => {
     expect(screen.getByText('가입 후 글 전체와 댓글을 볼 수 있어요.')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '가입 요청하기' }).length).toBeGreaterThan(0);
   });
+
+  it('shows member-only intro posts as locked for non-members', async () => {
+    mocks.getIntroPosts.mockResolvedValue({
+      data: [{
+        id: 'post-private',
+        title: undefined,
+        content: undefined,
+        contentSnippet: undefined,
+        authorUserId: 'user-2',
+        authorNickname: '민지',
+        authorAvatarUrl: '',
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        mine: false,
+        memberOnly: true,
+        locked: true,
+        createdAt: '2026-06-13T00:00:00Z',
+        updatedAt: '2026-06-13T00:00:00Z',
+      }],
+      meta: { perPage: 3, nextCursor: null },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('모임에만 공개된 게시물이에요.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /모임에만 공개된 게시물이에요/ }));
+
+    expect(screen.getByText('가입 후 글 전체와 댓글을 볼 수 있어요.')).toBeInTheDocument();
+  });
 });

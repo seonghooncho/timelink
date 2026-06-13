@@ -316,9 +316,11 @@ export interface GroupIntroNoticeResponse {
 
 export interface GroupIntroPostPreviewResponse {
   id: string;
-  title: string;
-  contentSnippet: string;
+  title?: string;
+  contentSnippet?: string;
   authorNickname?: string;
+  memberOnly?: boolean;
+  locked?: boolean;
   createdAt: string;
 }
 
