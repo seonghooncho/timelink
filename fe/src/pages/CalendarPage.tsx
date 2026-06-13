@@ -6,6 +6,7 @@ import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
+import { CalendarAgendaSkeleton } from '@/components/common/LoadingStates';
 import { Schedule } from '@/types/types';
 import { useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
@@ -37,6 +38,7 @@ const CalendarPage: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isPending: isSchedulesPending,
   } = useSchedules(scheduleRange);
 
   const firstDay = new Date(year, month, 1).getDay();
@@ -142,7 +144,9 @@ const CalendarPage: React.FC = () => {
           {selectedDay && (
             <div className="px-4 pt-4 pb-4 animate-fade-in">
               <h3 className="text-sm font-semibold text-foreground mb-2">{month + 1}월 {selectedDay}일 일정</h3>
-              {selectedSchedules.length === 0 ? (
+              {isSchedulesPending ? (
+                <CalendarAgendaSkeleton />
+              ) : selectedSchedules.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">일정이 없습니다</p>
               ) : (
                 <ScrollableFadeList ariaLabel="선택한 날짜의 일정 목록">

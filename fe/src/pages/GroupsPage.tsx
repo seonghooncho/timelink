@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, CalendarClock, ChevronRight, Clock3, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { Bell, CalendarClock, ChevronRight, Clock3, Search, UserPlus, Users, X } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import FAB from '@/components/common/FAB';
+import { ListSkeleton } from '@/components/common/LoadingStates';
 import { useGroupPages, usePublicGroupPages } from '@/hooks/useGroups';
 import { Group } from '@/types/types';
 
@@ -19,6 +20,7 @@ const GroupsPage: React.FC = () => {
   const {
     data: groups = [],
     isLoading,
+    isPending,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -26,6 +28,7 @@ const GroupsPage: React.FC = () => {
   const {
     data: publicGroups = [],
     isLoading: isPublicLoading,
+    isPending: isPublicPending,
     fetchNextPage: fetchNextPublicPage,
     hasNextPage: hasNextPublicPage,
     isFetchingNextPage: isFetchingNextPublicPage,
@@ -71,7 +74,7 @@ const GroupsPage: React.FC = () => {
         {activeTab === 'mine' ? (
           <MyGroupsTab
             groups={groups}
-            isLoading={isLoading}
+            isLoading={isLoading || isPending}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
             onLoadMore={() => fetchNextPage()}
@@ -82,7 +85,7 @@ const GroupsPage: React.FC = () => {
         ) : (
           <DiscoverGroupsTab
             groups={publicGroups}
-            isLoading={isPublicLoading}
+            isLoading={isPublicLoading || isPublicPending}
             hasNextPage={hasNextPublicPage}
             isFetchingNextPage={isFetchingNextPublicPage}
             onLoadMore={() => fetchNextPublicPage()}
@@ -99,7 +102,9 @@ const GroupsPage: React.FC = () => {
         )}
       </div>
 
-      {activeTab === 'mine' && groups.length > 0 ? <FAB to="/groups/new" variant="group" ariaLabel="모임 만들기" /> : null}
+      {activeTab === 'mine' && groups.length > 0 ? (
+        <FAB to="/groups/new" variant="group" ariaLabel="모임 만들기" icon={<Users className="h-6 w-6" />} />
+      ) : null}
     </MobileLayout>
   );
 };
@@ -126,11 +131,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
   onOpen,
 }) => {
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <ListSkeleton className="mt-4" count={4} />;
   }
 
   if (groups.length === 0) {
@@ -149,7 +150,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
           onClick={onCreate}
           className="mt-6 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-category-group py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
         >
-          <Plus className="h-4 w-4" />
+          <Users className="h-4 w-4" />
           모임 만들기
         </button>
 
@@ -316,9 +317,7 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
 
     <div className="mt-4">
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <ListSkeleton count={4} />
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-5 py-14 text-center">
           <Users className="h-8 w-8 text-muted-foreground" />

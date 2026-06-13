@@ -26,7 +26,6 @@ const categories: { value: ScheduleCategory; label: string }[] = [
   { value: 'task', label: '할일' },
   { value: 'appointment', label: '약속' },
   { value: 'repeat', label: '반복' },
-  { value: 'group', label: '모임' },
 ];
 
 interface ScheduleFormLocationState {
