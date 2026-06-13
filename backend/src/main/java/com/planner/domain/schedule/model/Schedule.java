@@ -37,6 +37,8 @@ public class Schedule {
 
     private String gsi1pk;
     private String gsi1sk;
+    private String gsi4pk;
+    private String gsi4sk;
 
     @DynamoDbPartitionKey
     @DynamoDbAttribute("PK")
@@ -53,4 +55,12 @@ public class Schedule {
     @DynamoDbSecondarySortKey(indexNames = "GSI1")
     @DynamoDbAttribute("GSI1SK")
     public String getGsi1sk() { return gsi1sk; }
+
+    @DynamoDbSecondaryPartitionKey(indexNames = "GSI4")
+    @DynamoDbAttribute("GSI4PK")
+    public String getGsi4pk() { return gsi4pk; }
+
+    @DynamoDbSecondarySortKey(indexNames = "GSI4")
+    @DynamoDbAttribute("GSI4SK")
+    public String getGsi4sk() { return gsi4sk; }
 }

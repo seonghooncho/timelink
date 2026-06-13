@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import MainPage from "./pages/MainPage";
 import CalendarPage from "./pages/CalendarPage";
 import CommunityPage from "./pages/CommunityPage";
+import CommunityPostDetailPage from "./pages/CommunityPostDetailPage";
 import ScheduleFormPage from "./pages/ScheduleFormPage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupFormPage from "./pages/GroupFormPage";
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+              <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPostDetailPage /></ProtectedRoute>} />
               <Route path="/schedule/new" element={<ProtectedRoute><ScheduleFormPage /></ProtectedRoute>} />
               <Route path="/groups" element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
               <Route path="/groups/join/:inviteCode" element={<ProtectedRoute><GroupJoinPage /></ProtectedRoute>} />

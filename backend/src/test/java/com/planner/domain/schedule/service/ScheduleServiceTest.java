@@ -109,6 +109,8 @@ class ScheduleServiceTest {
             assertThat(saved.getPk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1pk()).isEqualTo("USER#" + USER_ID);
             assertThat(saved.getGsi1sk()).isEqualTo("2025-03-10T09:00:00Z");
+            assertThat(saved.getGsi4pk()).isNull();
+            assertThat(saved.getGsi4sk()).isNull();
             assertThat(saved.getEndTime()).isEqualTo("2025-03-10T10:00:00Z");
             assertThat(saved.getDuration()).isEqualTo(1.0);
             then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
@@ -167,6 +169,11 @@ class ScheduleServiceTest {
                     .createGroupScheduleNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
                     .createGroupScheduleNotification(eq(USER_ID), any(Schedule.class));
+            then(repository).should().save(argThat(schedule ->
+                    "GROUP#g1".equals(schedule.getGsi4pk())
+                            && schedule.getGsi4sk() != null
+                            && schedule.getGsi4sk().startsWith("START#2025-03-10T09:00:00Z#SCHEDULE#")
+            ));
         }
     }
 

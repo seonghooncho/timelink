@@ -243,8 +243,9 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/` | MainPage | ScheduleStrip, Timetable, FAB |
 | `/calendar` | CalendarPage | 캘린더 그리드, ScheduleDetailModal |
 | `/schedule/new` | ScheduleFormPage | AI 사진 분석, 카테고리 선택 |
-| `/groups` | GroupsPage | 나의 모임 목록, GroupAvatar, FAB |
-| `/community` | CommunityPage | 공개 모임 탐색, 가입 요청 바텀시트 |
+| `/groups` | GroupsPage | 내 모임/둘러보기 탭, 다음 일정 요약, 공개 모임 가입 요청 |
+| `/community` | CommunityPage | 커뮤니티 게시물 목록, 글쓰기 바텀시트 |
+| `/community/posts/:postId` | CommunityPostDetailPage | 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
 | `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
 | `/groups/:id` | GroupDetailPage | GroupAvatar, 헤더 메뉴, 멤버/멤버관리 모달, 일정/조율 목록 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
@@ -266,4 +267,4 @@ const groupedSchedules = useGroupedSchedules(schedules);
 
 ---
 
-*마지막 업데이트: 2026-06-12*
+*마지막 업데이트: 2026-06-13*

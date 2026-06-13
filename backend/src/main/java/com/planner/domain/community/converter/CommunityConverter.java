@@ -1,0 +1,103 @@
+package com.planner.domain.community.converter;
+
+import com.planner.domain.community.dto.CommunityCommentResDTO;
+import com.planner.domain.community.dto.CommunityPostCreateReqDTO;
+import com.planner.domain.community.dto.CommunityPostResDTO;
+import com.planner.domain.community.model.CommunityComment;
+import com.planner.domain.community.model.CommunityPost;
+import com.planner.domain.profile.model.Profile;
+import org.springframework.util.StringUtils;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public final class CommunityConverter {
+
+    private static final String POST_LIST_PK = "COMMUNITY#POSTS";
+
+    private CommunityConverter() {
+    }
+
+    public static CommunityPost toPost(String userId, Profile profile, CommunityPostCreateReqDTO req) {
+        String id = UUID.randomUUID().toString();
+        String now = Instant.now().toString();
+        return CommunityPost.builder()
+                .pk("POST#" + id)
+                .sk("METADATA")
+                .id(id)
+                .title(req.getTitle().trim())
+                .content(req.getContent().trim())
+                .authorUserId(userId)
+                .authorNickname(resolveNickname(profile))
+                .authorAvatarUrl(resolveAvatarUrl(profile))
+                .likeCount(0)
+                .commentCount(0)
+                .createdAt(now)
+                .updatedAt(now)
+                .gsi5pk(POST_LIST_PK)
+                .gsi5sk("CREATED_AT#" + now + "#POST#" + id)
+                .build();
+    }
+
+    public static CommunityComment toComment(String postId, String userId, Profile profile, String content) {
+        String id = UUID.randomUUID().toString();
+        String now = Instant.now().toString();
+        return CommunityComment.builder()
+                .pk("POST#" + postId)
+                .sk("COMMENT#" + now + "#" + id)
+                .id(id)
+                .postId(postId)
+                .content(content.trim())
+                .authorUserId(userId)
+                .authorNickname(resolveNickname(profile))
+                .authorAvatarUrl(resolveAvatarUrl(profile))
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+    }
+
+    public static CommunityPostResDTO toPostResponse(CommunityPost post, String userId, boolean likedByMe) {
+        return CommunityPostResDTO.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .authorUserId(post.getAuthorUserId())
+                .authorNickname(post.getAuthorNickname())
+                .authorAvatarUrl(post.getAuthorAvatarUrl())
+                .likeCount(post.getLikeCount() != null ? post.getLikeCount() : 0)
+                .commentCount(post.getCommentCount() != null ? post.getCommentCount() : 0)
+                .likedByMe(likedByMe)
+                .mine(userId != null && userId.equals(post.getAuthorUserId()))
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build();
+    }
+
+    public static CommunityCommentResDTO toCommentResponse(CommunityComment comment, String userId) {
+        return CommunityCommentResDTO.builder()
+                .id(comment.getId())
+                .postId(comment.getPostId())
+                .content(comment.getContent())
+                .authorUserId(comment.getAuthorUserId())
+                .authorNickname(comment.getAuthorNickname())
+                .authorAvatarUrl(comment.getAuthorAvatarUrl())
+                .mine(userId != null && userId.equals(comment.getAuthorUserId()))
+                .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
+                .build();
+    }
+
+    private static String resolveNickname(Profile profile) {
+        if (profile != null && StringUtils.hasText(profile.getNickname())) {
+            return profile.getNickname();
+        }
+        return "사용자";
+    }
+
+    private static String resolveAvatarUrl(Profile profile) {
+        if (profile != null && StringUtils.hasText(profile.getAvatarUrl())) {
+            return profile.getAvatarUrl();
+        }
+        return "";
+    }
+}

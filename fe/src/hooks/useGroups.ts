@@ -18,6 +18,7 @@ function mapGroup(g: GroupListResponse): Group {
     memberCount: g.memberCount,
     myRole: g.myRole,
     joinRequestStatus: g.joinRequestStatus,
+    nextSchedule: g.nextSchedule ?? null,
     schedules: [],
   };
 }

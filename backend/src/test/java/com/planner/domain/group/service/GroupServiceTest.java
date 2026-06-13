@@ -16,6 +16,8 @@ import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
+import com.planner.domain.schedule.model.Schedule;
+import com.planner.domain.schedule.repository.ScheduleRepository;
 import com.planner.global.cursor.CursorCodec;
 import com.planner.global.cursor.CursorPageResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,7 @@ class GroupServiceTest {
     @Mock private ProfileRepository profileRepository;
     @Mock private NotificationService notificationService;
     @Mock private CursorCodec cursorCodec;
+    @Mock private ScheduleRepository scheduleRepository;
     @InjectMocks private GroupService service;
 
     @BeforeEach
@@ -48,6 +51,7 @@ class GroupServiceTest {
         lenient().when(profileRepository.findByUserId(anyString())).thenReturn(Optional.empty());
         lenient().when(profileRepository.findByUserIds(anyCollection())).thenReturn(Map.of());
         lenient().when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(true);
+        lenient().when(scheduleRepository.findNextByGroupId(anyString(), anyString())).thenReturn(Optional.empty());
     }
 
     private Group sampleGroup(String groupId, String createdBy) {
@@ -144,6 +148,26 @@ class GroupServiceTest {
         assertThat(result.get(0).getName()).isEqualTo("Study");
         assertThat(result.get(0).getMemberCount()).isEqualTo(1);
         verify(repository, never()).findMembersByGroupId("g1");
+    }
+
+    @Test
+    @DisplayName("getMyGroups — 다음 예정 모임 일정을 요약한다")
+    void getMyGroups_returnsNextScheduleSummary() {
+        GroupMember member = sampleMember("g1", "user1", "member");
+        Schedule schedule = Schedule.builder()
+                .id("s1")
+                .title("주말 회고")
+                .startTime("2026-06-20T10:00:00")
+                .duration(1.0)
+                .build();
+        when(repository.findGroupsByUserId("user1")).thenReturn(List.of(member));
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "other")));
+        when(scheduleRepository.findNextByGroupId(eq("g1"), anyString())).thenReturn(Optional.of(schedule));
+
+        List<GroupResDTO> result = service.getMyGroups("user1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getNextSchedule().getTitle()).isEqualTo("주말 회고");
     }
 
     @Test

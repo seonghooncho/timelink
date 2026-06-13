@@ -239,6 +239,12 @@ export interface GroupListResponse {
   memberCount: number;
   myRole: string;
   joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  nextSchedule?: {
+    id: string;
+    title: string;
+    startTime: string;
+    duration?: number;
+  } | null;
   createdAt: string;
 }
 
@@ -309,6 +315,55 @@ export const groupApi = {
   leaveGroup: (groupId: string) => request<void>('DELETE', `/groups/${groupId}/members/me`),
   removeMember: (groupId: string, memberUserId: string) =>
     request<void>('DELETE', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}`),
+};
+
+// ── Community ──
+
+export interface CommunityPostResponse {
+  id: string;
+  title: string;
+  content: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityCommentResponse {
+  id: string;
+  postId: string;
+  content: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const communityApi = {
+  getPosts: (params?: PaginationParams) => requestPage<CommunityPostResponse>('/community/posts', params),
+  createPost: (data: { title: string; content: string }) =>
+    request<CommunityPostResponse>('POST', '/community/posts', data),
+  getPost: (postId: string) => request<CommunityPostResponse>('GET', `/community/posts/${postId}`),
+  updatePost: (postId: string, data: { title?: string; content?: string }) =>
+    request<CommunityPostResponse>('PATCH', `/community/posts/${postId}`, data),
+  deletePost: (postId: string) => request<void>('DELETE', `/community/posts/${postId}`),
+  likePost: (postId: string) => request<CommunityPostResponse>('PUT', `/community/posts/${postId}/like`),
+  unlikePost: (postId: string) => request<CommunityPostResponse>('DELETE', `/community/posts/${postId}/like`),
+  getComments: (postId: string, params?: PaginationParams) =>
+    requestPage<CommunityCommentResponse>(`/community/posts/${postId}/comments`, params),
+  createComment: (postId: string, content: string) =>
+    request<CommunityCommentResponse>('POST', `/community/posts/${postId}/comments`, { content }),
+  updateComment: (postId: string, commentId: string, content: string) =>
+    request<CommunityCommentResponse>('PATCH', `/community/posts/${postId}/comments/${commentId}`, { content }),
+  deleteComment: (postId: string, commentId: string) =>
+    request<void>('DELETE', `/community/posts/${postId}/comments/${commentId}`),
 };
 
 // ── Coordinations ──

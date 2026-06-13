@@ -19,11 +19,13 @@ public class ScheduleRepository {
 
     private final DynamoDbTable<Schedule> table;
     private final DynamoDbIndex<Schedule> timeIndex;
+    private final DynamoDbIndex<Schedule> groupTimeIndex;
 
     public ScheduleRepository(DynamoDbEnhancedClient client, AwsProperties awsProperties) {
         String prefix = awsProperties.getDynamodb().getTablePrefix();
         this.table = client.table(prefix + "main", TableSchema.fromBean(Schedule.class));
         this.timeIndex = table.index("GSI1");
+        this.groupTimeIndex = table.index("GSI4");
     }
 
     public void save(Schedule schedule) {
@@ -98,6 +100,22 @@ public class ScheduleRepository {
     /** 하위 호환용 */
     public List<Schedule> findByUserIdAndTimeRange(String userId, String startTime, String endTime) {
         return findByUserIdAndTimeRangePaged(userId, startTime, endTime, 0, null).getItems();
+    }
+
+    public Optional<Schedule> findNextByGroupId(String groupId, String fromStartTime) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.sortGreaterThanOrEqualTo(
+                        k -> k.partitionValue("GROUP#" + groupId).sortValue("START#" + fromStartTime)
+                ))
+                .scanIndexForward(true)
+                .limit(1)
+                .build();
+
+        Iterator<Page<Schedule>> pages = groupTimeIndex.query(request).iterator();
+        if (!pages.hasNext()) {
+            return Optional.empty();
+        }
+        return pages.next().items().stream().findFirst();
     }
 
     public void delete(String userId, String scheduleId) {

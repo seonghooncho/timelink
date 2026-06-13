@@ -30,5 +30,11 @@ export interface Group {
   memberCount?: number;
   myRole?: string;
   joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  nextSchedule?: {
+    id: string;
+    title: string;
+    startTime: string;
+    duration?: number;
+  } | null;
   schedules: Schedule[];
 }
