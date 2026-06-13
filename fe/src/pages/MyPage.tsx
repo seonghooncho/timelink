@@ -8,7 +8,7 @@ import type { ImageStatus, NotificationSettingsResponse } from '@/services/api';
 import { settingsApi } from '@/services/api';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/context/AuthContext';
-import { LogOut, Camera, Pencil, Check, X, Sparkles } from 'lucide-react';
+import { LogOut, Camera, Pencil, Check, X, Info, UserRound } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription, requestPushPermission } from '@/pwa/pushNotifications';
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
@@ -275,7 +275,9 @@ const MyPage: React.FC = () => {
                 {profileImage ? (
                   <img src={profileImage} alt="프로필" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center"><span className="text-3xl">👤</span></div>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <UserRound className="w-9 h-9 text-muted-foreground" />
+                  </div>
                 )}
                 <div className={`absolute inset-0 bg-black/45 flex items-center justify-center transition-opacity ${isProfileImageProcessing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   {isProfileImageProcessing ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
@@ -319,7 +321,7 @@ const MyPage: React.FC = () => {
 
             <div className="min-w-0 flex-1 px-1 py-3.5">
               <div className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <Info className="h-3.5 w-3.5 text-primary" />
                 <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Timelink 팁</p>
                 <span className="ml-auto font-num text-[10px] font-semibold text-muted-foreground">
                   {tipIndex + 1}/{PROFILE_TIPS.length}

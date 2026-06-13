@@ -45,11 +45,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 ### HTTP 메서드 규칙
 | 메서드 | 용도 | 멱등성 |
 |--------|------|--------|
-| `GET` | 리소스 조회 | ✅ |
-| `POST` | 리소스 생성 | ❌ |
-| `PUT` | 리소스 전체 교체 | ✅ |
-| `PATCH` | 리소스 부분 수정 | ✅ |
-| `DELETE` | 리소스 삭제 | ✅ |
+| `GET` | 리소스 조회 | 예 |
+| `POST` | 리소스 생성 | 아니오 |
+| `PUT` | 리소스 전체 교체 | 예 |
+| `PATCH` | 리소스 부분 수정 | 예 |
+| `DELETE` | 리소스 삭제 | 예 |
 
 ### 공통 응답 형식
 ```json
@@ -204,10 +204,10 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `startDate` | string (ISO) | ❌ | 범위 시작 시각 |
-| `endDate` | string (ISO) | ❌ | 범위 종료 시각 |
-| `cursor` | string | ❌ | 다음 페이지 커서 |
-| `limit` | integer | ❌ | 기본 20, 최대 100 |
+| `startDate` | string (ISO) | 선택 | 범위 시작 시각 |
+| `endDate` | string (ISO) | 선택 | 범위 종료 시각 |
+| `cursor` | string | 선택 | 다음 페이지 커서 |
+| `limit` | integer | 선택 | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json
@@ -329,8 +329,8 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 이름 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `limit` | number | ❌ | 한 번에 조회할 개수. 기본 20, 최대 100 |
-| `cursor` | string | ❌ | 다음 페이지 조회용 opaque cursor |
+| `limit` | number | 선택 | 한 번에 조회할 개수. 기본 20, 최대 100 |
+| `cursor` | string | 선택 | 다음 페이지 조회용 opaque cursor |
 
 **Response** `200 OK`
 ```json
@@ -409,10 +409,10 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | ✅ | 그룹 이름 |
-| `description` | string | ❌ | 설명 |
-| `imageId` | string | ❌ | `storage/images/presign`으로 생성한 이미지 업로드 ID |
-| `imageUrl` | string | ❌ | 하위 호환용 그룹 이미지 URL |
+| `name` | string | 필수 | 그룹 이름 |
+| `description` | string | 선택 | 설명 |
+| `imageId` | string | 선택 | `storage/images/presign`으로 생성한 이미지 업로드 ID |
+| `imageUrl` | string | 선택 | 하위 호환용 그룹 이미지 URL |
 
 **Response** `201 Created` — GroupDetailResDTO 반환
 
@@ -561,9 +561,9 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `status` | string | ❌ | `active` / `closed` (기본: `active`) |
-| `cursor` | string | ❌ | 다음 페이지 커서 |
-| `limit` | integer | ❌ | 기본 20, 최대 100 |
+| `status` | string | 선택 | `active` / `closed` (기본: `active`) |
+| `cursor` | string | 선택 | 다음 페이지 커서 |
+| `limit` | integer | 선택 | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json
@@ -761,10 +761,10 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Query Parameters**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `type` | string | ❌ | `schedule` / `system` |
-| `isRead` | boolean | ❌ | 읽음 필터 |
-| `cursor` | string | ❌ | 다음 페이지 커서 |
-| `limit` | integer | ❌ | 기본 20, 최대 100 |
+| `type` | string | 선택 | `schedule` / `system` |
+| `isRead` | boolean | 선택 | 읽음 필터 |
+| `cursor` | string | 선택 | 다음 페이지 커서 |
+| `limit` | integer | 선택 | 기본 20, 최대 100 |
 
 **Response** `200 OK`
 ```json
@@ -987,11 +987,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `purpose` | enum | ✅ | `MEMBER`, `GROUP`, `SCHEDULE` |
-| `fileName` | string | ✅ | 원본 파일명 |
-| `contentType` | string | ✅ | `image/jpeg`, `image/png`, `image/webp` |
-| `contentLength` | number | ✅ | 15MB 이하 |
-| `targetId` | string | ❌ | 이미 대상 ID가 있을 때만 전달 |
+| `purpose` | enum | 필수 | `MEMBER`, `GROUP`, `SCHEDULE` |
+| `fileName` | string | 필수 | 원본 파일명 |
+| `contentType` | string | 필수 | `image/jpeg`, `image/png`, `image/webp` |
+| `contentLength` | number | 필수 | 15MB 이하 |
+| `targetId` | string | 선택 | 이미 대상 ID가 있을 때만 전달 |
 
 **Response** `200 OK`
 ```json
@@ -1153,43 +1153,43 @@ auth-session (JWT subject = userId)
 
 | 메서드 | 엔드포인트 | 설명 | 권한 | 구현 상태 |
 |--------|-----------|------|------|----------|
-| `GET` | `/profiles/me` | 내 프로필 조회 | 인증 | ✅ |
-| `PATCH` | `/profiles/me` | 프로필 수정 | 인증 | ✅ |
-| `GET` | `/schedules` | 일정 목록 | 인증 | ✅ |
-| `GET` | `/schedules/:id` | 일정 상세 | 인증(본인) | ✅ |
-| `POST` | `/schedules` | 일정 생성 | 인증 | ✅ |
-| `PATCH` | `/schedules/:id` | 일정 수정 | 인증(본인) | ✅ |
-| `DELETE` | `/schedules/:id` | 일정 삭제 | 인증(본인) | ✅ |
-| `GET` | `/groups` | 내 그룹 목록 | 인증 | ✅ |
-| `GET` | `/groups/:id` | 그룹 상세 | 멤버 | ✅ |
-| `POST` | `/groups` | 그룹 생성 | 인증 | ✅ |
-| `PATCH` | `/groups/:id` | 그룹 수정 | 멤버 | ✅ |
-| `DELETE` | `/groups/:id` | 그룹 삭제 (멤버 cleanup 포함) | manager | ✅ |
-| `POST` | `/groups/join` | 초대코드 가입 | 인증 | ✅ |
-| `GET` | `/groups/:gid/members` | 멤버 목록 | 멤버 | ✅ |
-| `DELETE` | `/groups/:gid/members/me` | 그룹 나가기 | 멤버 | ✅ |
-| `DELETE` | `/groups/:gid/members/:memberUserId` | 멤버 내보내기 | manager | ✅ |
-| `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | ✅ |
-| `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | ✅ |
-| `POST` | `/groups/:gid/coordinations` | 조율 생성 | 멤버 | ✅ |
-| `PATCH` | `/groups/:gid/coordinations/:id` | 조율 수정 | 생성자 | ✅ |
-| `DELETE` | `/groups/:gid/coordinations/:id` | 조율 삭제 | 생성자 | ✅ |
-| `PUT` | `/groups/:gid/coordinations/:cid/responses/me` | 응답 제출 | 멤버 | ✅ |
-| `GET` | `/groups/:gid/coordinations/:cid/responses/me` | 내 응답 조회 | 멤버 | ✅ |
-| `DELETE` | `/groups/:gid/coordinations/:cid/responses/me` | 응답 삭제 | 멤버 | ✅ |
-| `GET` | `/notifications` | 알림 목록 | 인증 | ✅ |
-| `PATCH` | `/notifications/:id/read` | 읽음 처리 | 인증(본인) | ✅ |
-| `PATCH` | `/notifications/read-all` | 전체 읽음 | 인증 | ✅ |
-| `DELETE` | `/notifications/:id` | 알림 삭제 | 인증(본인) | ✅ |
-| `GET` | `/settings/notifications` | 알림 설정 조회 | 인증 | ✅ |
-| `PATCH` | `/settings/notifications` | 알림 설정 수정 | 인증 | ✅ |
-| `GET` | `/push/vapid-public-key` | VAPID 공개키 조회 | 인증 | ✅ |
-| `POST` | `/push/subscriptions` | Push Subscription 등록 | 인증 | ✅ |
-| `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | ✅ |
-| `POST` | `/storage/images/presign` | 이미지 presigned 업로드 URL 발급 | 인증 | ✅ |
-| `GET` | `/storage/images/:imageId` | 이미지 처리 상태 조회 | 인증(소유자) | ✅ |
-| `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | ✅ |
-| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | ✅ |
+| `GET` | `/profiles/me` | 내 프로필 조회 | 인증 | 구현됨 |
+| `PATCH` | `/profiles/me` | 프로필 수정 | 인증 | 구현됨 |
+| `GET` | `/schedules` | 일정 목록 | 인증 | 구현됨 |
+| `GET` | `/schedules/:id` | 일정 상세 | 인증(본인) | 구현됨 |
+| `POST` | `/schedules` | 일정 생성 | 인증 | 구현됨 |
+| `PATCH` | `/schedules/:id` | 일정 수정 | 인증(본인) | 구현됨 |
+| `DELETE` | `/schedules/:id` | 일정 삭제 | 인증(본인) | 구현됨 |
+| `GET` | `/groups` | 내 그룹 목록 | 인증 | 구현됨 |
+| `GET` | `/groups/:id` | 그룹 상세 | 멤버 | 구현됨 |
+| `POST` | `/groups` | 그룹 생성 | 인증 | 구현됨 |
+| `PATCH` | `/groups/:id` | 그룹 수정 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:id` | 그룹 삭제 (멤버 cleanup 포함) | manager | 구현됨 |
+| `POST` | `/groups/join` | 초대코드 가입 | 인증 | 구현됨 |
+| `GET` | `/groups/:gid/members` | 멤버 목록 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:gid/members/me` | 그룹 나가기 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:gid/members/:memberUserId` | 멤버 내보내기 | manager | 구현됨 |
+| `GET` | `/groups/:gid/coordinations` | 조율 목록 | 멤버 | 구현됨 |
+| `GET` | `/groups/:gid/coordinations/:id` | 조율 상세 | 멤버 | 구현됨 |
+| `POST` | `/groups/:gid/coordinations` | 조율 생성 | 멤버 | 구현됨 |
+| `PATCH` | `/groups/:gid/coordinations/:id` | 조율 수정 | 생성자 | 구현됨 |
+| `DELETE` | `/groups/:gid/coordinations/:id` | 조율 삭제 | 생성자 | 구현됨 |
+| `PUT` | `/groups/:gid/coordinations/:cid/responses/me` | 응답 제출 | 멤버 | 구현됨 |
+| `GET` | `/groups/:gid/coordinations/:cid/responses/me` | 내 응답 조회 | 멤버 | 구현됨 |
+| `DELETE` | `/groups/:gid/coordinations/:cid/responses/me` | 응답 삭제 | 멤버 | 구현됨 |
+| `GET` | `/notifications` | 알림 목록 | 인증 | 구현됨 |
+| `PATCH` | `/notifications/:id/read` | 읽음 처리 | 인증(본인) | 구현됨 |
+| `PATCH` | `/notifications/read-all` | 전체 읽음 | 인증 | 구현됨 |
+| `DELETE` | `/notifications/:id` | 알림 삭제 | 인증(본인) | 구현됨 |
+| `GET` | `/settings/notifications` | 알림 설정 조회 | 인증 | 구현됨 |
+| `PATCH` | `/settings/notifications` | 알림 설정 수정 | 인증 | 구현됨 |
+| `GET` | `/push/vapid-public-key` | VAPID 공개키 조회 | 인증 | 구현됨 |
+| `POST` | `/push/subscriptions` | Push Subscription 등록 | 인증 | 구현됨 |
+| `DELETE` | `/push/subscriptions` | Push Subscription 삭제 | 인증 | 구현됨 |
+| `POST` | `/storage/images/presign` | 이미지 presigned 업로드 URL 발급 | 인증 | 구현됨 |
+| `GET` | `/storage/images/:imageId` | 이미지 처리 상태 조회 | 인증(소유자) | 구현됨 |
+| `POST` | `/storage/images/profile` | 프로필 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | 구현됨 |
+| `POST` | `/storage/images/group` | 그룹 이미지 multipart 업로드(deprecated 하위 호환) | 인증 | 구현됨 |
 
 > **Base URL prefix**: `api/planner/v1`  
 > **미구현**: 멤버 역할 변경(`PATCH /groups/:gid/members/:mid`)

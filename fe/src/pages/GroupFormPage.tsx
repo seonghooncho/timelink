@@ -137,7 +137,7 @@ const GroupFormPage: React.FC = () => {
           <p className="text-[11px] text-muted-foreground text-right">{description.length}/200</p>
         </div>
         <div className="p-4 bg-category-group/10 rounded-xl border border-category-group/20">
-          <h4 className="text-xs font-semibold text-category-group mb-1.5">💡 그룹 생성 후</h4>
+          <h4 className="text-xs font-semibold text-category-group mb-1.5">그룹 생성 후 안내</h4>
           <ul className="text-[11px] text-muted-foreground space-y-1">
             <li>• 그룹 상세 페이지에서 멤버를 초대할 수 있어요</li>
             <li>• 공유 링크로 간편하게 초대가 가능해요</li>
