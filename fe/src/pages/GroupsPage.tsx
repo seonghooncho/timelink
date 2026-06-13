@@ -99,7 +99,7 @@ const GroupsPage: React.FC = () => {
         )}
       </div>
 
-      {activeTab === 'mine' && groups.length > 0 ? <FAB to="/groups/new" /> : null}
+      {activeTab === 'mine' && groups.length > 0 ? <FAB to="/groups/new" variant="group" ariaLabel="모임 만들기" /> : null}
     </MobileLayout>
   );
 };
@@ -147,7 +147,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
         <button
           type="button"
           onClick={onCreate}
-          className="mt-6 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
+          className="mt-6 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-category-group py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           모임 만들기
@@ -181,7 +181,7 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
           className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
         >
           <div className="flex items-center gap-4">
-            <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
+            <GroupAvatar image={group.image} thumbnail={group.thumbnailImage} name={group.name} status={group.imageStatus} size="sm" />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="min-w-0 truncate text-sm font-bold text-foreground">{group.name}</p>
@@ -218,11 +218,6 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
                 <p className="truncate text-xs font-semibold text-foreground">
                   {group.activeCoordination.title}
                 </p>
-                {group.activeCoordination.description ? (
-                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                    {group.activeCoordination.description}
-                  </p>
-                ) : null}
               </div>
               <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-coord-green">
                 조율 중
@@ -337,7 +332,7 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
             <button
               type="button"
               onClick={onCreate}
-              className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground"
+              className="mt-5 rounded-xl bg-category-group px-5 py-2.5 text-xs font-bold text-primary-foreground"
             >
               공개 모임 만들기
             </button>
@@ -353,7 +348,7 @@ const DiscoverGroupsTab: React.FC<DiscoverGroupsTabProps> = ({
               className="w-full border-b border-border/60 px-1 py-4 text-left transition-colors last:border-b-0 hover:bg-muted/25"
             >
               <div className="flex items-start gap-3">
-                <GroupAvatar image={group.image} name={group.name} status={group.imageStatus} size="sm" />
+                <GroupAvatar image={group.image} thumbnail={group.thumbnailImage} name={group.name} status={group.imageStatus} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <div className="min-w-0">

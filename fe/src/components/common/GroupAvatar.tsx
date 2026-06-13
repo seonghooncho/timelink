@@ -2,32 +2,36 @@ import React from 'react';
 
 interface GroupAvatarProps {
   image?: string;
+  thumbnail?: string;
   name: string;
   status?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
 const sizeMap = {
+  xs: 'w-8 h-8',
   sm: 'w-10 h-10',
   md: 'w-11 h-11',
   lg: 'w-14 h-14',
 };
 
 const iconSizeMap = {
+  xs: 'w-4 h-4',
   sm: 'w-5 h-5',
   md: 'w-5 h-5',
   lg: 'w-6 h-6',
 };
 
-const GroupAvatar: React.FC<GroupAvatarProps> = ({ image, name, status, size = 'sm' }) => {
+const GroupAvatar: React.FC<GroupAvatarProps> = ({ image, thumbnail, name, status, size = 'sm' }) => {
   const isProcessing = status === 'PROCESSING';
   const isFailed = status === 'FAILED';
+  const displayImage = thumbnail || image;
 
-  if (image) {
+  if (displayImage) {
     return (
       <div className={`${sizeMap[size]} relative shrink-0 overflow-hidden rounded-xl`}>
         <img
-          src={image}
+          src={displayImage}
           alt={name}
           className="h-full w-full object-cover"
         />

@@ -19,9 +19,10 @@
 5. 프론트가 결과 이미지를 S3 `upload/{purpose}/{userId}/{imageId}/original.{ext}`에 직접 업로드합니다.
 6. 백엔드는 이미지 레코드를 `PROCESSING` 상태로 저장합니다. 프로필, 그룹, 일정, 모임 글처럼 단일 이미지 필드를 가진 대상은 `imageId`, `imageStatus`도 연결합니다.
 7. S3 `upload/` object-created 이벤트가 image processor Lambda를 실행합니다.
-8. Lambda가 원본을 읽어 WebP로 변환하고 `public/member/`, `public/group/`, `public/schedule/`, `public/group-intro/`, `public/group-post/` 중 목적에 맞는 prefix에 저장합니다.
-9. Lambda가 DynamoDB 이미지 레코드를 `COMPLETED` 상태와 최종 WebP URL/key로 갱신합니다. 단일 이미지 대상은 대상 엔티티도 함께 갱신하고, 모임 소개 이미지는 소개의 `imageIds`가 완료된 이미지 레코드를 조회합니다.
-10. 변환 전 UI는 처리 중 placeholder를 보여주고, 변환 완료 후 최종 WebP 이미지를 표시합니다.
+8. Lambda가 원본을 읽어 WebP full variant로 변환하고 `public/member/`, `public/group/`, `public/schedule/`, `public/group-intro/`, `public/group-post/`, `public/community-post/` 중 목적에 맞는 prefix에 저장합니다.
+9. 프로필, 모임 내 프로필, 모임 대표 이미지처럼 작은 크기로 반복 노출되는 `MEMBER`, `GROUP` 목적은 강하게 압축한 thumbnail variant를 추가 생성합니다.
+10. Lambda가 DynamoDB 이미지 레코드를 `COMPLETED` 상태와 full/thumbnail URL/key로 갱신합니다. 단일 이미지 대상은 대상 엔티티도 함께 갱신하고, 모임 소개 이미지는 소개의 `imageIds`가 완료된 이미지 레코드를 조회합니다.
+11. 변환 전 UI는 처리 중 placeholder를 보여주고, 목록/아바타는 thumbnail을, 상세/게시물/소개 이미지는 full WebP를 표시합니다.
 
 주요 구현 위치는 다음과 같습니다.
 
@@ -65,7 +66,7 @@ Timelink는 업로드 후 화면을 막지 않는 흐름이 더 중요하므로 
 ## 장점
 
 - API Lambda가 큰 파일을 직접 받지 않아 일반 API 응답 안정성이 높습니다.
-- 최종 공개 이미지를 WebP로 통일해 전송량과 로딩 비용을 줄일 수 있습니다.
+- 최종 공개 이미지를 WebP로 통일하고, 작은 아바타류는 thumbnail을 사용해 목록 화면 전송량을 줄일 수 있습니다.
 - `member`, `group`, `schedule`, `group-intro`, `group-post` 목적별 prefix가 분리되어 운영 조회와 정리가 쉽습니다.
 - `upload/` 원본은 lifecycle로 자동 정리되어 임시 파일이 계속 쌓이는 문제를 줄입니다.
 - 처리 상태를 DB에 남기므로 UI에서 처리 중, 실패, 완료 상태를 명확히 표현할 수 있습니다.
@@ -73,7 +74,7 @@ Timelink는 업로드 후 화면을 막지 않는 흐름이 더 중요하므로 
 ## 현재 한계
 
 - Lambda 변환은 비동기라 업로드 직후 잠시 placeholder가 보일 수 있습니다.
-- 현재는 하나의 최종 WebP만 생성하므로, 디바이스별 여러 사이즈를 제공하지 않습니다.
+- 현재 variant는 `full`, 일부 목적의 `thumbnail`까지만 생성하므로, 반응형 `srcset`이나 디바이스별 다중 사이즈는 아직 제공하지 않습니다.
 - Lambda가 실패하면 `FAILED` 상태와 기본 이미지 표시까지는 가능하지만, 사용자 주도 재시도 UX는 아직 제한적입니다.
 - CloudFront는 `/public/*`을 장기 캐시할 수 있으므로 같은 key를 덮어쓰는 방식보다 새 `imageId` 기반 key를 유지해야 캐시 문제가 적습니다.
 - presigned PUT은 브라우저 CORS에 민감하므로 운영 도메인과 `www` 도메인 변경 시 S3 CORS도 함께 확인해야 합니다.
@@ -92,7 +93,7 @@ Timelink는 업로드 후 화면을 막지 않는 흐름이 더 중요하므로 
 
 운영 초기에는 현재 구조를 유지하는 것이 비용과 복잡도 균형이 좋습니다. 다만 이미지 업로드가 잦아지고 화면 로딩 지표가 중요해지면 다음 순서로 개선합니다.
 
-1. 동일 원본에서 `small`, `medium`, `large` WebP variant를 생성해 모바일 목록 화면의 전송량을 더 줄입니다.
+1. 이미지 사용량이 더 커지면 동일 원본에서 `small`, `medium`, `large` WebP variant와 `srcset`을 추가해 디바이스별 전송량을 더 줄입니다.
 2. Lambda 실패 시 사용자가 다시 처리 요청을 보낼 수 있는 재시도 API를 추가합니다.
 3. CloudFront cache policy와 이미지 key 정책을 정리해 긴 캐시와 빠른 갱신의 기준을 문서화합니다.
 4. 업로드 트래픽이 커지면 SQS를 사이에 둬 S3 이벤트 폭주 시 Lambda 동시성 제어와 재처리를 명확히 합니다.

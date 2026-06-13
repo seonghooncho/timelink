@@ -11,7 +11,7 @@
 ## 현재 반영된 정리
 
 - 프론트 인증은 기존 외부 인증 의존을 제거하고 백엔드 `auth` API 기반 세션으로 전환했다.
-- 프로필/그룹/일정/모임 소개/모임 글 이미지 업로드는 백엔드 `storage` API에서 presigned URL을 발급하고, S3 `upload/` 이벤트 기반 Lambda가 WebP로 변환해 `public/{member|group|schedule|group-intro|group-post}/`에 저장하는 흐름으로 통일했다.
+- 프로필/그룹/일정/모임 소개/모임 글 이미지 업로드는 백엔드 `storage` API에서 presigned URL을 발급하고, S3 `upload/` 이벤트 기반 Lambda가 WebP로 변환해 `public/{member|group|schedule|group-intro|group-post|community-post}/`에 저장하는 흐름으로 통일했다. 프로필류와 모임 대표 이미지는 작은 화면용 thumbnail variant도 함께 저장한다.
 - 프론트는 `CloudFront + S3`, 백엔드와 AI는 `API Gateway + Lambda` 경로가 되도록 인프라 라우팅을 명시적으로 정리했다.
 - 로컬 개발은 Vite proxy, 배포는 CloudFront `/api/* -> API Gateway` 라우팅으로 경로를 맞췄다.
 - 인프라는 프론트 정적 호스팅 버킷과 업로드 이미지 버킷을 분리했다.

@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class ScheduleUpdateReqDTO {
-    @Size(max = 80)
+    @Size(max = 40)
     private String title;
     @Size(max = 1000)
     private String content;

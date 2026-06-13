@@ -10,7 +10,8 @@ public enum ImagePurpose {
     GROUP("group"),
     SCHEDULE("schedule"),
     GROUP_INTRO("group-intro"),
-    GROUP_POST("group-post");
+    GROUP_POST("group-post"),
+    COMMUNITY_POST("community-post");
 
     private final String prefix;
 

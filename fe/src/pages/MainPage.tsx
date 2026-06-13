@@ -25,6 +25,7 @@ const MainPage: React.FC = () => {
   const leaveGroupScheduleMutation = useLeaveGroupSchedule();
   const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
+  const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
 
   const scheduleRange = useMemo(() => {
     const today = getDefaultTimetableStart();
@@ -86,13 +87,18 @@ const MainPage: React.FC = () => {
   };
 
   const handleBlockClick = (schedule: Schedule) => {
+    setActiveScheduleId(schedule.id);
+    setShowScheduleDetail(false);
+  };
+
+  const handleScheduleClick = (schedule: Schedule) => {
+    setActiveScheduleId(schedule.id);
     setSelectedSchedule(schedule);
     setShowScheduleDetail(true);
   };
 
-  const handleScheduleClick = (schedule: Schedule) => {
-    setSelectedSchedule(schedule);
-    setShowScheduleDetail(true);
+  const handleEmptyTimetableClick = () => {
+    setActiveScheduleId(null);
   };
 
   const handlePrevDays = () => {
@@ -162,6 +168,7 @@ const MainPage: React.FC = () => {
           <ScheduleStrip
             groups={groupedSchedules}
             initialScheduleId={scheduleAnchor.anchorScheduleId}
+            selectedScheduleId={activeScheduleId}
             onScheduleClick={handleScheduleClick}
             onComplete={handleComplete}
           />
@@ -181,7 +188,16 @@ const MainPage: React.FC = () => {
       </section>
 
       <section className="mt-2">
-        <Timetable schedules={schedules} startDate={timetableStart} days={4} onBlockClick={handleBlockClick} onPrev={handlePrevDays} onNext={handleNextDays} />
+        <Timetable
+          schedules={schedules}
+          startDate={timetableStart}
+          days={4}
+          onBlockClick={handleBlockClick}
+          onEmptyBlockClick={handleEmptyTimetableClick}
+          onPrev={handlePrevDays}
+          onNext={handleNextDays}
+          selectedScheduleId={activeScheduleId}
+        />
       </section>
 
       <FAB to="/schedule/new" />

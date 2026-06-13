@@ -15,6 +15,7 @@ interface ScheduleStripProps {
   onComplete?: (schedule: Schedule) => void;
   emptyMessage?: string;
   initialScheduleId?: string;
+  selectedScheduleId?: string | null;
   nudgeLeftKey?: string | number;
 }
 
@@ -24,6 +25,7 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   onComplete,
   emptyMessage = '일정이 없습니다',
   initialScheduleId,
+  selectedScheduleId,
   nudgeLeftKey,
 }) => {
   const {
@@ -35,7 +37,24 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
   } = useScrollAffordance<HTMLDivElement>({ axis: 'horizontal' });
   const scheduleRefs = React.useRef(new Map<string, HTMLDivElement>());
   const lastInitialScheduleIdRef = React.useRef<string | undefined>();
+  const lastFocusedScheduleIdRef = React.useRef<string | undefined>();
   const lastNudgeLeftKeyRef = React.useRef<string | number | undefined>();
+
+  const scrollToSchedule = React.useCallback((scheduleId: string, behavior: ScrollBehavior) => {
+    const container = scrollRef.current;
+    const target = scheduleRefs.current.get(scheduleId);
+    if (!container || !target) {
+      return;
+    }
+
+    const nextLeft = Math.max(target.offsetLeft - 14, 0);
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ left: nextLeft, behavior });
+    } else {
+      container.scrollLeft = nextLeft;
+    }
+    window.requestAnimationFrame(refresh);
+  }, [refresh, scrollRef]);
 
   React.useLayoutEffect(() => {
     refresh();
@@ -48,21 +67,22 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
       return;
     }
 
-    const container = scrollRef.current;
-    const target = scheduleRefs.current.get(initialScheduleId);
-    if (!container || !target) {
+    scrollToSchedule(initialScheduleId, 'auto');
+    lastInitialScheduleIdRef.current = initialScheduleId;
+  }, [groups, initialScheduleId, scrollToSchedule]);
+
+  React.useEffect(() => {
+    if (!selectedScheduleId) {
+      lastFocusedScheduleIdRef.current = undefined;
+      return;
+    }
+    if (lastFocusedScheduleIdRef.current === selectedScheduleId) {
       return;
     }
 
-    const nextLeft = Math.max(target.offsetLeft - 14, 0);
-    if (typeof container.scrollTo === 'function') {
-      container.scrollTo({ left: nextLeft, behavior: 'auto' });
-    } else {
-      container.scrollLeft = nextLeft;
-    }
-    window.requestAnimationFrame(refresh);
-    lastInitialScheduleIdRef.current = initialScheduleId;
-  }, [groups, initialScheduleId, refresh, scrollRef]);
+    scrollToSchedule(selectedScheduleId, 'smooth');
+    lastFocusedScheduleIdRef.current = selectedScheduleId;
+  }, [groups, scrollToSchedule, selectedScheduleId]);
 
   React.useEffect(() => {
     if (nudgeLeftKey === undefined || lastNudgeLeftKeyRef.current === nudgeLeftKey) {
@@ -127,6 +147,7 @@ const ScheduleStrip: React.FC<ScheduleStripProps> = ({
                         schedule={s}
                         onClick={onScheduleClick}
                         onComplete={onComplete}
+                        selected={selectedScheduleId === s.id}
                       />
                     </div>
                   ))}

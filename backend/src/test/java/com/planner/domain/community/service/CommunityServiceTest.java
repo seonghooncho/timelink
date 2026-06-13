@@ -129,6 +129,25 @@ class CommunityServiceTest {
     }
 
     @Test
+    @DisplayName("createPost — 익명 글은 권한용 작성자는 저장하고 응답에서는 작성자를 숨긴다")
+    void createPost_anonymousHidesAuthorInResponse() {
+        CommunityPostCreateReqDTO req = new CommunityPostCreateReqDTO();
+        req.setTitle("  익명 질문  ");
+        req.setContent("  일정 조율 팁이 궁금합니다.  ");
+        req.setAnonymous(true);
+
+        CommunityPostResDTO result = service.createPost("user1", req);
+
+        ArgumentCaptor<CommunityPost> captor = ArgumentCaptor.forClass(CommunityPost.class);
+        verify(repository).savePost(captor.capture());
+        assertThat(captor.getValue().getAuthorUserId()).isEqualTo("user1");
+        assertThat(captor.getValue().getAnonymous()).isTrue();
+        assertThat(result.getAuthorUserId()).isNull();
+        assertThat(result.getAuthorNickname()).isEqualTo("익명");
+        assertThat(result.getMine()).isTrue();
+    }
+
+    @Test
     @DisplayName("getPosts — 좋아요 여부와 작성자 여부를 포함한다")
     void getPosts_includesLikedAndMine() {
         when(repository.findPostsPaged(20, null))
@@ -215,6 +234,73 @@ class CommunityServiceTest {
         verify(repository).savePost(captor.capture());
         assertThat(result.getImageId()).isEqualTo("img1");
         assertThat(captor.getValue().getImageStatus()).isEqualTo("PROCESSING");
+    }
+
+    @Test
+    @DisplayName("updatePost — 커뮤니티 글 이미지는 COMMUNITY_POST 목적으로 연결한다")
+    void updatePost_attachesCommunityImage() {
+        when(repository.findPost("p1")).thenReturn(Optional.of(post("user1")));
+        when(storageService.attachImageToTarget("user1", "img1", ImagePurpose.COMMUNITY_POST, "p1"))
+                .thenReturn(ImageUpload.builder()
+                        .imageId("img1")
+                        .status(ImageStatus.PROCESSING.name())
+                        .uploadKey("upload/community-post/user1/img1/original.webp")
+                        .build());
+
+        CommunityPostUpdateReqDTO req = new CommunityPostUpdateReqDTO();
+        req.setImageId("img1");
+
+        CommunityPostResDTO result = service.updatePost("user1", "p1", req);
+
+        assertThat(result.getImageId()).isEqualTo("img1");
+        verify(storageService).attachImageToTarget("user1", "img1", ImagePurpose.COMMUNITY_POST, "p1");
+    }
+
+    @Test
+    @DisplayName("getPublicProfile — 공개 모임과 익명이 아닌 커뮤니티 활동만 반환한다")
+    void getPublicProfile_returnsPublicGroupsAndNonAnonymousActivities() {
+        Group publicGroup = Group.builder()
+                .pk("GROUP#public1")
+                .sk("METADATA")
+                .id("public1")
+                .name("공개 러닝")
+                .visibility("PUBLIC")
+                .memberCount(3)
+                .build();
+        Group privateGroup = Group.builder()
+                .pk("GROUP#private1")
+                .sk("METADATA")
+                .id("private1")
+                .name("비공개 스터디")
+                .visibility("PRIVATE")
+                .memberCount(2)
+                .build();
+        CommunityPost visiblePost = post("target");
+        visiblePost.setTitle("공개 활동");
+        CommunityPost anonymousPost = post("target");
+        anonymousPost.setId("p2");
+        anonymousPost.setAnonymous(true);
+        when(profileRepository.findByUserId("target")).thenReturn(Optional.of(
+                Profile.builder().id("USER#target").sk("PROFILE").nickname("지훈").avatarUrl("https://img/jihun.png").build()
+        ));
+        when(groupRepository.findGroupsByUserId("target")).thenReturn(List.of(
+                GroupMember.builder().groupId("public1").userId("target").build(),
+                GroupMember.builder().groupId("private1").userId("target").build()
+        ));
+        when(groupRepository.findGroupById("public1")).thenReturn(Optional.of(publicGroup));
+        when(groupRepository.findGroupById("private1")).thenReturn(Optional.of(privateGroup));
+        when(groupRepository.findMember("public1", "user1")).thenReturn(Optional.empty());
+        when(groupRepository.findJoinRequest("public1", "user1")).thenReturn(Optional.empty());
+        when(repository.findPostsPaged(50, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of(visiblePost, anonymousPost)).build());
+
+        var result = service.getPublicProfile("user1", "target");
+
+        assertThat(result.getNickname()).isEqualTo("지훈");
+        assertThat(result.getPublicGroups()).hasSize(1);
+        assertThat(result.getPublicGroups().get(0).getName()).isEqualTo("공개 러닝");
+        assertThat(result.getRecentActivities()).hasSize(1);
+        assertThat(result.getRecentActivities().get(0).getTitle()).isEqualTo("공개 활동");
     }
 
     @Test

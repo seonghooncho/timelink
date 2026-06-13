@@ -1,17 +1,23 @@
 package com.planner.domain.community.service;
 
 import com.planner.domain.community.converter.CommunityConverter;
+import com.planner.domain.community.dto.CommunityActivityDTO;
 import com.planner.domain.community.dto.CommunityCommentCreateReqDTO;
 import com.planner.domain.community.dto.CommunityCommentResDTO;
 import com.planner.domain.community.dto.CommunityCommentUpdateReqDTO;
 import com.planner.domain.community.dto.CommunityPostCreateReqDTO;
 import com.planner.domain.community.dto.CommunityPostResDTO;
 import com.planner.domain.community.dto.CommunityPostUpdateReqDTO;
+import com.planner.domain.community.dto.CommunityPublicGroupDTO;
+import com.planner.domain.community.dto.CommunityPublicProfileDTO;
 import com.planner.domain.community.error.CommunityErrorCode;
 import com.planner.domain.community.error.CommunityException;
 import com.planner.domain.community.model.CommunityComment;
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
+import com.planner.domain.group.model.Group;
+import com.planner.domain.group.model.GroupJoinRequest;
+import com.planner.domain.group.model.GroupMember;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.repository.GroupRepository;
@@ -31,12 +37,18 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class CommunityService {
 
     private static final int DEFAULT_LIMIT = 20;
+    private static final String VISIBILITY_PUBLIC = "PUBLIC";
+    private static final int PUBLIC_PROFILE_GROUP_LIMIT = 5;
+    private static final int PUBLIC_PROFILE_ACTIVITY_SCAN_LIMIT = 50;
+    private static final int PUBLIC_PROFILE_ACTIVITY_LIMIT = 5;
 
     private final CommunityRepository repository;
     private final ProfileRepository profileRepository;
@@ -63,6 +75,22 @@ public class CommunityService {
         CommunityPost post = CommunityConverter.toPost(userId, findProfile(userId), req);
         repository.savePost(post);
         return CommunityConverter.toPostResponse(post, userId, false);
+    }
+
+    public CommunityPublicProfileDTO getPublicProfile(String viewerUserId, String targetUserId) {
+        if (!StringUtils.hasText(targetUserId)) {
+            throw new CommunityException(CommunityErrorCode.POST_NOT_FOUND);
+        }
+
+        Profile profile = profileRepository.findByUserId(targetUserId).orElse(null);
+        return CommunityPublicProfileDTO.builder()
+                .userId(targetUserId)
+                .nickname(resolveNickname(profile))
+                .avatarUrl(resolveAvatarUrl(profile))
+                .thumbnailUrl(resolveThumbnailUrl(profile))
+                .publicGroups(findPublicGroupsForProfile(viewerUserId, targetUserId))
+                .recentActivities(findRecentPublicActivities(targetUserId))
+                .build();
     }
 
     public CursorPageResult<CommunityPostResDTO> getGroupPosts(String userId, String groupId, Integer limit, String cursorToken) {
@@ -318,11 +346,10 @@ public class CommunityService {
             post.setImageUrl(null);
             return;
         }
-        if (!StringUtils.hasText(post.getGroupId())) {
-            throw new CommunityException(CommunityErrorCode.INVALID_POST_IMAGE);
-        }
-
-        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, ImagePurpose.GROUP_POST, post.getId());
+        ImagePurpose purpose = StringUtils.hasText(post.getGroupId())
+                ? ImagePurpose.GROUP_POST
+                : ImagePurpose.COMMUNITY_POST;
+        ImageUpload upload = storageService.attachImageToTarget(userId, imageId, purpose, post.getId());
         post.setImageId(upload.getImageId());
         post.setImageStatus(upload.getStatus());
         post.setImageUploadKey(upload.getUploadKey());
@@ -343,6 +370,67 @@ public class CommunityService {
                 .orElseThrow(() -> new GroupException(GroupErrorCode.GROUP_NOT_FOUND));
         groupRepository.findMember(groupId, userId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+    }
+
+    private List<CommunityPublicGroupDTO> findPublicGroupsForProfile(String viewerUserId, String targetUserId) {
+        return groupRepository.findGroupsByUserId(targetUserId).stream()
+                .map(membership -> groupRepository.findGroupById(membership.getGroupId()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(group -> VISIBILITY_PUBLIC.equals(resolveVisibility(group)))
+                .limit(PUBLIC_PROFILE_GROUP_LIMIT)
+                .map(group -> toPublicGroupProfileSummary(viewerUserId, group))
+                .toList();
+    }
+
+    private CommunityPublicGroupDTO toPublicGroupProfileSummary(String viewerUserId, Group group) {
+        GroupMember membership = groupRepository.findMember(group.getId(), viewerUserId).orElse(null);
+        GroupJoinRequest joinRequest = membership == null
+                ? groupRepository.findJoinRequest(group.getId(), viewerUserId).orElse(null)
+                : null;
+        return CommunityPublicGroupDTO.builder()
+                .id(group.getId())
+                .name(group.getName())
+                .description(group.getDescription())
+                .imageUrl(group.getImageUrl())
+                .thumbnailUrl(group.getThumbnailUrl())
+                .imageStatus(group.getImageStatus())
+                .memberCount(group.getMemberCount() != null ? group.getMemberCount() : 0)
+                .myRole(membership != null ? membership.getRole() : null)
+                .joinRequestStatus(joinRequest != null ? joinRequest.getStatus() : null)
+                .build();
+    }
+
+    private List<CommunityActivityDTO> findRecentPublicActivities(String targetUserId) {
+        return repository.findPostsPaged(PUBLIC_PROFILE_ACTIVITY_SCAN_LIMIT, null)
+                .getItems().stream()
+                .filter(post -> Objects.equals(targetUserId, post.getAuthorUserId()))
+                .filter(post -> !Boolean.TRUE.equals(post.getAnonymous()))
+                .filter(post -> !StringUtils.hasText(post.getGroupId()))
+                .limit(PUBLIC_PROFILE_ACTIVITY_LIMIT)
+                .map(post -> CommunityActivityDTO.builder()
+                        .id(post.getId())
+                        .type("POST")
+                        .title(post.getTitle())
+                        .createdAt(post.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    private String resolveVisibility(Group group) {
+        return StringUtils.hasText(group.getVisibility()) ? group.getVisibility() : "PRIVATE";
+    }
+
+    private String resolveNickname(Profile profile) {
+        return profile != null && StringUtils.hasText(profile.getNickname()) ? profile.getNickname() : "사용자";
+    }
+
+    private String resolveAvatarUrl(Profile profile) {
+        return profile != null && StringUtils.hasText(profile.getAvatarUrl()) ? profile.getAvatarUrl() : "";
+    }
+
+    private String resolveThumbnailUrl(Profile profile) {
+        return profile != null && StringUtils.hasText(profile.getThumbnailUrl()) ? profile.getThumbnailUrl() : "";
     }
 
     private void validateText(String value) {

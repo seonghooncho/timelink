@@ -43,28 +43,31 @@ vi.mock('@/lib/appToast', () => ({
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
-function renderPage() {
+function renderPage(stateOverrides: Record<string, unknown> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+
+  const state = {
+    groupId: 'group-1',
+    groupName: '스터디',
+    coordinationId: 'coord-1',
+    returnTo: '/groups/group-1',
+    sourceLabel: '모두 가능한 시간',
+    title: '스터디 확정',
+    content: '시간 조율 결과에서 생성한 모임 일정입니다.',
+    startDate: '2099-06-14',
+    startTime: '18:00',
+    duration: '1',
+    ...stateOverrides,
+  };
 
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
         initialEntries={[{
           pathname: '/schedule/new',
-          state: {
-            groupId: 'group-1',
-            groupName: '스터디',
-            coordinationId: 'coord-1',
-            returnTo: '/groups/group-1',
-            sourceLabel: '모두 가능한 시간',
-            title: '스터디 확정',
-            content: '시간 조율 결과에서 생성한 그룹 일정입니다.',
-            startDate: '2026-06-14',
-            startTime: '18:00',
-            duration: '1',
-          },
+          state,
         }]}
       >
         <Routes>
@@ -101,7 +104,7 @@ describe('ScheduleFormPage coordination flow', () => {
 
     expect(await screen.findByText('민지')).toBeInTheDocument();
     expect(screen.getAllByText('모임').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: '등록하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
 
     await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
       title: '스터디 확정',
@@ -127,12 +130,28 @@ describe('ScheduleFormPage coordination flow', () => {
     expect(await screen.findByText('민지')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '전체해제' }));
     expect(screen.getByText('0명 선택')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '등록하기' }));
+    fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
 
     await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
       category: 'group',
       groupId: 'group-1',
       participantUserIds: [],
+    })));
+  });
+
+  it('confirms before creating a past schedule', async () => {
+    renderPage({ startDate: '2020-06-14', coordinationId: undefined });
+
+    expect(await screen.findByText('민지')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
+
+    expect(await screen.findByText('이미 지난 일정입니다')).toBeInTheDocument();
+    expect(mocks.createSchedule).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '그래도 만들기' }));
+
+    await waitFor(() => expect(mocks.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
+      startTime: '2020-06-14T18:00:00',
     })));
   });
 });

@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Copy, Heart, ImageIcon, Info, Link as LinkIcon, LogOut, Menu, MessageCircle, Pencil, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Heart, Info, LogOut, Menu, MessageCircle, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
 import PostListItem from '@/components/community/PostListItem';
+import PostImageAttachment from '@/components/community/PostImageAttachment';
+import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import CoordinationStrip from '@/components/coordination/CoordinationStrip';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +35,7 @@ import {
   groupApi,
   groupPostApi,
   GroupJoinRequestResponse,
+  GroupMemberProfileResponse,
   GroupMemberResponse,
 } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
@@ -41,6 +45,7 @@ import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { getScheduleEndDate } from '@/lib/scheduleTime';
+import { COMMUNITY_POST_TITLE_MAX_LENGTH } from '@/lib/textLimits';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -72,13 +77,8 @@ const GroupDetailPage: React.FC = () => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
-  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [showManageMembersModal, setShowManageMembersModal] = useState(false);
   const [manageMembersTab, setManageMembersTab] = useState<'members' | 'joinRequests'>('members');
-  const [editGroupName, setEditGroupName] = useState('');
-  const [editGroupDescription, setEditGroupDescription] = useState('');
-  const [editGroupVisibility, setEditGroupVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
-  const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
   const [kickTarget, setKickTarget] = useState<GroupMemberResponse | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [joinRequests, setJoinRequests] = useState<GroupJoinRequestResponse[]>([]);
@@ -93,6 +93,11 @@ const GroupDetailPage: React.FC = () => {
   const [showPastSchedules, setShowPastSchedules] = useState(false);
   const [pastScheduleNudgeKey, setPastScheduleNudgeKey] = useState(0);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
+  const [memberProfile, setMemberProfile] = useState<GroupMemberProfileResponse | null>(null);
+  const [showMemberProfileSheet, setShowMemberProfileSheet] = useState(false);
+  const [memberProfileMode, setMemberProfileMode] = useState<'view' | 'edit'>('view');
+  const [isMemberProfileLoading, setIsMemberProfileLoading] = useState(false);
+  const [isMemberProfileSaving, setIsMemberProfileSaving] = useState(false);
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
@@ -270,14 +275,6 @@ const GroupDetailPage: React.FC = () => {
     }
   };
 
-  const openEditGroupModal = () => {
-    if (!group) return;
-    setEditGroupName(group.name);
-    setEditGroupDescription(group.description || '');
-    setEditGroupVisibility(group.visibility ?? 'PRIVATE');
-    setShowEditGroupModal(true);
-  };
-
   const openManageMembersModal = (tab: 'members' | 'joinRequests' = 'members') => {
     setManageMembersTab(tab);
     setShowManageMembersModal(true);
@@ -291,26 +288,51 @@ const GroupDetailPage: React.FC = () => {
     setShowMembersModal(true);
   };
 
-  const handleUpdateGroup = async () => {
+  const openMemberProfile = async (memberUserId: string, mode: 'view' | 'edit' = 'view') => {
     if (!id) return;
-    const name = editGroupName.trim();
-    const description = editGroupDescription.trim();
-
-    if (!name) {
-      appToast.error('모임 이름을 입력해주세요');
-      return;
-    }
-
-    setIsUpdatingGroup(true);
+    setMemberProfileMode(mode);
+    setMemberProfile(null);
+    setShowMemberProfileSheet(true);
+    setIsMemberProfileLoading(true);
     try {
-      await groupApi.update(id, { name, description, visibility: editGroupVisibility });
-      await queryClient.invalidateQueries({ queryKey: ['groups'] });
-      setShowEditGroupModal(false);
-      appToast.success('모임 정보를 수정했습니다');
+      const profile = await groupApi.getMemberProfile(id, memberUserId);
+      setMemberProfile(profile);
     } catch (error) {
-      appToast.error('모임 정보 수정에 실패했습니다', error);
+      appToast.error('멤버 프로필을 불러오지 못했습니다', error);
+      setShowMemberProfileSheet(false);
     } finally {
-      setIsUpdatingGroup(false);
+      setIsMemberProfileLoading(false);
+    }
+  };
+
+  const openMyMemberProfileEditor = () => {
+    if (!userId) return;
+    setShowMenu(false);
+    openMemberProfile(userId, 'edit');
+  };
+
+  const handleSaveMyMemberProfile = async (data: { nickname?: string; avatarUrl?: string; imageId?: string }) => {
+    if (!id) return;
+    setIsMemberProfileSaving(true);
+    try {
+      const profile = await groupApi.updateMyMemberProfile(id, data);
+      setMemberProfile(profile);
+      setMembers(prev => prev.map(member => (
+        member.userId === profile.userId
+          ? {
+            ...member,
+            nickname: profile.nickname,
+            avatarUrl: profile.avatarUrl,
+            imageId: profile.imageId,
+            imageStatus: profile.imageStatus,
+          }
+          : member
+      )));
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      appToast.success('모임 프로필을 저장했습니다');
+      return profile;
+    } finally {
+      setIsMemberProfileSaving(false);
     }
   };
 
@@ -478,9 +500,10 @@ const GroupDetailPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate(`/groups/${id}/intro`)}
-            className="flex min-w-0 items-center gap-1.5 text-left"
+            className="flex min-w-0 items-center gap-2 text-left"
             aria-label="모임 소개 보기"
           >
+            <GroupAvatar image={group.imageUrl} thumbnail={group.thumbnailUrl} name={group.name} status={group.imageStatus} size="xs" />
             <span className="min-w-0 truncate text-sm font-bold leading-5 text-foreground">{group.name}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
@@ -517,12 +540,9 @@ const GroupDetailPage: React.FC = () => {
                 </button>
                 <button
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-                  onClick={() => {
-                    setShowMenu(false);
-                    openEditGroupModal();
-                  }}
+                  onClick={openMyMemberProfileEditor}
                 >
-                  <Pencil className="w-4 h-4" /> 모임 정보 수정
+                  <Users className="w-4 h-4" /> 모임 프로필 수정
                 </button>
                 {isManager ? (
                   <button
@@ -553,15 +573,6 @@ const GroupDetailPage: React.FC = () => {
                   }}
                 >
                   <UserPlus className="w-4 h-4" /> 멤버 초대
-                </button>
-                <button
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-                  onClick={() => {
-                    setShowMenu(false);
-                    handleShare();
-                  }}
-                >
-                  <LinkIcon className="w-4 h-4" /> 링크 공유
                 </button>
                 <button
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-muted"
@@ -681,7 +692,7 @@ const GroupDetailPage: React.FC = () => {
               <Input
                 value={postTitle}
                 onChange={(event) => setPostTitle(event.target.value)}
-                maxLength={80}
+                maxLength={COMMUNITY_POST_TITLE_MAX_LENGTH}
                 className="rounded-xl bg-muted text-base"
                 placeholder="게시물 제목"
               />
@@ -706,28 +717,12 @@ const GroupDetailPage: React.FC = () => {
               <p className="text-[10px] leading-4 text-muted-foreground">
                 꺼두면 미가입자도 소개 페이지에서 글을 읽을 수 있습니다.
               </p>
-              {postImagePreview ? (
-                <div className="relative overflow-hidden rounded-xl border border-border">
-                  <img src={postImagePreview} alt="첨부 이미지 미리보기" className="h-44 w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={resetPostImage}
-                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white"
-                    aria-label="첨부 이미지 제거"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => postImageInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background py-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  이미지 추가
-                </button>
-              )}
+              <PostImageAttachment
+                previewUrl={postImagePreview}
+                isUploading={isPostImageUploading}
+                onSelect={() => postImageInputRef.current?.click()}
+                onRemove={resetPostImage}
+              />
               <input
                 ref={postImageInputRef}
                 type="file"
@@ -782,7 +777,7 @@ const GroupDetailPage: React.FC = () => {
           title="게시물 이미지 편집"
           description="글에 첨부할 영역을 맞춰주세요."
           outputNamePrefix="group-post"
-          aspectRatio={4 / 3}
+          aspectRatio={1}
           onClose={() => setPostCropFile(null)}
           onConfirm={handlePostImageCropConfirm}
         />
@@ -816,12 +811,14 @@ const GroupDetailPage: React.FC = () => {
                   maxHeightClassName="max-h-[22rem]"
                 >
                   {sortedMembers.map((member) => (
-                    <div
+                    <button
+                      type="button"
                       key={member.id}
-                      className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3"
+                      onClick={() => openMemberProfile(member.userId)}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-left transition-colors hover:bg-muted/35"
                     >
                       <Avatar className="h-11 w-11 border border-border/70">
-                        <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
+                        <AvatarImage src={member.thumbnailUrl || member.avatarUrl} alt={member.nickname || member.userId} />
                         <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
                           {getMemberFallback(member)}
                         </AvatarFallback>
@@ -843,7 +840,7 @@ const GroupDetailPage: React.FC = () => {
                         </div>
                         <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </ScrollableFadeList>
               ) : (
@@ -874,92 +871,6 @@ const GroupDetailPage: React.FC = () => {
               <button onClick={handleShare} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground">
                 공유하기
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEditGroupModal && (
-        <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowEditGroupModal(false)}>
-          <div
-            className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-elevated animate-fade-in app-bottom-sheet-panel"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="truncate text-base font-bold text-foreground">모임 정보 수정</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">모임 멤버라면 이름, 설명, 공개 설정을 수정할 수 있습니다.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEditGroupModal(false)}
-                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="닫기"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 px-5 py-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">모임 이름</label>
-                <Input
-                  value={editGroupName}
-                  onChange={(event) => setEditGroupName(event.target.value)}
-                  maxLength={30}
-                  className="rounded-xl bg-muted"
-                  placeholder="모임 이름"
-                />
-                <p className="text-right text-[10px] text-muted-foreground">{editGroupName.length}/30</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">모임 설명</label>
-                <Textarea
-                  value={editGroupDescription}
-                  onChange={(event) => setEditGroupDescription(event.target.value)}
-                  maxLength={200}
-                  rows={4}
-                  className="resize-none rounded-xl bg-muted"
-                  placeholder="모임 설명"
-                />
-                <p className="text-right text-[10px] text-muted-foreground">{editGroupDescription.length}/200</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground">공개 설정</label>
-                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-muted p-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditGroupVisibility('PRIVATE')}
-                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${editGroupVisibility === 'PRIVATE' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
-                  >
-                    비공개
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditGroupVisibility('PUBLIC')}
-                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${editGroupVisibility === 'PUBLIC' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground'}`}
-                  >
-                    공개
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowEditGroupModal(false)}
-                  className="rounded-xl bg-muted py-3 text-sm font-semibold text-foreground"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUpdateGroup}
-                  disabled={isUpdatingGroup}
-                  className="rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
-                >
-                  {isUpdatingGroup ? '저장 중...' : '저장'}
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -1013,29 +924,35 @@ const GroupDetailPage: React.FC = () => {
                         key={member.id}
                         className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3.5 py-3"
                       >
-                        <Avatar className="h-11 w-11 border border-border/70">
-                          <AvatarImage src={member.avatarUrl} alt={member.nickname || member.userId} />
-                          <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
-                            {getMemberFallback(member)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <button
+                          type="button"
+                          onClick={() => openMemberProfile(member.userId)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          <Avatar className="h-11 w-11 border border-border/70">
+                            <AvatarImage src={member.thumbnailUrl || member.avatarUrl} alt={member.nickname || member.userId} />
+                            <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                              {getMemberFallback(member)}
+                            </AvatarFallback>
+                          </Avatar>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p className="min-w-0 truncate text-sm font-semibold text-foreground">
-                              {member.nickname || member.userId}
-                            </p>
-                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                              {getRoleLabel(member.role)}
-                            </span>
-                            {isMe ? (
-                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                나
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                                {member.nickname || member.userId}
+                              </p>
+                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {getRoleLabel(member.role)}
                               </span>
-                            ) : null}
+                              {isMe ? (
+                                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                  나
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
                           </div>
-                          <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatJoinedAt(member.joinedAt)}</p>
-                        </div>
+                        </button>
 
                         <button
                           type="button"
@@ -1107,6 +1024,17 @@ const GroupDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <GroupMemberProfileSheet
+        open={showMemberProfileSheet}
+        groupId={id || ''}
+        profile={memberProfile}
+        editable={memberProfileMode === 'edit'}
+        isLoading={isMemberProfileLoading}
+        isSaving={isMemberProfileSaving}
+        onClose={() => setShowMemberProfileSheet(false)}
+        onSave={handleSaveMyMemberProfile}
+      />
 
       <div className="h-24" aria-hidden="true" />
 

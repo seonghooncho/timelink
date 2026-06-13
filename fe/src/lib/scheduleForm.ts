@@ -6,7 +6,7 @@ import {
 } from '@/lib/scheduleTime';
 
 export const SCHEDULE_TIME_STEP_SECONDS = 30 * 60;
-export const SCHEDULE_TITLE_MAX_LENGTH = 80;
+export const SCHEDULE_TITLE_MAX_LENGTH = 40;
 export const SCHEDULE_CONTENT_MAX_LENGTH = 1000;
 const HALF_HOUR_MINUTES = 30;
 const MIN_DURATION_HOURS = SCHEDULE_DURATION_STEP_HOURS;

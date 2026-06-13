@@ -128,6 +128,10 @@ public class ProfileService {
         profile.setImageStatus(upload.getStatus());
         profile.setImageUploadKey(upload.getUploadKey());
         profile.setImageObjectKey(upload.getPublicKey());
+        profile.setThumbnailObjectKey(upload.getThumbnailKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getThumbnailUrl())) {
+            profile.setThumbnailUrl(upload.getThumbnailUrl());
+        }
         if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
             profile.setAvatarUrl(upload.getPublicUrl());
         }

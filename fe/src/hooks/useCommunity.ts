@@ -82,7 +82,7 @@ export function useGroupPostComments(groupId?: string, postId?: string) {
 export function useCreateCommunityPost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; content: string }) => communityApi.createPost(data),
+    mutationFn: (data: { title: string; content: string; anonymous?: boolean }) => communityApi.createPost(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['community', 'posts'] });
     },

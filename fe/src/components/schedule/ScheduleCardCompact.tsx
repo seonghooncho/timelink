@@ -8,18 +8,22 @@ interface ScheduleCardCompactProps {
   schedule: Schedule;
   onClick: (schedule: Schedule) => void;
   onComplete?: (schedule: Schedule) => void;
+  selected?: boolean;
 }
 
-const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete }) => {
+const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete, selected = false }) => {
   const isImportant = schedule.isImportant;
   const cardColorStyle = getScheduleColorStyle(schedule, isImportant ? 'solid' : 'soft');
   const dotColorStyle = getScheduleColorStyle(schedule, 'line');
 
   return (
     <div
-      className="relative flex flex-col justify-between min-w-[120px] w-[120px] h-[144px] rounded-2xl border p-3.5 cursor-pointer pressable shrink-0 shadow-soft"
+      className={`relative flex h-[144px] w-[120px] min-w-[120px] shrink-0 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 shadow-soft transition-all duration-200 ${
+        selected ? 'scale-[1.03] ring-2 ring-foreground/20 shadow-elevated' : 'pressable'
+      }`}
       style={cardColorStyle}
       onClick={() => onClick(schedule)}
+      data-selected={selected ? 'true' : undefined}
     >
       {/* Top */}
       <div>

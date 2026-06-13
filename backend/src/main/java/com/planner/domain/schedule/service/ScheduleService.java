@@ -27,6 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -309,6 +312,9 @@ public class ScheduleService {
     }
 
     private void notifyGroupScheduleCreated(String userId, Schedule schedule) {
+        if (!startsInFutureOrNow(schedule)) {
+            return;
+        }
         notifyGroupScheduleMembers(
                 userId,
                 schedule,
@@ -320,12 +326,18 @@ public class ScheduleService {
         if (!StringUtils.hasText(schedule.getGroupId())) {
             return;
         }
+        if (!startsInFutureOrNow(schedule)) {
+            return;
+        }
         participantUserIds.stream()
                 .filter(memberUserId -> !userId.equals(memberUserId))
                 .forEach(memberUserId -> notificationService.createGroupScheduleNotification(memberUserId, schedule));
     }
 
     private void notifyGroupScheduleUpdated(String userId, Schedule schedule) {
+        if (!startsInFutureOrNow(schedule)) {
+            return;
+        }
         notifyGroupScheduleMembers(
                 userId,
                 schedule,
@@ -334,6 +346,9 @@ public class ScheduleService {
     }
 
     private void notifyGroupScheduleDeleted(String userId, Schedule schedule) {
+        if (!startsInFutureOrNow(schedule)) {
+            return;
+        }
         notifyGroupScheduleMembers(
                 userId,
                 schedule,
@@ -358,6 +373,23 @@ public class ScheduleService {
         for (GroupMember member : members) {
             if (!userId.equals(member.getUserId())) {
                 notifyMember.accept(member.getUserId());
+            }
+        }
+    }
+
+    private boolean startsInFutureOrNow(Schedule schedule) {
+        if (!StringUtils.hasText(schedule.getStartTime())) {
+            return false;
+        }
+
+        String startTime = schedule.getStartTime().trim();
+        try {
+            return !OffsetDateTime.parse(startTime).toInstant().isBefore(Instant.now());
+        } catch (DateTimeParseException ignored) {
+            try {
+                return !LocalDateTime.parse(startTime).isBefore(LocalDateTime.now());
+            } catch (DateTimeParseException e) {
+                return false;
             }
         }
     }

@@ -55,6 +55,8 @@ public final class CommunityConverter {
     }
 
     public static CommunityPostResDTO toPostResponse(CommunityPost post, String userId, boolean likedByMe) {
+        boolean anonymous = Boolean.TRUE.equals(post.getAnonymous());
+        boolean mine = userId != null && userId.equals(post.getAuthorUserId());
         return CommunityPostResDTO.builder()
                 .id(post.getId())
                 .title(post.getTitle())
@@ -62,16 +64,17 @@ public final class CommunityConverter {
                 .groupId(post.getGroupId())
                 .memberOnly(Boolean.TRUE.equals(post.getMemberOnly()))
                 .locked(false)
+                .anonymous(anonymous)
                 .imageUrl(post.getImageUrl())
                 .imageId(post.getImageId())
                 .imageStatus(post.getImageStatus())
-                .authorUserId(post.getAuthorUserId())
-                .authorNickname(post.getAuthorNickname())
-                .authorAvatarUrl(post.getAuthorAvatarUrl())
+                .authorUserId(anonymous ? null : post.getAuthorUserId())
+                .authorNickname(anonymous ? "익명" : resolveNickname(post.getAuthorNickname()))
+                .authorAvatarUrl(anonymous ? "" : resolveAvatarUrl(post.getAuthorAvatarUrl()))
                 .likeCount(post.getLikeCount() != null ? post.getLikeCount() : 0)
                 .commentCount(post.getCommentCount() != null ? post.getCommentCount() : 0)
                 .likedByMe(likedByMe)
-                .mine(userId != null && userId.equals(post.getAuthorUserId()))
+                .mine(mine)
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .build();
@@ -90,6 +93,7 @@ public final class CommunityConverter {
                 .title(req.getTitle().trim())
                 .content(req.getContent().trim())
                 .memberOnly(Boolean.TRUE.equals(req.getMemberOnly()))
+                .anonymous(Boolean.TRUE.equals(req.getAnonymous()))
                 .authorUserId(userId)
                 .authorNickname(resolveNickname(profile))
                 .authorAvatarUrl(resolveAvatarUrl(profile))
@@ -125,5 +129,13 @@ public final class CommunityConverter {
             return profile.getAvatarUrl();
         }
         return "";
+    }
+
+    private static String resolveNickname(String nickname) {
+        return StringUtils.hasText(nickname) ? nickname : "사용자";
+    }
+
+    private static String resolveAvatarUrl(String avatarUrl) {
+        return StringUtils.hasText(avatarUrl) ? avatarUrl : "";
     }
 }

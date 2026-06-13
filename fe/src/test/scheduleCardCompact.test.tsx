@@ -53,4 +53,13 @@ describe('ScheduleCardCompact', () => {
 
     expect(screen.queryByRole('button', { name: '완료' })).not.toBeInTheDocument();
   });
+
+  it('선택된 일정 카드는 강조 상태를 표시한다', () => {
+    render(<ScheduleCardCompact schedule={makeSchedule()} onClick={vi.fn()} selected />);
+
+    const card = screen.getByText('회의').closest('[data-selected="true"]');
+
+    expect(card).toBeInTheDocument();
+    expect(card).toHaveClass('ring-2');
+  });
 });

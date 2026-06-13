@@ -159,7 +159,6 @@ public class CoordinationService {
         }
 
         refreshResponseCountAfterChange(coord, slots.size() - existing.size());
-        notifyCoordinationSubmitted(userId, coord);
         return SubmitResultDTO.builder().submittedCount(slots.size()).build();
     }
 
@@ -278,7 +277,8 @@ public class CoordinationService {
                 userId,
                 coord,
                 "새 시간 조율이 시작되었습니다",
-                "%s 조율에 참여해 주세요.".formatted(coord.getTitle())
+                "%s 조율에 참여해 주세요.".formatted(coord.getTitle()),
+                "/groups/%s/coordination/%s/timetable".formatted(coord.getGroupId(), coord.getId())
         );
     }
 
@@ -288,7 +288,8 @@ public class CoordinationService {
                     userId,
                     coord,
                     "시간 조율이 마감되었습니다",
-                    "%s 조율이 마감되었습니다.".formatted(coord.getTitle())
+                    "%s 조율이 마감되었습니다.".formatted(coord.getTitle()),
+                    "/groups/%s/coordination/%s/timetable".formatted(coord.getGroupId(), coord.getId())
             );
             return;
         }
@@ -298,7 +299,8 @@ public class CoordinationService {
                     userId,
                     coord,
                     "시간 조율이 다시 열렸습니다",
-                    "%s 조율에 다시 참여할 수 있습니다.".formatted(coord.getTitle())
+                    "%s 조율에 다시 참여할 수 있습니다.".formatted(coord.getTitle()),
+                    "/groups/%s/coordination/%s/timetable".formatted(coord.getGroupId(), coord.getId())
             );
         }
     }
@@ -308,27 +310,24 @@ public class CoordinationService {
                 userId,
                 coord,
                 "시간 조율이 삭제되었습니다",
-                "%s 조율이 삭제되었습니다.".formatted(coord.getTitle())
+                "%s 조율이 삭제되었습니다.".formatted(coord.getTitle()),
+                "/groups/%s".formatted(coord.getGroupId())
         );
     }
 
-    private void notifyCoordinationMembers(String userId, Coordination coord, String title, String content) {
+    private void notifyCoordinationMembers(String userId, Coordination coord, String title, String content, String targetUrl) {
         for (GroupMember member : groupRepository.findMembersByGroupId(coord.getGroupId())) {
             if (!userId.equals(member.getUserId())) {
-                notificationService.createGroupNotification(member.getUserId(), title, content);
+                notificationService.createGroupNotification(
+                        member.getUserId(),
+                        title,
+                        content,
+                        "COORDINATION",
+                        coord.getId(),
+                        targetUrl
+                );
             }
         }
     }
 
-    private void notifyCoordinationSubmitted(String userId, Coordination coord) {
-        if (userId.equals(coord.getCreatedBy())) {
-            return;
-        }
-
-        notificationService.createGroupNotification(
-                coord.getCreatedBy(),
-                "조율 응답이 등록되었습니다",
-                "%s 조율에 새 응답이 등록되었습니다.".formatted(coord.getTitle())
-        );
-    }
 }

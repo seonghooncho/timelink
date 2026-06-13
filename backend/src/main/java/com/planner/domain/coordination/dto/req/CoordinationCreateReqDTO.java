@@ -9,7 +9,7 @@ import java.util.List;
 
 @Data
 public class CoordinationCreateReqDTO {
-    @NotBlank @Size(max = 80) private String title;
+    @NotBlank @Size(max = 40) private String title;
     @Size(max = 300) private String description;
     @NotBlank private String mode;
     @NotNull private List<String> dates;

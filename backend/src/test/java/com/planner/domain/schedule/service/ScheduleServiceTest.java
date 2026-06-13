@@ -156,7 +156,7 @@ class ScheduleServiceTest {
             req.setTitle("그룹 회의");
             req.setContent("내용");
             req.setCategory("group");
-            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setStartTime("2099-03-10T09:00:00Z");
             req.setDuration(1.0);
             req.setHasAlarm(true);
             req.setGroupId("g1");
@@ -175,8 +175,27 @@ class ScheduleServiceTest {
             then(repository).should(atLeastOnce()).save(argThat(schedule ->
                     "GROUP#g1".equals(schedule.getGsi4pk())
                             && schedule.getGsi4sk() != null
-                            && schedule.getGsi4sk().startsWith("START#2025-03-10T09:00:00Z#SCHEDULE#")
+                            && schedule.getGsi4sk().startsWith("START#2099-03-10T09:00:00Z#SCHEDULE#")
             ));
+        }
+
+        @Test
+        @DisplayName("이미 지난 그룹 일정 생성은 멤버 알림을 만들지 않는다")
+        void shouldNotNotifyWhenPastGroupScheduleCreated() {
+            ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+            req.setTitle("지난 회의");
+            req.setCategory("group");
+            req.setStartTime("2020-03-10T09:00:00Z");
+            req.setDuration(1.0);
+            req.setGroupId("g1");
+
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            service.create(USER_ID, req);
+
+            then(notificationService).should(never())
+                    .createGroupScheduleNotification(anyString(), any(Schedule.class));
         }
 
         @Test
@@ -185,7 +204,7 @@ class ScheduleServiceTest {
             ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
             req.setTitle("선택 회의");
             req.setCategory("group");
-            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setStartTime("2099-03-10T09:00:00Z");
             req.setDuration(1.0);
             req.setGroupId("g1");
             req.setParticipantUserIds(List.of("member-2"));
@@ -214,7 +233,7 @@ class ScheduleServiceTest {
             ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
             req.setTitle("나만 참석");
             req.setCategory("group");
-            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setStartTime("2099-03-10T09:00:00Z");
             req.setDuration(1.0);
             req.setGroupId("g1");
             req.setParticipantUserIds(List.of());
@@ -238,7 +257,7 @@ class ScheduleServiceTest {
             ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
             req.setTitle("선택 회의");
             req.setCategory("group");
-            req.setStartTime("2025-03-10T09:00:00Z");
+            req.setStartTime("2099-03-10T09:00:00Z");
             req.setDuration(1.0);
             req.setGroupId("g1");
             req.setParticipantUserIds(List.of("outsider"));
@@ -341,6 +360,8 @@ class ScheduleServiceTest {
         void shouldNotifyGroupMembersWhenGroupScheduleUpdated() {
             Schedule schedule = createSampleSchedule("s1");
             schedule.setGroupId("g1");
+            schedule.setStartTime("2099-03-10T09:00:00Z");
+            schedule.setEndTime("2099-03-10T10:00:00Z");
             given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
                     .willReturn(Optional.of(schedule));
             given(groupRepository.findMembersByGroupId("g1"))
@@ -355,6 +376,42 @@ class ScheduleServiceTest {
                     .createGroupScheduleUpdatedNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
                     .createGroupScheduleUpdatedNotification(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("이미 지난 그룹 일정 수정은 멤버 알림을 만들지 않는다")
+        void shouldNotNotifyGroupMembersWhenPastGroupScheduleUpdated() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setTitle("지난 회의 수정");
+
+            service.update(USER_ID, "s1", req);
+
+            then(notificationService).should(never())
+                    .createGroupScheduleUpdatedNotification(anyString(), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("지난 그룹 일정이라도 수정 후 미래 일정이면 멤버 알림을 만든다")
+        void shouldNotifyGroupMembersWhenPastGroupScheduleMovesToFuture() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+            given(groupRepository.findMembersByGroupId("g1"))
+                    .willReturn(List.of(sampleMember("g1", USER_ID), sampleMember("g1", "member-2")));
+
+            ScheduleUpdateReqDTO req = new ScheduleUpdateReqDTO();
+            req.setStartTime("2099-03-10T09:00:00Z");
+
+            service.update(USER_ID, "s1", req);
+
+            then(notificationService).should()
+                    .createGroupScheduleUpdatedNotification(eq("member-2"), any(Schedule.class));
         }
 
         @Test
@@ -477,6 +534,8 @@ class ScheduleServiceTest {
         void shouldNotifyGroupMembersWhenGroupScheduleDeleted() {
             Schedule schedule = createSampleSchedule("s1");
             schedule.setGroupId("g1");
+            schedule.setStartTime("2099-03-10T09:00:00Z");
+            schedule.setEndTime("2099-03-10T10:00:00Z");
             given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
                     .willReturn(Optional.of(schedule));
             given(groupRepository.findMembersByGroupId("g1"))
@@ -488,6 +547,20 @@ class ScheduleServiceTest {
                     .createGroupScheduleDeletedNotification(eq("member-2"), any(Schedule.class));
             then(notificationService).should(never())
                     .createGroupScheduleDeletedNotification(eq(USER_ID), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("이미 지난 그룹 일정 삭제는 멤버 알림을 만들지 않는다")
+        void shouldNotNotifyGroupMembersWhenPastGroupScheduleDeleted() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+
+            service.delete(USER_ID, "s1");
+
+            then(notificationService).should(never())
+                    .createGroupScheduleDeletedNotification(anyString(), any(Schedule.class));
         }
 
         @Test

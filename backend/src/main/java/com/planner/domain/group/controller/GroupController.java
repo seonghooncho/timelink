@@ -10,6 +10,8 @@ import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
 import com.planner.domain.group.dto.GroupJoinReqDTO;
+import com.planner.domain.group.dto.GroupMemberProfileResDTO;
+import com.planner.domain.group.dto.GroupMemberProfileUpdateReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
@@ -144,6 +146,22 @@ public class GroupController {
     public ResponseEntity<CustomResponse<List<GroupMemberResDTO>>> getMembers(@PathVariable String id) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.getMembers(userId, id)));
+    }
+
+    @GetMapping("/{id}/members/{memberUserId}/profile")
+    public ResponseEntity<CustomResponse<GroupMemberProfileResDTO>> getMemberProfile(
+            @PathVariable String id,
+            @PathVariable String memberUserId) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.getMemberProfile(userId, id, memberUserId)));
+    }
+
+    @PatchMapping("/{id}/members/me/profile")
+    public ResponseEntity<CustomResponse<GroupMemberProfileResDTO>> updateMyMemberProfile(
+            @PathVariable String id,
+            @Valid @RequestBody GroupMemberProfileUpdateReqDTO req) {
+        String userId = AuthUtil.getCurrentUserId();
+        return ResponseEntity.ok(CustomResponse.ok(service.updateMyMemberProfile(userId, id, req)));
     }
 
     @PostMapping("/{id}/join-requests")

@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class CommunityPostUpdateReqDTO {
-    @Size(max = 80)
+    @Size(max = 40)
     private String title;
 
     @Size(max = 2000)

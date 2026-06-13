@@ -39,6 +39,7 @@ public final class GroupConverter {
                 .name(group.getName())
                 .description(group.getDescription())
                 .imageUrl(group.getImageUrl())
+                .thumbnailUrl(group.getThumbnailUrl())
                 .imageId(group.getImageId())
                 .imageStatus(group.getImageStatus())
                 .inviteCode(group.getInviteCode())
@@ -58,6 +59,7 @@ public final class GroupConverter {
                 .name(group.getName())
                 .description(group.getDescription())
                 .imageUrl(group.getImageUrl())
+                .thumbnailUrl(group.getThumbnailUrl())
                 .imageId(group.getImageId())
                 .imageStatus(group.getImageStatus())
                 .visibility(resolveVisibility(group))
@@ -79,6 +81,7 @@ public final class GroupConverter {
                 .name(group.getName())
                 .description(group.getDescription())
                 .imageUrl(group.getImageUrl())
+                .thumbnailUrl(group.getThumbnailUrl())
                 .imageId(group.getImageId())
                 .imageStatus(group.getImageStatus())
                 .inviteCode(group.getInviteCode())
@@ -96,6 +99,9 @@ public final class GroupConverter {
                 .role(m.getRole())
                 .nickname(m.getNickname())
                 .avatarUrl(m.getAvatarUrl())
+                .thumbnailUrl(m.getThumbnailUrl())
+                .imageId(m.getImageId())
+                .imageStatus(m.getImageStatus())
                 .joinedAt(m.getJoinedAt())
                 .build();
     }

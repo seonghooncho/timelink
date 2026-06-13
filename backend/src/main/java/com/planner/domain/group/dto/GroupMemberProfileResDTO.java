@@ -3,9 +3,11 @@ package com.planner.domain.group.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
-public class GroupMemberResDTO {
+public class GroupMemberProfileResDTO {
     private String id;
     private String userId;
     private String role;
@@ -15,4 +17,6 @@ public class GroupMemberResDTO {
     private String imageId;
     private String imageStatus;
     private String joinedAt;
+    private Boolean mine;
+    private List<GroupMemberActivityDTO> recentActivities;
 }

@@ -16,6 +16,9 @@ import com.planner.domain.group.dto.GroupIntroUpdateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestCreateReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestDecisionReqDTO;
 import com.planner.domain.group.dto.GroupJoinRequestResDTO;
+import com.planner.domain.group.dto.GroupMemberActivityDTO;
+import com.planner.domain.group.dto.GroupMemberProfileResDTO;
+import com.planner.domain.group.dto.GroupMemberProfileUpdateReqDTO;
 import com.planner.domain.group.dto.GroupMemberResDTO;
 import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
@@ -72,6 +75,9 @@ public class GroupService {
     private static final int INTRO_IMAGE_LIMIT = 10;
     private static final int INTRO_NOTICE_LIMIT = 5;
     private static final int INTRO_POST_PREVIEW_LIMIT = 5;
+    private static final int INTRO_MEMBER_PREVIEW_LIMIT = 6;
+    private static final int MEMBER_PROFILE_ACTIVITY_SCAN_LIMIT = 20;
+    private static final int MEMBER_PROFILE_ACTIVITY_LIMIT = 3;
     private static final int PUBLIC_GROUP_SEARCH_SCAN_PAGES = 5;
     private static final int GROUP_CARD_SCHEDULE_PREVIEW_LIMIT = 2;
     private static final int GROUP_CARD_COORDINATION_SCAN_LIMIT = 10;
@@ -110,6 +116,7 @@ public class GroupService {
                 .role("manager")
                 .nickname(getProfileNickname(userId))
                 .avatarUrl(getProfileAvatarUrl(userId))
+                .thumbnailUrl(getProfileThumbnailUrl(userId))
                 .gsi2pk("USER#" + userId).gsi2sk("GROUP#" + groupId)
                 .joinedAt(now)
                 .build();
@@ -274,6 +281,7 @@ public class GroupService {
         GroupIntro intro = repository.findIntro(groupId).orElse(null);
         List<GroupNotice> notices = repository.findNoticesByGroupId(groupId, INTRO_NOTICE_LIMIT);
         CursorPageResult<CommunityPost> postPage = communityRepository.findGroupPostsPaged(groupId, INTRO_POST_PREVIEW_LIMIT, null);
+        List<GroupMember> memberPreviews = findMemberPreviews(groupId);
         boolean member = membership != null;
 
         return GroupIntroResDTO.builder()
@@ -281,6 +289,7 @@ public class GroupService {
                 .name(group.getName())
                 .description(group.getDescription())
                 .imageUrl(group.getImageUrl())
+                .thumbnailUrl(group.getThumbnailUrl())
                 .imageId(group.getImageId())
                 .imageStatus(group.getImageStatus())
                 .visibility(resolveVisibility(group))
@@ -292,6 +301,9 @@ public class GroupService {
                 .notices(notices.stream().map(this::toIntroNotice).toList())
                 .postPreviews(postPage.getItems().stream()
                         .map(post -> toPostPreview(post, member))
+                        .toList())
+                .memberPreviews(memberPreviews.stream()
+                        .map(GroupConverter::toMemberResponse)
                         .toList())
                 .member(member)
                 .canEditIntro(membership != null && "manager".equals(membership.getRole()))
@@ -335,6 +347,7 @@ public class GroupService {
     }
 
     public GroupIntroNoticeDTO createNotice(String userId, String groupId, GroupNoticeCreateReqDTO req) {
+        Group group = findGroupOrThrow(groupId);
         verifyMembership(groupId, userId);
         String now = Instant.now().toString();
         String id = UUID.randomUUID().toString();
@@ -353,6 +366,7 @@ public class GroupService {
                 .updatedAt(now)
                 .build();
         repository.saveNotice(notice);
+        notifyNoticeCreated(userId, group, notice);
         return toIntroNotice(notice);
     }
 
@@ -389,12 +403,7 @@ public class GroupService {
 
     public GroupDetailResDTO update(String userId, String groupId, GroupUpdateReqDTO req) {
         Group group = findGroupOrThrow(groupId);
-        verifyMembership(groupId, userId);
-        String previousName = group.getName();
-        String previousDescription = group.getDescription();
-        String previousImageId = group.getImageId();
-        String previousImageUrl = group.getImageUrl();
-        String previousVisibility = resolveVisibility(group);
+        verifyManager(groupId, userId);
 
         if (req.getName() != null) group.setName(req.getName());
         if (req.getDescription() != null) group.setDescription(req.getDescription());
@@ -407,9 +416,6 @@ public class GroupService {
 
         repository.saveGroup(group);
         applyGroupImage(userId, group, req.getImageId());
-        if (hasGroupDisplayChange(group, previousName, previousDescription, previousImageId, previousImageUrl, previousVisibility)) {
-            notifyGroupInfoUpdated(userId, group);
-        }
         return getDetail(userId, groupId);
     }
 
@@ -444,12 +450,12 @@ public class GroupService {
                 .role("member")
                 .nickname(getProfileNickname(userId))
                 .avatarUrl(getProfileAvatarUrl(userId))
+                .thumbnailUrl(getProfileThumbnailUrl(userId))
                 .gsi2pk("USER#" + userId).gsi2sk("GROUP#" + group.getId())
                 .joinedAt(Instant.now().toString())
                 .build();
         repository.saveMember(member);
         refreshMemberCountAfterChange(group, 1);
-        notifyMemberJoined(group, member);
 
         return getDetail(userId, group.getId());
     }
@@ -459,6 +465,34 @@ public class GroupService {
         return findMembersWithProfiles(groupId).stream()
                 .map(GroupConverter::toMemberResponse)
                 .collect(Collectors.toList());
+    }
+
+    public GroupMemberProfileResDTO getMemberProfile(String userId, String groupId, String memberUserId) {
+        verifyMembership(groupId, userId);
+        GroupMember member = repository.findMember(groupId, memberUserId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+        Profile profile = profileRepository.findByUserId(memberUserId).orElse(null);
+        return toMemberProfileResponse(syncMemberImageFromUpload(applyProfileFallback(member, profile)), userId);
+    }
+
+    public GroupMemberProfileResDTO updateMyMemberProfile(String userId, String groupId, GroupMemberProfileUpdateReqDTO req) {
+        GroupMember member = repository.findMember(groupId, userId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+
+        if (req.getNickname() != null) {
+            String nickname = req.getNickname().trim();
+            if (!StringUtils.hasText(nickname)) {
+                throw new CustomException(GeneralErrorCode.BAD_REQUEST, "모임 프로필 이름을 입력해주세요");
+            }
+            member.setNickname(nickname);
+        }
+        if (req.getAvatarUrl() != null) {
+            member.setAvatarUrl(req.getAvatarUrl().trim());
+        }
+        applyGroupMemberImage(userId, groupId, member, req.getImageId());
+        repository.saveMember(member);
+
+        return toMemberProfileResponse(syncMemberImageFromUpload(member), userId);
     }
 
     public void leave(String userId, String groupId) {
@@ -576,10 +610,38 @@ public class GroupService {
         group.setImageStatus(upload.getStatus());
         group.setImageUploadKey(upload.getUploadKey());
         group.setImageObjectKey(upload.getPublicKey());
+        group.setThumbnailObjectKey(upload.getThumbnailKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getThumbnailUrl())) {
+            group.setThumbnailUrl(upload.getThumbnailUrl());
+        }
         if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
             group.setImageUrl(upload.getPublicUrl());
         }
         repository.updateGroupImageFields(group);
+    }
+
+    private void applyGroupMemberImage(String userId, String groupId, GroupMember member, String imageId) {
+        if (!StringUtils.hasText(imageId)) {
+            return;
+        }
+
+        ImageUpload upload = storageService.attachImageToTarget(
+                userId,
+                imageId,
+                ImagePurpose.MEMBER,
+                buildGroupMemberImageTargetId(groupId, userId)
+        );
+        member.setImageId(upload.getImageId());
+        member.setImageStatus(upload.getStatus());
+        member.setImageUploadKey(upload.getUploadKey());
+        member.setImageObjectKey(upload.getPublicKey());
+        member.setThumbnailObjectKey(upload.getThumbnailKey());
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getThumbnailUrl())) {
+            member.setThumbnailUrl(upload.getThumbnailUrl());
+        }
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus()) && StringUtils.hasText(upload.getPublicUrl())) {
+            member.setAvatarUrl(upload.getPublicUrl());
+        }
     }
 
     private void attachOrVerifyIntroImage(String userId, String groupId, String imageId) {
@@ -692,6 +754,20 @@ public class GroupService {
         }
     }
 
+    private List<GroupMember> findMemberPreviews(String groupId) {
+        List<GroupMember> previews = repository.findMembersByGroupId(groupId, INTRO_MEMBER_PREVIEW_LIMIT);
+        Map<String, Profile> profilesByUserId = profileRepository.findByUserIds(
+                previews.stream()
+                        .map(GroupMember::getUserId)
+                        .collect(Collectors.toSet())
+        );
+
+        return previews.stream()
+                .map(member -> applyProfileFallback(member, profilesByUserId.get(member.getUserId())))
+                .sorted(this::compareMembersForDisplay)
+                .toList();
+    }
+
     private List<GroupMember> findMembersWithProfiles(String groupId) {
         List<GroupMember> members = repository.findMembersByGroupId(groupId);
         Map<String, Profile> profilesByUserId = profileRepository.findByUserIds(
@@ -701,24 +777,110 @@ public class GroupService {
         );
 
         return members.stream()
-                .map(member -> applyProfileDisplay(member, profilesByUserId.get(member.getUserId())))
+                .map(member -> applyProfileFallback(member, profilesByUserId.get(member.getUserId())))
                 .collect(Collectors.toList());
     }
 
-    private GroupMember applyProfileDisplay(GroupMember member, Profile profile) {
+    private GroupMember applyProfileFallback(GroupMember member, Profile profile) {
         if (profile == null) {
             return member;
         }
 
-        if (StringUtils.hasText(profile.getNickname())) {
+        if (!StringUtils.hasText(member.getNickname()) && StringUtils.hasText(profile.getNickname())) {
             member.setNickname(profile.getNickname());
         }
 
-        if (StringUtils.hasText(profile.getAvatarUrl())) {
+        if (!StringUtils.hasText(member.getAvatarUrl()) && StringUtils.hasText(profile.getAvatarUrl())) {
             member.setAvatarUrl(profile.getAvatarUrl());
+        }
+        if (!StringUtils.hasText(member.getThumbnailUrl()) && StringUtils.hasText(profile.getThumbnailUrl())) {
+            member.setThumbnailUrl(profile.getThumbnailUrl());
         }
 
         return member;
+    }
+
+    private GroupMember syncMemberImageFromUpload(GroupMember member) {
+        if (!StringUtils.hasText(member.getImageId())) {
+            return member;
+        }
+
+        ImageUpload upload = imageUploadRepository.findById(member.getImageId()).orElse(null);
+        if (upload == null) {
+            return member;
+        }
+
+        boolean changed = false;
+        if (!Objects.equals(member.getImageStatus(), upload.getStatus())) {
+            member.setImageStatus(upload.getStatus());
+            changed = true;
+        }
+        if (!Objects.equals(member.getImageObjectKey(), upload.getPublicKey())) {
+            member.setImageObjectKey(upload.getPublicKey());
+            changed = true;
+        }
+        if (!Objects.equals(member.getThumbnailObjectKey(), upload.getThumbnailKey())) {
+            member.setThumbnailObjectKey(upload.getThumbnailKey());
+            changed = true;
+        }
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus())
+                && StringUtils.hasText(upload.getThumbnailUrl())
+                && !Objects.equals(member.getThumbnailUrl(), upload.getThumbnailUrl())) {
+            member.setThumbnailUrl(upload.getThumbnailUrl());
+            changed = true;
+        }
+        if (ImageStatus.COMPLETED.name().equals(upload.getStatus())
+                && StringUtils.hasText(upload.getPublicUrl())
+                && !Objects.equals(member.getAvatarUrl(), upload.getPublicUrl())) {
+            member.setAvatarUrl(upload.getPublicUrl());
+            changed = true;
+        }
+
+        if (changed) {
+            repository.saveMember(member);
+        }
+        return member;
+    }
+
+    private GroupMemberProfileResDTO toMemberProfileResponse(GroupMember member, String viewerUserId) {
+        return GroupMemberProfileResDTO.builder()
+                .id(member.getId())
+                .userId(member.getUserId())
+                .role(member.getRole())
+                .nickname(member.getNickname())
+                .avatarUrl(member.getAvatarUrl())
+                .thumbnailUrl(member.getThumbnailUrl())
+                .imageId(member.getImageId())
+                .imageStatus(member.getImageStatus())
+                .joinedAt(member.getJoinedAt())
+                .mine(Objects.equals(member.getUserId(), viewerUserId))
+                .recentActivities(findRecentMemberActivities(member.getGroupId(), member.getUserId()))
+                .build();
+    }
+
+    private List<GroupMemberActivityDTO> findRecentMemberActivities(String groupId, String memberUserId) {
+        return communityRepository.findGroupPostsPaged(groupId, MEMBER_PROFILE_ACTIVITY_SCAN_LIMIT, null)
+                .getItems().stream()
+                .filter(post -> Objects.equals(memberUserId, post.getAuthorUserId()))
+                .limit(MEMBER_PROFILE_ACTIVITY_LIMIT)
+                .map(post -> GroupMemberActivityDTO.builder()
+                        .id(post.getId())
+                        .type("POST")
+                        .title(post.getTitle())
+                        .createdAt(post.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    private int compareMembersForDisplay(GroupMember a, GroupMember b) {
+        if (!Objects.equals(a.getRole(), b.getRole())) {
+            return "manager".equals(a.getRole()) ? -1 : 1;
+        }
+        return nullSafe(a.getJoinedAt()).compareTo(nullSafe(b.getJoinedAt()));
+    }
+
+    private String buildGroupMemberImageTargetId(String groupId, String userId) {
+        return "GROUP_MEMBER#" + groupId + "#" + userId;
     }
 
     private String getProfileNickname(String userId) {
@@ -731,6 +893,13 @@ public class GroupService {
     private String getProfileAvatarUrl(String userId) {
         return profileRepository.findByUserId(userId)
                 .map(Profile::getAvatarUrl)
+                .filter(StringUtils::hasText)
+                .orElse(null);
+    }
+
+    private String getProfileThumbnailUrl(String userId) {
+        return profileRepository.findByUserId(userId)
+                .map(Profile::getThumbnailUrl)
                 .filter(StringUtils::hasText)
                 .orElse(null);
     }
@@ -784,34 +953,9 @@ public class GroupService {
         return sb.toString();
     }
 
-    private void notifyMemberJoined(Group group, GroupMember joinedMember) {
-        String joinedName = StringUtils.hasText(joinedMember.getNickname())
-                ? joinedMember.getNickname()
-                : joinedMember.getUserId();
-        String title = "새 멤버가 참여했습니다";
-        String content = "%s 그룹에 %s님이 들어왔습니다.".formatted(group.getName(), joinedName);
-
-        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
-            if (!joinedMember.getUserId().equals(member.getUserId())) {
-                notificationService.createGroupNotification(member.getUserId(), title, content);
-            }
-        }
-    }
-
-    private void notifyGroupInfoUpdated(String userId, Group group) {
-        String title = "그룹 정보가 변경되었습니다";
-        String content = "%s 그룹 정보가 변경되었습니다.".formatted(group.getName());
-
-        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
-            if (!userId.equals(member.getUserId())) {
-                notificationService.createGroupNotification(member.getUserId(), title, content);
-            }
-        }
-    }
-
     private void notifyGroupDeleted(String userId, Group group, List<GroupMember> members) {
-        String title = "그룹이 삭제되었습니다";
-        String content = "%s 그룹이 삭제되었습니다.".formatted(group.getName());
+        String title = "모임이 삭제되었습니다";
+        String content = "%s 모임이 삭제되었습니다.".formatted(group.getName());
 
         for (GroupMember member : members) {
             if (!userId.equals(member.getUserId())) {
@@ -823,24 +967,26 @@ public class GroupService {
     private void notifyMemberRemoved(Group group, GroupMember target) {
         notificationService.createGroupNotification(
                 target.getUserId(),
-                "그룹에서 내보내졌습니다",
-                "%s 그룹에서 내보내졌습니다.".formatted(group.getName())
+                "모임에서 내보내졌습니다",
+                "%s 모임에서 내보내졌습니다.".formatted(group.getName())
         );
     }
 
-    private boolean hasGroupDisplayChange(
-            Group group,
-            String previousName,
-            String previousDescription,
-            String previousImageId,
-            String previousImageUrl,
-            String previousVisibility
-    ) {
-        return !Objects.equals(previousName, group.getName())
-                || !Objects.equals(previousDescription, group.getDescription())
-                || !Objects.equals(previousImageId, group.getImageId())
-                || !Objects.equals(previousImageUrl, group.getImageUrl())
-                || !Objects.equals(previousVisibility, resolveVisibility(group));
+    private void notifyNoticeCreated(String userId, Group group, GroupNotice notice) {
+        String content = "%s 모임: %s".formatted(group.getName(), notice.getTitle());
+
+        for (GroupMember member : repository.findMembersByGroupId(group.getId())) {
+            if (!userId.equals(member.getUserId())) {
+                notificationService.createGroupNotification(
+                        member.getUserId(),
+                        "새 공지사항이 등록되었습니다",
+                        content,
+                        "GROUP",
+                        group.getId(),
+                        "/groups/%s/intro".formatted(group.getId())
+                );
+            }
+        }
     }
 
     private void applyPublicIndexFields(Group group) {
@@ -890,12 +1036,12 @@ public class GroupService {
                     .role("member")
                     .nickname(getProfileNickname(request.getUserId()))
                     .avatarUrl(getProfileAvatarUrl(request.getUserId()))
+                    .thumbnailUrl(getProfileThumbnailUrl(request.getUserId()))
                     .gsi2pk("USER#" + request.getUserId()).gsi2sk("GROUP#" + group.getId())
                     .joinedAt(Instant.now().toString())
                     .build();
             repository.saveMember(member);
             refreshMemberCountAfterChange(group, 1);
-            notifyMemberJoined(group, member);
         }
 
         notificationService.createGroupNotification(

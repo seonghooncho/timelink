@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Timetable from '@/components/schedule/Timetable';
 import { getInitialTimetableScrollTop, getTimetableDraggedScrollTop } from '@/components/schedule/timetableUtils';
@@ -115,5 +115,45 @@ describe('Timetable scroll behavior', () => {
     expect(screen.getByText('11:30')).toBeInTheDocument();
     expect(screen.queryByText('3/12 9:00 · 1시간')).not.toBeInTheDocument();
     expect(screen.queryByText('3/12 11:30 · 30분')).not.toBeInTheDocument();
+  });
+
+  it('일정 블럭 클릭과 빈 영역 클릭을 분리한다', () => {
+    const schedule: Schedule = {
+      id: 'focus-me',
+      title: '회의',
+      content: '',
+      category: 'appointment',
+      isImportant: false,
+      startTime: '2026-03-12T09:00:00',
+      endTime: '2026-03-12T09:00:00',
+      duration: 1,
+      isCompleted: false,
+      hasAlarm: false,
+    };
+    const onBlockClick = vi.fn();
+    const onEmptyBlockClick = vi.fn();
+
+    render(
+      <Timetable
+        schedules={[schedule]}
+        startDate={new Date('2026-03-12T00:00:00')}
+        days={1}
+        onBlockClick={onBlockClick}
+        onEmptyBlockClick={onEmptyBlockClick}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        selectedScheduleId="focus-me"
+      />,
+    );
+
+    const block = screen.getByTestId('timetable-schedule-focus-me');
+    expect(block).toHaveClass('ring-2');
+
+    fireEvent.click(block);
+    expect(onBlockClick).toHaveBeenCalledWith(schedule);
+    expect(onEmptyBlockClick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('timetable-day-column-0'));
+    expect(onEmptyBlockClick).toHaveBeenCalledTimes(1);
   });
 });
