@@ -59,6 +59,7 @@ describe('LoginPage consent', () => {
     });
 
     expect(screen.queryByRole('checkbox', { name: '필수 약관 동의' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '먼저 둘러보기' })).toHaveAttribute('href', '/demo');
     expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
     expect(screen.getByRole('link', { name: '개인정보 안내' })).toHaveAttribute('href', '/privacy');
     expect(screen.getByText(/처음 시작할 때/)).toBeInTheDocument();

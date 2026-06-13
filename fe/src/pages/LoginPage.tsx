@@ -5,7 +5,7 @@ import BrandMark from '@/components/common/BrandMark';
 import { useAuth } from '@/context/AuthContext';
 import { authApi, AuthProvidersResponse, SocialAuthProvider } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PlayCircle } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 
 type LoginMode = SocialAuthProvider | 'guest' | null;
@@ -173,6 +173,14 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
         ) : null}
+
+        <Link
+          to="/demo"
+          className="mt-5 flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+        >
+          <PlayCircle className="h-4 w-4 text-primary" />
+          먼저 둘러보기
+        </Link>
 
         <p className="mt-10 text-[11px] text-muted-foreground/70 text-center leading-relaxed">
           처음 시작할 때{' '}

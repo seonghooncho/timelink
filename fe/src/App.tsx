@@ -19,6 +19,7 @@ import LoginPage from "./pages/LoginPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import ConsentPage from "./pages/ConsentPage";
+import DemoPage from "./pages/DemoPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
@@ -45,6 +46,7 @@ const App = () => (
             <PushPermissionNudge />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/demo" element={<DemoPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
