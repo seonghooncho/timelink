@@ -75,4 +75,14 @@ describe('ProtectedRoute consent gate', () => {
       expect(screen.getByText('calendar-page')).toBeInTheDocument();
     });
   });
+
+  it('shows a retry path when profile loading fails', async () => {
+    mocks.getMe.mockRejectedValue(new Error('temporary failure'));
+
+    renderRoute();
+
+    expect(await screen.findByText('사용자 정보를 불러오지 못했습니다')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument();
+  });
 });

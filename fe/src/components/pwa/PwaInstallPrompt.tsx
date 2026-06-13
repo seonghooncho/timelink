@@ -11,7 +11,11 @@ import {
 const DISMISSED_UNTIL_KEY = "timelink:pwa-install-dismissed-until";
 const DISMISS_DAYS = 7;
 const DISMISS_MS = DISMISS_DAYS * 24 * 60 * 60 * 1000;
-const WORK_FLOW_PATTERNS = [
+const SUPPRESSED_PATH_PATTERNS = [
+  /^\/login(?:\/|$)/,
+  /^\/demo(?:\/|$)/,
+  /^\/terms(?:\/|$)/,
+  /^\/privacy(?:\/|$)/,
   /^\/auth\/callback(?:\/|$)/,
   /^\/consent(?:\/|$)/,
   /^\/schedule\/new(?:\/|$)/,
@@ -24,8 +28,8 @@ function isDismissed() {
   return Number.isFinite(dismissedUntil) && Date.now() < dismissedUntil;
 }
 
-function isWorkFlowPath(pathname: string) {
-  return WORK_FLOW_PATTERNS.some((pattern) => pattern.test(pathname));
+function isSuppressedPath(pathname: string) {
+  return SUPPRESSED_PATH_PATTERNS.some((pattern) => pattern.test(pathname));
 }
 
 const PwaInstallPrompt = () => {
@@ -37,7 +41,7 @@ const PwaInstallPrompt = () => {
   const mobileDevice = useMemo(() => isMobileDevice(), []);
 
   useEffect(() => {
-    if (isStandalonePwa() || isWorkFlowPath(pathname) || isDismissed()) {
+    if (isStandalonePwa() || isSuppressedPath(pathname) || isDismissed()) {
       setVisible(false);
       return;
     }
@@ -47,7 +51,7 @@ const PwaInstallPrompt = () => {
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
-      if (!isWorkFlowPath(window.location.pathname) && !isDismissed()) {
+      if (!isSuppressedPath(window.location.pathname) && !isDismissed()) {
         setVisible(true);
       }
     };

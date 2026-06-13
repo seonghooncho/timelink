@@ -273,6 +273,20 @@ const ScheduleFormPage: React.FC = () => {
             알림
           </button>
         </div>
+        {hasAlarm ? (
+          <div className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5">
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              마이페이지의 일정 알림이 꺼져 있으면 리마인드는 발송되지 않습니다.
+              <button
+                type="button"
+                onClick={() => navigate('/mypage')}
+                className="ml-1 font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                설정 확인
+              </button>
+            </p>
+          </div>
+        ) : null}
 
         {/* Submit */}
         <button type="button" onClick={handleSubmit} disabled={createMutation.isPending}
