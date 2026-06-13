@@ -301,23 +301,17 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
             <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
           </div>
 
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5">
-            <CalendarClock className="h-4 w-4 shrink-0 text-primary" />
-            {group.nextSchedule ? (
-              <>
-                <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
-                  {group.nextSchedule.title}
-                </p>
-                <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-primary">
-                  {formatDday(group.nextSchedule.startTime)}
-                </span>
-              </>
-            ) : (
-              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                예정된 모임 일정이 없습니다
+          {group.nextSchedule ? (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5">
+              <CalendarClock className="h-4 w-4 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+                {group.nextSchedule.title}
               </p>
-            )}
-          </div>
+              <span className="shrink-0 rounded-full bg-card px-2 py-1 text-[10px] font-bold text-primary">
+                {formatDday(group.nextSchedule.startTime)}
+              </span>
+            </div>
+          ) : null}
         </button>
       ))}
 

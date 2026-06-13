@@ -45,6 +45,9 @@ DynamoDB 단일 테이블의 key pattern과 운영 lookup 기준을 문서화해
 # GSI5: community-posts
 #   PK: COMMUNITY#POSTS  SK: CREATED_AT#{createdAt}#POST#{postId}
 #
+# GSI6: group-posts
+#   PK: GROUP#{groupId}#POSTS  SK: CREATED_AT#{createdAt}#POST#{postId}
+#
 # PartiQL reference:
 # - SELECT * FROM "planner_prod_main" WHERE PK='USER#{userId}' AND SK='PROFILE'
 # - SELECT * FROM "planner_prod_main" WHERE PK='GROUP#{groupId}' AND begins_with(SK, 'MEMBER#')

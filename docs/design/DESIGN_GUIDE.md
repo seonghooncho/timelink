@@ -179,7 +179,7 @@
   groups={groupedSchedules}
   onScheduleClick={handleClick}
   onComplete={handleComplete}
-  emptyMessage="모임 일정이 없습니다"
+  emptyMessage="오늘 일정이 없습니다"
 />
 ```
 
@@ -247,7 +247,7 @@ const groupedSchedules = useGroupedSchedules(schedules);
 | `/community` | CommunityPage | 커뮤니티 게시물 목록, 글쓰기 바텀시트 |
 | `/community/posts/:postId` | CommunityPostDetailPage | 게시물 상세, 좋아요, 댓글, 작성자 메뉴 |
 | `/groups/new` | GroupFormPage | 공개 여부 선택, 이미지 업로드 |
-| `/groups/:id` | GroupDetailPage | GroupAvatar, 헤더 메뉴, 멤버/멤버관리 모달, 일정/조율 목록 |
+| `/groups/:id` | GroupDetailPage | GroupAvatar, 헤더 메뉴, 멤버/멤버관리 모달, 모임 게시판, 일정/조율 목록 |
 | `/groups/:id/coordination` | TimeCoordinationPage | TabBar, CoordinationOneTime/Repeat |
 | `/groups/:id/coordination/timetable` | CoordinationTimetablePage | 히트맵 |
 | `/mypage` | MyPage | ToggleSwitch |

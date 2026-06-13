@@ -12,6 +12,9 @@ import com.planner.domain.community.error.CommunityException;
 import com.planner.domain.community.model.CommunityComment;
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
+import com.planner.domain.group.error.GroupErrorCode;
+import com.planner.domain.group.error.GroupException;
+import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.global.cursor.Cursor;
@@ -33,6 +36,7 @@ public class CommunityService {
 
     private final CommunityRepository repository;
     private final ProfileRepository profileRepository;
+    private final GroupRepository groupRepository;
     private final CursorCodec cursorCodec;
 
     public CursorPageResult<CommunityPostResDTO> getPosts(String userId, Integer limit, String cursorToken) {
@@ -56,48 +60,113 @@ public class CommunityService {
         return CommunityConverter.toPostResponse(post, userId, false);
     }
 
+    public CursorPageResult<CommunityPostResDTO> getGroupPosts(String userId, String groupId, Integer limit, String cursorToken) {
+        requireGroupMember(groupId, userId);
+        int size = resolveLimit(limit);
+        Cursor cursor = cursorToken != null ? cursorCodec.decode(cursorToken) : null;
+        CursorPageResult<CommunityPost> page = repository.findGroupPostsPaged(groupId, size, cursor);
+        List<CommunityPostResDTO> dtos = page.getItems().stream()
+                .map(post -> CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId)))
+                .toList();
+        return CursorPageResult.<CommunityPostResDTO>builder()
+                .items(dtos)
+                .nextCursor(page.getNextCursor())
+                .build();
+    }
+
+    public CommunityPostResDTO createGroupPost(String userId, String groupId, CommunityPostCreateReqDTO req) {
+        requireGroupMember(groupId, userId);
+        validateText(req.getTitle());
+        validateText(req.getContent());
+        CommunityPost post = CommunityConverter.toGroupPost(groupId, userId, findProfile(userId), req);
+        repository.savePost(post);
+        return CommunityConverter.toPostResponse(post, userId, false);
+    }
+
     public CommunityPostResDTO getPost(String userId, String postId) {
         CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(postId, userId));
+    }
+
+    public CommunityPostResDTO getGroupPost(String userId, String groupId, String postId) {
+        CommunityPost post = findGroupPostOrThrow(userId, groupId, postId);
         return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(postId, userId));
     }
 
     public CommunityPostResDTO updatePost(String userId, String postId, CommunityPostUpdateReqDTO req) {
         CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
         requireAuthor(userId, post.getAuthorUserId());
+        return updatePostFields(userId, post, req);
+    }
 
-        if (req.getTitle() != null) {
-            validateText(req.getTitle());
-            post.setTitle(req.getTitle().trim());
-        }
-        if (req.getContent() != null) {
-            validateText(req.getContent());
-            post.setContent(req.getContent().trim());
-        }
-        post.setUpdatedAt(Instant.now().toString());
-        repository.savePost(post);
-        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(postId, userId));
+    public CommunityPostResDTO updateGroupPost(String userId, String groupId, String postId, CommunityPostUpdateReqDTO req) {
+        CommunityPost post = findGroupPostOrThrow(userId, groupId, postId);
+        requireAuthor(userId, post.getAuthorUserId());
+        return updatePostFields(userId, post, req);
     }
 
     public void deletePost(String userId, String postId) {
         CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        requireAuthor(userId, post.getAuthorUserId());
+        repository.deletePostCascade(postId);
+    }
+
+    public void deleteGroupPost(String userId, String groupId, String postId) {
+        CommunityPost post = findGroupPostOrThrow(userId, groupId, postId);
         requireAuthor(userId, post.getAuthorUserId());
         repository.deletePostCascade(postId);
     }
 
     public CommunityPostResDTO likePost(String userId, String postId) {
-        findPostOrThrow(postId);
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
         repository.likePost(postId, userId);
         return getPost(userId, postId);
     }
 
     public CommunityPostResDTO unlikePost(String userId, String postId) {
-        findPostOrThrow(postId);
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
         repository.unlikePost(postId, userId);
         return getPost(userId, postId);
     }
 
+    public CommunityPostResDTO likeGroupPost(String userId, String groupId, String postId) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        repository.likePost(postId, userId);
+        return getGroupPost(userId, groupId, postId);
+    }
+
+    public CommunityPostResDTO unlikeGroupPost(String userId, String groupId, String postId) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        repository.unlikePost(postId, userId);
+        return getGroupPost(userId, groupId, postId);
+    }
+
     public CursorPageResult<CommunityCommentResDTO> getComments(String userId, String postId, Integer limit, String cursorToken) {
-        findPostOrThrow(postId);
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        return getVisibleComments(userId, postId, limit, cursorToken);
+    }
+
+    public CursorPageResult<CommunityCommentResDTO> getGroupComments(
+            String userId,
+            String groupId,
+            String postId,
+            Integer limit,
+            String cursorToken) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        return getVisibleComments(userId, postId, limit, cursorToken);
+    }
+
+    private CursorPageResult<CommunityCommentResDTO> getVisibleComments(
+            String userId,
+            String postId,
+            Integer limit,
+            String cursorToken) {
         int size = resolveLimit(limit);
         Cursor cursor = cursorToken != null ? cursorCodec.decode(cursorToken) : null;
         CursorPageResult<CommunityComment> page = repository.findCommentsByPostIdPaged(postId, size, cursor);
@@ -111,7 +180,17 @@ public class CommunityService {
     }
 
     public CommunityCommentResDTO createComment(String userId, String postId, CommunityCommentCreateReqDTO req) {
-        findPostOrThrow(postId);
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        return createVisibleComment(userId, postId, req);
+    }
+
+    public CommunityCommentResDTO createGroupComment(String userId, String groupId, String postId, CommunityCommentCreateReqDTO req) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        return createVisibleComment(userId, postId, req);
+    }
+
+    private CommunityCommentResDTO createVisibleComment(String userId, String postId, CommunityCommentCreateReqDTO req) {
         validateText(req.getContent());
         CommunityComment comment = CommunityConverter.toComment(postId, userId, findProfile(userId), req.getContent());
         repository.saveComment(comment);
@@ -120,6 +199,22 @@ public class CommunityService {
     }
 
     public CommunityCommentResDTO updateComment(String userId, String postId, String commentId, CommunityCommentUpdateReqDTO req) {
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        return updateVisibleComment(userId, postId, commentId, req);
+    }
+
+    public CommunityCommentResDTO updateGroupComment(
+            String userId,
+            String groupId,
+            String postId,
+            String commentId,
+            CommunityCommentUpdateReqDTO req) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        return updateVisibleComment(userId, postId, commentId, req);
+    }
+
+    private CommunityCommentResDTO updateVisibleComment(String userId, String postId, String commentId, CommunityCommentUpdateReqDTO req) {
         CommunityComment comment = findCommentOrThrow(postId, commentId);
         requireAuthor(userId, comment.getAuthorUserId());
         validateText(req.getContent());
@@ -130,6 +225,17 @@ public class CommunityService {
     }
 
     public void deleteComment(String userId, String postId, String commentId) {
+        CommunityPost post = findPostOrThrow(postId);
+        requirePostVisible(post, userId);
+        deleteVisibleComment(userId, postId, commentId);
+    }
+
+    public void deleteGroupComment(String userId, String groupId, String postId, String commentId) {
+        findGroupPostOrThrow(userId, groupId, postId);
+        deleteVisibleComment(userId, postId, commentId);
+    }
+
+    private void deleteVisibleComment(String userId, String postId, String commentId) {
         CommunityComment comment = findCommentOrThrow(postId, commentId);
         requireAuthor(userId, comment.getAuthorUserId());
         if (repository.deleteComment(comment)) {
@@ -160,6 +266,15 @@ public class CommunityService {
                 .orElseThrow(() -> new CommunityException(CommunityErrorCode.POST_NOT_FOUND));
     }
 
+    private CommunityPost findGroupPostOrThrow(String userId, String groupId, String postId) {
+        requireGroupMember(groupId, userId);
+        CommunityPost post = findPostOrThrow(postId);
+        if (!groupId.equals(post.getGroupId())) {
+            throw new CommunityException(CommunityErrorCode.POST_NOT_FOUND);
+        }
+        return post;
+    }
+
     private CommunityComment findCommentOrThrow(String postId, String commentId) {
         return repository.findComment(postId, commentId)
                 .orElseThrow(() -> new CommunityException(CommunityErrorCode.COMMENT_NOT_FOUND));
@@ -169,6 +284,33 @@ public class CommunityService {
         if (!userId.equals(authorUserId)) {
             throw new CommunityException(CommunityErrorCode.NOT_AUTHOR);
         }
+    }
+
+    private CommunityPostResDTO updatePostFields(String userId, CommunityPost post, CommunityPostUpdateReqDTO req) {
+        if (req.getTitle() != null) {
+            validateText(req.getTitle());
+            post.setTitle(req.getTitle().trim());
+        }
+        if (req.getContent() != null) {
+            validateText(req.getContent());
+            post.setContent(req.getContent().trim());
+        }
+        post.setUpdatedAt(Instant.now().toString());
+        repository.savePost(post);
+        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId));
+    }
+
+    private void requirePostVisible(CommunityPost post, String userId) {
+        if (StringUtils.hasText(post.getGroupId())) {
+            requireGroupMember(post.getGroupId(), userId);
+        }
+    }
+
+    private void requireGroupMember(String groupId, String userId) {
+        groupRepository.findGroupById(groupId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.GROUP_NOT_FOUND));
+        groupRepository.findMember(groupId, userId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
     }
 
     private void validateText(String value) {

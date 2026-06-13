@@ -138,6 +138,29 @@ describe('GroupsPage', () => {
     expect(screen.getByText('D-Day')).toBeInTheDocument();
   });
 
+  it('does not show an empty next schedule placeholder on my meetup card', () => {
+    mocks.useGroupPages.mockReturnValue({
+      data: [
+        {
+          id: 'group-1',
+          name: '스터디',
+          description: '',
+          memberCount: 3,
+          schedules: [],
+        },
+      ],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('스터디')).toBeInTheDocument();
+    expect(screen.queryByText('예정된 모임 일정이 없습니다')).not.toBeInTheDocument();
+  });
+
   it('opens public meetup discovery from query tab', () => {
     mocks.usePublicGroupPages.mockReturnValue({
       data: [{

@@ -22,6 +22,7 @@ public class CommunityPost {
     private String id;
     private String title;
     private String content;
+    private String groupId;
     private String authorUserId;
     private String authorNickname;
     private String authorAvatarUrl;
@@ -31,6 +32,8 @@ public class CommunityPost {
     private String updatedAt;
     private String gsi5pk;
     private String gsi5sk;
+    private String gsi6pk;
+    private String gsi6sk;
 
     @DynamoDbPartitionKey
     @DynamoDbAttribute("PK")
@@ -47,4 +50,12 @@ public class CommunityPost {
     @DynamoDbSecondarySortKey(indexNames = "GSI5")
     @DynamoDbAttribute("GSI5SK")
     public String getGsi5sk() { return gsi5sk; }
+
+    @DynamoDbSecondaryPartitionKey(indexNames = "GSI6")
+    @DynamoDbAttribute("GSI6PK")
+    public String getGsi6pk() { return gsi6pk; }
+
+    @DynamoDbSecondarySortKey(indexNames = "GSI6")
+    @DynamoDbAttribute("GSI6SK")
+    public String getGsi6sk() { return gsi6sk; }
 }

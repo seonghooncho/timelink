@@ -27,7 +27,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Repository
 public class CommunityRepository {
@@ -36,6 +35,7 @@ public class CommunityRepository {
     private final DynamoDbTable<CommunityComment> commentTable;
     private final DynamoDbTable<CommunityPostLike> likeTable;
     private final DynamoDbIndex<CommunityPost> postListIndex;
+    private final DynamoDbIndex<CommunityPost> groupPostListIndex;
     private final DynamoDbClient dynamoDbClient;
     private final String tableName;
 
@@ -46,6 +46,7 @@ public class CommunityRepository {
         this.commentTable = client.table(tableName, TableSchema.fromBean(CommunityComment.class));
         this.likeTable = client.table(tableName, TableSchema.fromBean(CommunityPostLike.class));
         this.postListIndex = postTable.index("GSI5");
+        this.groupPostListIndex = postTable.index("GSI6");
         this.dynamoDbClient = dynamoDbClient;
     }
 
@@ -70,6 +71,26 @@ public class CommunityRepository {
         if (cursor != null) request.exclusiveStartKey(toAttributeMap(cursor));
 
         Iterator<Page<CommunityPost>> pages = postListIndex.query(request.build()).iterator();
+        if (!pages.hasNext()) {
+            return CursorPageResult.<CommunityPost>builder().items(List.of()).build();
+        }
+
+        Page<CommunityPost> page = pages.next();
+        return CursorPageResult.<CommunityPost>builder()
+                .items(page.items())
+                .nextCursor(toCursor(page.lastEvaluatedKey()))
+                .build();
+    }
+
+    public CursorPageResult<CommunityPost> findGroupPostsPaged(String groupId, int limit, Cursor cursor) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(k -> k.partitionValue("GROUP#" + groupId + "#POSTS")))
+                .scanIndexForward(false);
+
+        if (limit > 0) request.limit(limit);
+        if (cursor != null) request.exclusiveStartKey(toAttributeMap(cursor));
+
+        Iterator<Page<CommunityPost>> pages = groupPostListIndex.query(request.build()).iterator();
         if (!pages.hasNext()) {
             return CursorPageResult.<CommunityPost>builder().items(List.of()).build();
         }
