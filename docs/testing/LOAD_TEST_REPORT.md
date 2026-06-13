@@ -12,7 +12,7 @@
 
 - 테스트 일시: 2026-06-12 03:17:16 ~ 03:27:13 KST
 - 대상: 운영 도메인 `https://timelink.cloud`, AWS account `160885253413`, region `ap-northeast-2`
-- API Lambda: `planner-prod-api:live`, 측정 당시 계정 Lambda 동시 실행 quota `10`
+- API Lambda: `planner-prod-api:live`, 측정 당시 계정 Lambda 동시 실행 quota `10`였고 이후 운영 quota는 `1,000`, API reserved concurrency는 `50`으로 조정
 - DynamoDB: `planner_prod_main`, on-demand
 - 도구: k6 `v2.0.0`, Playwright `1.60.0` Chromium
 - 테스트 코드: `test/k6/timelink-load-test.js`, `test/playwright/serverless-flow.spec.ts`
@@ -81,7 +81,7 @@ Lambda 실행시간 p95는 낮지만 k6 max 지연은 길었다. 따라서 병�
 
    quota_probe는 HTTP 실패율 0.84%, Lambda throttles 4, k6 max 60초를 기록했다. 짧은 probe에서도 발생했으므로 동시 실행 quota 10을 운영 한계로 취급해야 한다.
 
-   현재 상태: 계정 concurrency quota `1,000` 증액 요청을 진행하고, 승인 후 `planner-prod-api` reserved concurrency `50`을 적용한다.
+   현재 상태: 계정 concurrency quota `1,000` 증액이 승인됐고, `planner-prod-api` reserved concurrency `50`을 적용했다. 재부하테스트로 새 기준치를 다시 측정해야 한다.
 
 4. 상단 PWA 설치 안내가 일부 클릭을 가릴 수 있다.
 
