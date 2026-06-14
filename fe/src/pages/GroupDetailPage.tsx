@@ -14,6 +14,7 @@ import PostComposerModal from '@/components/community/PostComposerModal';
 import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import CoordinationStrip from '@/components/coordination/CoordinationStrip';
 import ScheduleStrip from '@/components/schedule/ScheduleStrip';
+import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import { ListSkeleton, ScheduleStripSkeleton } from '@/components/common/LoadingStates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,7 @@ import {
   useGroupPosts,
   useToggleGroupPostLike,
 } from '@/hooks/useCommunity';
-import { useSchedules } from '@/hooks/useSchedules';
+import { fetchScheduleDetail, useDeleteSchedule, useLeaveGroupSchedule, useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
 import {
   CommunityCommentResponse,
   CommunityPostResponse,
@@ -46,6 +47,7 @@ import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { getScheduleEndDate } from '@/lib/scheduleTime';
+import { Schedule } from '@/types/types';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -55,7 +57,10 @@ const GroupDetailPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { userId } = useAuth();
-  const { setSelectedSchedule, setShowScheduleDetail } = useApp();
+  const { selectedSchedule, setSelectedSchedule, showScheduleDetail, setShowScheduleDetail } = useApp();
+  const updateSchedule = useUpdateSchedule();
+  const deleteSchedule = useDeleteSchedule();
+  const leaveGroupSchedule = useLeaveGroupSchedule();
   const { data: groups = [], isPending: isGroupsPending, isLoading: isGroupsLoading } = useGroups();
   const menuRef = useRef<HTMLDivElement>(null);
   const groupScheduleRange = useMemo(() => {
@@ -92,6 +97,7 @@ const GroupDetailPage: React.FC = () => {
   const [showClosedCoordinations, setShowClosedCoordinations] = useState(false);
   const [showPastSchedules, setShowPastSchedules] = useState(false);
   const [pastScheduleNudgeKey, setPastScheduleNudgeKey] = useState(0);
+  const [confirmScheduleDelete, setConfirmScheduleDelete] = useState<Schedule | null>(null);
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [memberProfile, setMemberProfile] = useState<GroupMemberProfileResponse | null>(null);
   const [showMemberProfileSheet, setShowMemberProfileSheet] = useState(false);
@@ -497,6 +503,49 @@ const GroupDetailPage: React.FC = () => {
   const handleScheduleClick = (schedule: typeof schedules[number]) => {
     setSelectedSchedule(schedule);
     setShowScheduleDetail(true);
+    if (schedule.groupScheduleId && !schedule.participants) {
+      void fetchScheduleDetail(schedule.id)
+        .then((detail) => {
+          setSelectedSchedule((current) => current?.id === schedule.id ? detail : current);
+        })
+        .catch(() => undefined);
+    }
+  };
+
+  const handleScheduleUpdate = (scheduleId: string, updates: Partial<Schedule>) => {
+    updateSchedule.mutate(
+      { id: scheduleId, data: updates },
+      {
+        onSuccess: () => appToast.success('일정을 수정했습니다'),
+        onError: (error) => appToast.error('일정 수정에 실패했습니다', error),
+      },
+    );
+  };
+
+  const handleScheduleDeleteRequest = (schedule: Schedule) => {
+    setConfirmScheduleDelete(schedule);
+    setShowScheduleDetail(false);
+  };
+
+  const handleScheduleDeleteConfirm = () => {
+    if (!confirmScheduleDelete) return;
+    deleteSchedule.mutate(confirmScheduleDelete.id, {
+      onSuccess: () => {
+        appToast.success('일정을 삭제했습니다');
+        setConfirmScheduleDelete(null);
+      },
+      onError: (error) => appToast.error('일정 삭제에 실패했습니다', error),
+    });
+  };
+
+  const handleLeaveGroupSchedule = (schedule: Schedule) => {
+    leaveGroupSchedule.mutate(schedule.id, {
+      onSuccess: () => {
+        appToast.success('약속에서 빠졌습니다');
+        setShowScheduleDetail(false);
+      },
+      onError: (error) => appToast.error('약속에서 빠지지 못했습니다', error),
+    });
   };
 
   return (
@@ -512,7 +561,7 @@ const GroupDetailPage: React.FC = () => {
             className="flex min-w-0 items-center gap-2 text-left"
             aria-label="모임 소개 보기"
           >
-            <GroupAvatar image={group.imageUrl} thumbnail={group.thumbnailUrl} name={group.name} status={group.imageStatus} size="xs" />
+            <GroupAvatar image={group.image} thumbnail={group.thumbnailImage} name={group.name} status={group.imageStatus} size="xs" />
             <span className="min-w-0 truncate text-sm font-bold leading-5 text-foreground">{group.name}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
@@ -1011,6 +1060,15 @@ const GroupDetailPage: React.FC = () => {
         onSave={handleSaveMyMemberProfile}
       />
 
+      <ScheduleDetailModal
+        schedule={selectedSchedule}
+        open={showScheduleDetail}
+        onClose={() => setShowScheduleDetail(false)}
+        onUpdate={handleScheduleUpdate}
+        onDelete={handleScheduleDeleteRequest}
+        onLeaveGroupSchedule={handleLeaveGroupSchedule}
+      />
+
       <div className="h-24" aria-hidden="true" />
 
       <div className="fixed inset-x-0 app-layer-floating app-bottom-sheet-root pointer-events-none">
@@ -1032,6 +1090,16 @@ const GroupDetailPage: React.FC = () => {
         </div>
       </div>
 
+      <ConfirmModal
+        open={!!confirmScheduleDelete}
+        onClose={() => setConfirmScheduleDelete(null)}
+        onConfirm={handleScheduleDeleteConfirm}
+        title="일정을 삭제하시겠습니까?"
+        description="삭제한 일정은 되돌릴 수 없습니다."
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        variant="destructive"
+      />
       <ConfirmModal
         open={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}

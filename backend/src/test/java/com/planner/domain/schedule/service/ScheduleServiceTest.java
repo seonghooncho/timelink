@@ -323,6 +323,56 @@ class ScheduleServiceTest {
         }
 
         @Test
+        @DisplayName("그룹 일정 상세는 참여자 프로필을 함께 반환한다")
+        void shouldReturnGroupScheduleParticipants() {
+            Schedule schedule = createSampleSchedule("s1");
+            schedule.setGroupId("g1");
+            schedule.setGroupScheduleId("gs1");
+            schedule.setGroupScheduleCreatedBy(USER_ID);
+
+            given(repository.findByUserIdAndScheduleId(USER_ID, "s1"))
+                    .willReturn(Optional.of(schedule));
+            given(repository.findParticipantsByGroupScheduleId("gs1")).willReturn(List.of(
+                    GroupScheduleParticipant.builder()
+                            .groupScheduleId("gs1")
+                            .groupId("g1")
+                            .userId(USER_ID)
+                            .scheduleId("s1")
+                            .build(),
+                    GroupScheduleParticipant.builder()
+                            .groupScheduleId("gs1")
+                            .groupId("g1")
+                            .userId("member-2")
+                            .scheduleId("s2")
+                            .build()
+            ));
+            given(groupRepository.findMembersByGroupId("g1")).willReturn(List.of(
+                    GroupMember.builder()
+                            .groupId("g1")
+                            .userId(USER_ID)
+                            .nickname("민지")
+                            .avatarUrl("https://example.com/minji.png")
+                            .thumbnailUrl("https://example.com/minji-thumb.webp")
+                            .build(),
+                    GroupMember.builder()
+                            .groupId("g1")
+                            .userId("member-2")
+                            .nickname("현우")
+                            .avatarUrl("https://example.com/hyunwoo.png")
+                            .build()
+            ));
+
+            ScheduleResDTO result = service.getById(USER_ID, "s1");
+
+            assertThat(result.getParticipants()).hasSize(2);
+            assertThat(result.getParticipants().get(0).getUserId()).isEqualTo(USER_ID);
+            assertThat(result.getParticipants().get(0).getNickname()).isEqualTo("민지");
+            assertThat(result.getParticipants().get(0).getThumbnailUrl()).isEqualTo("https://example.com/minji-thumb.webp");
+            assertThat(result.getParticipants().get(1).getUserId()).isEqualTo("member-2");
+            assertThat(result.getParticipants().get(1).getNickname()).isEqualTo("현우");
+        }
+
+        @Test
         @DisplayName("존재하지 않는 일정이면 ScheduleException을 던진다")
         void shouldThrowWhenNotFound() {
             given(repository.findByUserIdAndScheduleId(USER_ID, "invalid"))

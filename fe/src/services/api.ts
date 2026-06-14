@@ -164,8 +164,18 @@ export interface ScheduleResponse {
   imageUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
+  participants?: ScheduleParticipantResponse[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleParticipantResponse {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
 }
 
 export interface ScheduleCreateRequest {

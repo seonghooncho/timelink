@@ -6,6 +6,7 @@ import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.notification.service.ReminderSchedulingService;
 import com.planner.domain.schedule.converter.ScheduleConverter;
 import com.planner.domain.schedule.dto.ScheduleCreateReqDTO;
+import com.planner.domain.schedule.dto.ScheduleParticipantResDTO;
 import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.dto.ScheduleUpdateReqDTO;
 import com.planner.domain.schedule.error.ScheduleErrorCode;
@@ -31,8 +32,11 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -73,6 +77,8 @@ public class ScheduleService {
         Set<String> memberUserIds = members.stream()
                 .map(GroupMember::getUserId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, GroupMember> membersByUserId = members.stream()
+                .collect(Collectors.toMap(GroupMember::getUserId, member -> member, (a, b) -> a));
         Set<String> participantUserIds = resolveParticipantUserIds(userId, req, memberUserIds);
         String groupScheduleId = java.util.UUID.randomUUID().toString();
         String now = Instant.now().toString();
@@ -86,6 +92,7 @@ public class ScheduleService {
                 applyScheduleImage(userId, schedule, req.getImageId());
             }
             repository.save(schedule);
+            GroupMember participantMember = membersByUserId.get(participantUserId);
             repository.saveParticipant(GroupScheduleParticipant.builder()
                     .pk("GROUP_SCHEDULE#" + groupScheduleId)
                     .sk("PARTICIPANT#" + participantUserId)
@@ -94,6 +101,11 @@ public class ScheduleService {
                     .userId(participantUserId)
                     .scheduleId(schedule.getId())
                     .createdBy(userId)
+                    .nickname(participantMember != null ? participantMember.getNickname() : null)
+                    .avatarUrl(participantMember != null ? participantMember.getAvatarUrl() : null)
+                    .thumbnailUrl(participantMember != null ? participantMember.getThumbnailUrl() : null)
+                    .imageId(participantMember != null ? participantMember.getImageId() : null)
+                    .imageStatus(participantMember != null ? participantMember.getImageStatus() : null)
                     .createdAt(now)
                     .build());
             reminderSchedulingService.scheduleNewSchedule(participantUserId, schedule);
@@ -105,7 +117,7 @@ public class ScheduleService {
                 .findFirst()
                 .orElse(createdSchedules.get(0));
         notifyGroupScheduleCreated(userId, ownerSchedule, participantUserIds);
-        return ScheduleConverter.toResponse(ownerSchedule);
+        return toDetailResponse(ownerSchedule);
     }
 
     /** 커서 기반 페이지네이션 전체 조회 */
@@ -129,7 +141,7 @@ public class ScheduleService {
     public ScheduleResDTO getById(String userId, String scheduleId) {
         Schedule schedule = repository.findByUserIdAndScheduleId(userId, scheduleId)
                 .orElseThrow(() -> new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
-        return ScheduleConverter.toResponse(schedule);
+        return toDetailResponse(schedule);
     }
 
     public ScheduleResDTO update(String userId, String scheduleId, ScheduleUpdateReqDTO req) {
@@ -151,7 +163,7 @@ public class ScheduleService {
             }
             notifyGroupScheduleUpdated(userId, schedule);
         }
-        return ScheduleConverter.toResponse(schedule);
+        return toDetailResponse(schedule);
     }
 
     public void delete(String userId, String scheduleId) {
@@ -203,6 +215,54 @@ public class ScheduleService {
                 .items(dtos)
                 .nextCursor(page.getNextCursor())
                 .build();
+    }
+
+    private ScheduleResDTO toDetailResponse(Schedule schedule) {
+        ScheduleResDTO dto = ScheduleConverter.toResponse(schedule);
+        if (isJoinedGroupSchedule(schedule)) {
+            dto.setParticipants(loadGroupScheduleParticipants(schedule));
+        }
+        return dto;
+    }
+
+    private List<ScheduleParticipantResDTO> loadGroupScheduleParticipants(Schedule schedule) {
+        List<GroupScheduleParticipant> participants = repository.findParticipantsByGroupScheduleId(schedule.getGroupScheduleId());
+        if (participants.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, GroupMember> membersByUserId = groupRepository.findMembersByGroupId(schedule.getGroupId()).stream()
+                .collect(Collectors.toMap(GroupMember::getUserId, member -> member, (a, b) -> a));
+
+        return participants.stream()
+                .sorted(Comparator
+                        .comparing((GroupScheduleParticipant participant) -> !Objects.equals(participant.getUserId(), schedule.getGroupScheduleCreatedBy()))
+                        .thenComparing(GroupScheduleParticipant::getUserId, Comparator.nullsLast(String::compareTo)))
+                .map(participant -> {
+                    GroupMember member = membersByUserId.get(participant.getUserId());
+                    return ScheduleParticipantResDTO.builder()
+                            .userId(participant.getUserId())
+                            .nickname(firstText(
+                                    member != null ? member.getNickname() : null,
+                                    participant.getNickname(),
+                                    participant.getUserId()
+                            ))
+                            .avatarUrl(firstText(member != null ? member.getAvatarUrl() : null, participant.getAvatarUrl()))
+                            .thumbnailUrl(firstText(member != null ? member.getThumbnailUrl() : null, participant.getThumbnailUrl()))
+                            .imageId(firstText(member != null ? member.getImageId() : null, participant.getImageId()))
+                            .imageStatus(firstText(member != null ? member.getImageStatus() : null, participant.getImageStatus()))
+                            .build();
+                })
+                .toList();
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private Set<String> resolveParticipantUserIds(String userId, ScheduleCreateReqDTO req, Set<String> memberUserIds) {

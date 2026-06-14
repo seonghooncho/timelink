@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Trash2, X } from 'lucide-react';
-import { Schedule } from '@/types/types';
+import { Schedule, ScheduleParticipant } from '@/types/types';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import DurationSelect from '@/components/common/DurationSelect';
 import HalfHourTimeSelect from '@/components/common/HalfHourTimeSelect';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { appToast } from '@/lib/appToast';
+import { useScrollAffordance } from '@/hooks/useScrollAffordance';
 import {
   buildScheduleCreateRequest,
   normalizeTimeToHalfHour,
@@ -140,6 +142,10 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                   <DetailRow label="일시" value={formatScheduleDateClock(schedule.startTime)} />
                   <DetailRow label="소요" value={formatDurationLabel(schedule.duration)} />
                 </div>
+
+                {schedule.groupScheduleId ? (
+                  <ParticipantStrip participants={schedule.participants} />
+                ) : null}
 
                 {schedule.content && (
                   <div className="mt-5 p-4 bg-muted rounded-2xl">
@@ -293,6 +299,79 @@ function ScheduleEditForm({
       </div>
     </div>
   );
+}
+
+function ParticipantStrip({ participants }: { participants?: ScheduleParticipant[] }) {
+  const {
+    scrollRef,
+    hasOverflow,
+    startFadeOpacity,
+    endFadeOpacity,
+  } = useScrollAffordance<HTMLDivElement>({ axis: 'horizontal' });
+
+  return (
+    <section className="mt-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-bold text-muted-foreground">참여인원</h3>
+        {participants ? (
+          <span className="text-[11px] font-semibold text-muted-foreground">{participants.length}명</span>
+        ) : null}
+      </div>
+
+      {!participants ? (
+        <div className="flex gap-3 overflow-hidden">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex w-14 shrink-0 flex-col items-center gap-1.5">
+              <div className="h-11 w-11 animate-pulse rounded-full bg-muted" />
+              <div className="h-2.5 w-10 animate-pulse rounded-full bg-muted" />
+            </div>
+          ))}
+        </div>
+      ) : participants.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border/70 px-4 py-4 text-center text-xs text-muted-foreground">
+          참여자 정보가 없습니다.
+        </p>
+      ) : (
+        <div className="relative isolate overflow-hidden">
+          <div ref={scrollRef} className="overflow-x-auto overscroll-x-contain scrollbar-hide">
+            <div className="flex min-w-max gap-3 pr-2">
+              {participants.map((participant) => (
+                <div key={participant.userId} className="flex w-14 shrink-0 flex-col items-center gap-1.5">
+                  <Avatar className="h-11 w-11 border border-border/70">
+                    <AvatarImage src={participant.thumbnailUrl || participant.avatarUrl} alt={participant.nickname || participant.userId} />
+                    <AvatarFallback className="bg-category-group-light text-sm font-bold text-category-group">
+                      {getParticipantFallback(participant)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="w-full truncate text-center text-[11px] font-semibold text-foreground">
+                    {participant.nickname || participant.userId}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {hasOverflow ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/20 via-black/10 to-transparent transition-opacity duration-150"
+              style={{ opacity: startFadeOpacity }}
+            />
+          ) : null}
+          {hasOverflow ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/20 via-black/10 to-transparent transition-opacity duration-150"
+              style={{ opacity: endFadeOpacity }}
+            />
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function getParticipantFallback(participant: ScheduleParticipant) {
+  return (participant.nickname || participant.userId || '?').slice(0, 1);
 }
 
 const formatDateInputValue = (value: string) => {
