@@ -13,6 +13,7 @@ public enum GroupErrorCode implements BaseErrorCode {
     NOT_GROUP_MEMBER(HttpStatus.FORBIDDEN, "NOT_GROUP_MEMBER", "그룹 멤버만 접근할 수 있습니다"),
     NOT_GROUP_MANAGER(HttpStatus.FORBIDDEN, "NOT_GROUP_MANAGER", "관리자만 수행할 수 있습니다"),
     CANNOT_REMOVE_SELF(HttpStatus.BAD_REQUEST, "CANNOT_REMOVE_SELF", "자기 자신은 멤버 관리에서 내보낼 수 없습니다"),
+    CANNOT_LEAVE_LAST_MANAGER(HttpStatus.BAD_REQUEST, "CANNOT_LEAVE_LAST_MANAGER", "마지막 관리자는 모임을 나갈 수 없습니다"),
     ALREADY_MEMBER(HttpStatus.CONFLICT, "ALREADY_MEMBER", "이미 그룹에 가입되어 있습니다"),
     INVALID_GROUP_VISIBILITY(HttpStatus.BAD_REQUEST, "INVALID_GROUP_VISIBILITY", "지원하지 않는 모임 공개 설정입니다"),
     NOT_PUBLIC_GROUP(HttpStatus.BAD_REQUEST, "NOT_PUBLIC_GROUP", "공개 모임에만 가입요청을 보낼 수 있습니다"),

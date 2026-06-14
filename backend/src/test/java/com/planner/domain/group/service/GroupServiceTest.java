@@ -29,6 +29,7 @@ import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.domain.storage.model.ImagePurpose;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.model.ImageUpload;
@@ -61,6 +62,7 @@ class GroupServiceTest {
     @Mock private NotificationService notificationService;
     @Mock private CursorCodec cursorCodec;
     @Mock private ScheduleRepository scheduleRepository;
+    @Mock private ScheduleService scheduleService;
     @Mock private ImageUploadRepository imageUploadRepository;
     @Mock private StorageService storageService;
     @Mock private CommunityRepository communityRepository;
@@ -85,6 +87,10 @@ class GroupServiceTest {
         lenient().when(scheduleRepository.findUpcomingByGroupId(anyString(), anyString(), anyInt())).thenReturn(List.of());
         lenient().when(coordinationRepository.findByGroupIdPaged(anyString(), anyInt(), isNull()))
                 .thenReturn(CursorPageResult.<Coordination>builder().items(List.of()).build());
+        lenient().when(communityRepository.findGroupPostsPaged(anyString(), anyInt(), isNull()))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of()).build());
+        lenient().when(repository.findNoticesByGroupId(anyString(), anyInt())).thenReturn(List.of());
+        lenient().when(repository.findJoinRequestsByGroupId(anyString())).thenReturn(List.of());
     }
 
     private Group sampleGroup(String groupId, String createdBy) {
@@ -549,11 +555,13 @@ class GroupServiceTest {
     void delete_cleansUpMembers() {
         Group group = sampleGroup("g1", "user1");
         when(repository.findGroupById("g1")).thenReturn(Optional.of(group));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
         when(repository.findMembersByGroupId("g1")).thenReturn(
                 List.of(sampleMember("g1", "user1", "manager"), sampleMember("g1", "user2", "member")));
 
         service.delete("user1", "g1");
 
+        verify(scheduleService).deleteAllGroupSchedules("g1");
         verify(repository, times(2)).deleteMember(eq("g1"), anyString());
         verify(repository).deleteInvite("ABC123");
         verify(repository).deleteGroup("g1");
@@ -827,6 +835,7 @@ class GroupServiceTest {
         service.leave("user1", "g1");
         verify(repository).deleteMember("g1", "user1");
         verify(repository).updateMemberCount("g1", -1);
+        verify(scheduleService).cleanupFutureGroupSchedulesForRemovedMember("user1", "g1", "user1");
     }
 
     @Test
@@ -840,6 +849,7 @@ class GroupServiceTest {
 
         verify(repository).deleteMember("g1", "user2");
         verify(repository).updateMemberCount("g1", -1);
+        verify(scheduleService).cleanupFutureGroupSchedulesForRemovedMember("user1", "g1", "user2");
         verify(notificationService).createGroupNotification(
                 eq("user2"),
                 eq("모임에서 내보내졌습니다"),

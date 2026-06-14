@@ -23,6 +23,7 @@ public class ScheduleResDTO {
     private String groupScheduleId;
     private String groupScheduleCreatedBy;
     private Boolean groupScheduleOwner;
+    private Boolean groupScheduleParticipant;
     private String imageUrl;
     private String imageId;
     private String imageStatus;

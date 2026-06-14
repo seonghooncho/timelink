@@ -124,6 +124,33 @@ public class ScheduleRepository {
         return findUpcomingByGroupId(groupId, fromStartTime, 1).stream().findFirst();
     }
 
+    public List<Schedule> findByGroupId(String groupId) {
+        var request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(
+                        k -> k.partitionValue("GROUP#" + groupId)
+                ))
+                .build();
+
+        return groupTimeIndex.query(request).stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
+    }
+
+    public List<Schedule> findByGroupIdAndTimeRange(String groupId, String startTime, String endTime, int limit) {
+        var builder = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.sortBetween(
+                        k -> k.partitionValue("GROUP#" + groupId).sortValue("START#" + startTime),
+                        k -> k.partitionValue("GROUP#" + groupId).sortValue("START#" + endTime + "\uffff")
+                ))
+                .scanIndexForward(true);
+
+        if (limit > 0) builder.limit(limit);
+
+        return groupTimeIndex.query(builder.build()).stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
+    }
+
     public List<Schedule> findUpcomingByGroupId(String groupId, String fromStartTime, int limit) {
         var request = QueryEnhancedRequest.builder()
                 .queryConditional(QueryConditional.sortGreaterThanOrEqualTo(

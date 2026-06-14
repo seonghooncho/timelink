@@ -177,6 +177,11 @@ class ScheduleServiceTest {
                             && schedule.getGsi4sk() != null
                             && schedule.getGsi4sk().startsWith("START#2099-03-10T09:00:00Z#SCHEDULE#")
             ));
+            then(repository).should(atLeastOnce()).save(argThat(schedule ->
+                    "member-2".equals(schedule.getUserId())
+                            && schedule.getGsi4pk() == null
+                            && schedule.getGsi4sk() == null
+            ));
         }
 
         @Test
@@ -269,6 +274,102 @@ class ScheduleServiceTest {
                     .isInstanceOf(ScheduleException.class)
                     .extracting("errorCode")
                     .isEqualTo(ScheduleErrorCode.INVALID_GROUP_SCHEDULE_PARTICIPANT);
+        }
+    }
+
+    @Nested
+    @DisplayName("getGroupSchedules")
+    class GetGroupSchedules {
+
+        @Test
+        @DisplayName("모임 상세용 약속 목록은 중복 복사본을 묶고 비참여 멤버에게 읽기 전용 상태를 표시한다")
+        void shouldReturnDedupedGroupSchedulesForNonParticipant() {
+            Schedule ownerCopy = Schedule.builder()
+                    .id("s-owner")
+                    .userId("owner")
+                    .title("모임 약속")
+                    .content("내용")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .endTime("2099-03-10T10:00:00Z")
+                    .duration(1.0)
+                    .isCompleted(false)
+                    .hasAlarm(false)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy("owner")
+                    .createdAt("2025-01-01T00:00:00Z")
+                    .updatedAt("2025-01-01T00:00:00Z")
+                    .build();
+            Schedule memberCopy = Schedule.builder()
+                    .id("s-member")
+                    .userId("member-2")
+                    .title("모임 약속")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .duration(1.0)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy("owner")
+                    .build();
+
+            given(groupRepository.findMember("g1", "viewer"))
+                    .willReturn(Optional.of(sampleMember("g1", "viewer")));
+            given(repository.findByGroupIdAndTimeRange(eq("g1"), anyString(), anyString(), anyInt()))
+                    .willReturn(List.of(ownerCopy, memberCopy));
+            given(repository.findParticipantsByGroupScheduleId("gs1")).willReturn(List.of(
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId("owner").scheduleId("s-owner").build(),
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId("member-2").scheduleId("s-member").build()
+            ));
+            given(groupRepository.findMembersByGroupId("g1")).willReturn(List.of(
+                    sampleMember("g1", "owner"),
+                    sampleMember("g1", "member-2"),
+                    sampleMember("g1", "viewer")
+            ));
+
+            List<ScheduleResDTO> result = service.getGroupSchedules("viewer", "g1", "2099-03-01T00:00:00Z", "2099-03-31T23:59:59Z", 20);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getGroupScheduleId()).isEqualTo("gs1");
+            assertThat(result.get(0).getGroupScheduleOwner()).isFalse();
+            assertThat(result.get(0).getGroupScheduleParticipant()).isFalse();
+            assertThat(result.get(0).getParticipants()).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("cleanupFutureGroupSchedulesForRemovedMember")
+    class CleanupFutureGroupSchedulesForRemovedMember {
+
+        @Test
+        @DisplayName("탈퇴한 멤버가 작성자인 미래 모임 약속은 전체 참여자 일정에서 제거한다")
+        void shouldDeleteFutureGroupScheduleCopiesWhenRemovedMemberIsOwner() {
+            Schedule ownerCopy = Schedule.builder()
+                    .id("s-owner")
+                    .userId(USER_ID)
+                    .title("미래 모임")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .duration(1.0)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy(USER_ID)
+                    .build();
+            given(repository.findByUserIdAndTimeRange(eq(USER_ID), anyString(), anyString()))
+                    .willReturn(List.of(ownerCopy));
+            given(repository.findParticipantsByGroupScheduleId("gs1")).willReturn(List.of(
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId(USER_ID).scheduleId("s-owner").build(),
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId("member-2").scheduleId("s-member").build()
+            ));
+
+            service.cleanupFutureGroupSchedulesForRemovedMember("manager", "g1", USER_ID);
+
+            then(repository).should().delete(USER_ID, "s-owner");
+            then(repository).should().delete("member-2", "s-member");
+            then(repository).should().deleteParticipant("gs1", USER_ID);
+            then(repository).should().deleteParticipant("gs1", "member-2");
+            then(notificationService).should().createGroupScheduleDeletedNotification(eq(USER_ID), any(Schedule.class));
+            then(notificationService).should().createGroupScheduleDeletedNotification(eq("member-2"), any(Schedule.class));
         }
     }
 

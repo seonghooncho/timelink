@@ -117,6 +117,11 @@ public class GroupRepository {
         introTable.putItem(intro);
     }
 
+    public void deleteIntro(String groupId) {
+        var key = Key.builder().partitionValue("GROUP#" + groupId).sortValue("INTRO").build();
+        introTable.deleteItem(key);
+    }
+
     public void saveNotice(GroupNotice notice) {
         noticeTable.putItem(notice);
     }
@@ -130,11 +135,22 @@ public class GroupRepository {
 
         if (limit > 0) request.limit(limit);
 
+        if (limit <= 0) {
+            return noticeTable.query(request.build()).stream()
+                    .flatMap(page -> page.items().stream())
+                    .collect(Collectors.toList());
+        }
+
         Iterator<Page<GroupNotice>> pages = noticeTable.query(request.build()).iterator();
         if (!pages.hasNext()) {
             return List.of();
         }
         return pages.next().items();
+    }
+
+    public void deleteNotice(String groupId, String sk) {
+        var key = Key.builder().partitionValue("GROUP#" + groupId).sortValue(sk).build();
+        noticeTable.deleteItem(key);
     }
 
     public void deleteGroup(String groupId) {
@@ -351,6 +367,14 @@ public class GroupRepository {
                 .sortValue("JOIN_REQUEST#" + userId)
                 .build();
         return Optional.ofNullable(joinRequestTable.getItem(key));
+    }
+
+    public void deleteJoinRequest(String groupId, String userId) {
+        var key = Key.builder()
+                .partitionValue("GROUP#" + groupId)
+                .sortValue("JOIN_REQUEST#" + userId)
+                .build();
+        joinRequestTable.deleteItem(key);
     }
 
     public List<GroupJoinRequest> findJoinRequestsByGroupId(String groupId) {

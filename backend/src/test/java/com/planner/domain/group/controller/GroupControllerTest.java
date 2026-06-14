@@ -12,6 +12,7 @@ import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.service.GroupService;
+import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
@@ -48,6 +49,7 @@ class GroupControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     @MockBean private GroupService service;
+    @MockBean private ScheduleService scheduleService;
     @MockBean private JwtTokenProvider jwtTokenProvider;
     @MockBean private JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockBean private JwtProperties jwtProperties;

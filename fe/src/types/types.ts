@@ -25,6 +25,7 @@ export interface Schedule {
   groupScheduleId?: string;
   groupScheduleCreatedBy?: string;
   groupScheduleOwner?: boolean;
+  groupScheduleParticipant?: boolean;
   imageUrl?: string;
   imageId?: string;
   imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';

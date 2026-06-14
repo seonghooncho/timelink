@@ -1,6 +1,8 @@
 package com.planner.domain.schedule.service;
 
 import com.planner.domain.group.model.GroupMember;
+import com.planner.domain.group.error.GroupErrorCode;
+import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.repository.GroupRepository;
 import com.planner.domain.notification.service.NotificationService;
 import com.planner.domain.notification.service.ReminderSchedulingService;
@@ -33,6 +35,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +49,8 @@ import java.util.stream.Collectors;
 public class ScheduleService {
 
     private static final int DEFAULT_LIMIT = 20;
+    private static final int GROUP_SCHEDULE_SCAN_LIMIT = 300;
+    private static final String FAR_FUTURE_TIME = "9999-12-31T23:59:59Z";
 
     private final ScheduleRepository repository;
     private final GroupRepository groupRepository;
@@ -88,6 +93,7 @@ public class ScheduleService {
             Schedule schedule = ScheduleConverter.toEntity(participantUserId, req);
             schedule.setGroupScheduleId(groupScheduleId);
             schedule.setGroupScheduleCreatedBy(userId);
+            ScheduleConverter.applyGroupScheduleIndex(schedule);
             if (userId.equals(participantUserId)) {
                 applyScheduleImage(userId, schedule, req.getImageId());
             }
@@ -116,6 +122,14 @@ public class ScheduleService {
                 .filter(schedule -> userId.equals(schedule.getUserId()))
                 .findFirst()
                 .orElse(createdSchedules.get(0));
+        if (StringUtils.hasText(req.getImageId())) {
+            createdSchedules.stream()
+                    .filter(schedule -> !ownerSchedule.getUserId().equals(schedule.getUserId()))
+                    .forEach(schedule -> {
+                        copyGroupScheduleDisplayFields(ownerSchedule, schedule);
+                        repository.save(schedule);
+                    });
+        }
         notifyGroupScheduleCreated(userId, ownerSchedule, participantUserIds);
         return toDetailResponse(ownerSchedule);
     }
@@ -142,6 +156,40 @@ public class ScheduleService {
         Schedule schedule = repository.findByUserIdAndScheduleId(userId, scheduleId)
                 .orElseThrow(() -> new ScheduleException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
         return toDetailResponse(schedule);
+    }
+
+    public List<ScheduleResDTO> getGroupSchedules(String userId, String groupId, String start, String end, Integer limit) {
+        verifyGroupMembership(groupId, userId);
+        int size = limit != null && limit > 0 ? Math.min(limit, 100) : DEFAULT_LIMIT;
+        String startTime = StringUtils.hasText(start) ? start : Instant.now().toString();
+        String endTime = StringUtils.hasText(end) ? end : FAR_FUTURE_TIME;
+
+        List<Schedule> schedules = repository.findByGroupIdAndTimeRange(
+                groupId,
+                startTime,
+                endTime,
+                Math.max(size * 4, GROUP_SCHEDULE_SCAN_LIMIT)
+        );
+
+        Map<String, Schedule> deduped = new LinkedHashMap<>();
+        for (Schedule schedule : schedules) {
+            if (!groupId.equals(schedule.getGroupId())) {
+                continue;
+            }
+            String key = groupScheduleIdentity(schedule);
+            Schedule previous = deduped.get(key);
+            if (previous == null || shouldPreferGroupScheduleCandidate(schedule, previous, userId)) {
+                deduped.put(key, schedule);
+            }
+        }
+
+        Map<String, GroupMember> membersByUserId = groupRepository.findMembersByGroupId(groupId).stream()
+                .collect(Collectors.toMap(GroupMember::getUserId, member -> member, (a, b) -> a));
+
+        return deduped.values().stream()
+                .limit(size)
+                .map(schedule -> toGroupScheduleResponse(schedule, userId, membersByUserId))
+                .toList();
     }
 
     public ScheduleResDTO update(String userId, String scheduleId, ScheduleUpdateReqDTO req) {
@@ -199,6 +247,43 @@ public class ScheduleService {
         repository.deleteParticipant(schedule.getGroupScheduleId(), userId);
     }
 
+    public void cleanupFutureGroupSchedulesForRemovedMember(String actorUserId, String groupId, String memberUserId) {
+        List<Schedule> schedules = repository.findByUserIdAndTimeRange(memberUserId, Instant.now().toString(), FAR_FUTURE_TIME);
+        Set<String> processedGroupScheduleIds = new LinkedHashSet<>();
+
+        for (Schedule schedule : schedules) {
+            if (!groupId.equals(schedule.getGroupId())) {
+                continue;
+            }
+            if (isJoinedGroupSchedule(schedule) && isGroupScheduleOwner(memberUserId, schedule)) {
+                if (processedGroupScheduleIds.add(schedule.getGroupScheduleId())) {
+                    notifyGroupScheduleDeleted(actorUserId, schedule);
+                    deleteGroupScheduleCopies(schedule);
+                }
+                continue;
+            }
+            deleteScheduleCopy(schedule);
+        }
+    }
+
+    public void deleteAllGroupSchedules(String groupId) {
+        List<Schedule> schedules = repository.findByGroupId(groupId);
+        Set<String> processedGroupScheduleIds = new LinkedHashSet<>();
+
+        for (Schedule schedule : schedules) {
+            if (!groupId.equals(schedule.getGroupId())) {
+                continue;
+            }
+            if (isJoinedGroupSchedule(schedule)) {
+                if (processedGroupScheduleIds.add(schedule.getGroupScheduleId())) {
+                    deleteGroupScheduleCopies(schedule);
+                }
+                continue;
+            }
+            deleteScheduleCopy(schedule);
+        }
+    }
+
     /** 인코딩된 nextCursor를 포함하는 DTO 페이지 변환 */
     public CustomResponse.PageMeta toPageMeta(CursorPageResult<?> page, int perPage) {
         return CustomResponse.PageMeta.builder()
@@ -225,6 +310,21 @@ public class ScheduleService {
         return dto;
     }
 
+    private ScheduleResDTO toGroupScheduleResponse(Schedule schedule, String viewerUserId, Map<String, GroupMember> membersByUserId) {
+        ScheduleResDTO dto = ScheduleConverter.toResponse(schedule);
+        if (isJoinedGroupSchedule(schedule)) {
+            dto.setParticipants(loadGroupScheduleParticipants(schedule, membersByUserId));
+            boolean participant = dto.getParticipants() != null
+                    && dto.getParticipants().stream().anyMatch(item -> viewerUserId.equals(item.getUserId()));
+            dto.setGroupScheduleParticipant(participant);
+            dto.setGroupScheduleOwner(isGroupScheduleOwner(viewerUserId, schedule));
+            return dto;
+        }
+        dto.setGroupScheduleParticipant(viewerUserId.equals(schedule.getUserId()));
+        dto.setGroupScheduleOwner(viewerUserId.equals(schedule.getUserId()));
+        return dto;
+    }
+
     private List<ScheduleParticipantResDTO> loadGroupScheduleParticipants(Schedule schedule) {
         List<GroupScheduleParticipant> participants = repository.findParticipantsByGroupScheduleId(schedule.getGroupScheduleId());
         if (participants.isEmpty()) {
@@ -233,7 +333,23 @@ public class ScheduleService {
 
         Map<String, GroupMember> membersByUserId = groupRepository.findMembersByGroupId(schedule.getGroupId()).stream()
                 .collect(Collectors.toMap(GroupMember::getUserId, member -> member, (a, b) -> a));
+        return loadGroupScheduleParticipants(participants, schedule, membersByUserId);
+    }
 
+    private List<ScheduleParticipantResDTO> loadGroupScheduleParticipants(
+            Schedule schedule,
+            Map<String, GroupMember> membersByUserId) {
+        List<GroupScheduleParticipant> participants = repository.findParticipantsByGroupScheduleId(schedule.getGroupScheduleId());
+        if (participants.isEmpty()) {
+            return List.of();
+        }
+        return loadGroupScheduleParticipants(participants, schedule, membersByUserId);
+    }
+
+    private List<ScheduleParticipantResDTO> loadGroupScheduleParticipants(
+            List<GroupScheduleParticipant> participants,
+            Schedule schedule,
+            Map<String, GroupMember> membersByUserId) {
         return participants.stream()
                 .sorted(Comparator
                         .comparing((GroupScheduleParticipant participant) -> !Objects.equals(participant.getUserId(), schedule.getGroupScheduleCreatedBy()))
@@ -284,6 +400,33 @@ public class ScheduleService {
 
     private boolean isJoinedGroupSchedule(Schedule schedule) {
         return StringUtils.hasText(schedule.getGroupId()) && StringUtils.hasText(schedule.getGroupScheduleId());
+    }
+
+    private void verifyGroupMembership(String groupId, String userId) {
+        if (groupRepository.findMember(groupId, userId).isEmpty()) {
+            throw new GroupException(GroupErrorCode.NOT_GROUP_MEMBER);
+        }
+    }
+
+    private String groupScheduleIdentity(Schedule schedule) {
+        return StringUtils.hasText(schedule.getGroupScheduleId()) ? schedule.getGroupScheduleId() : schedule.getId();
+    }
+
+    private boolean shouldPreferGroupScheduleCandidate(Schedule candidate, Schedule current, String viewerUserId) {
+        boolean candidateIsViewerCopy = viewerUserId.equals(candidate.getUserId());
+        boolean currentIsViewerCopy = viewerUserId.equals(current.getUserId());
+        if (candidateIsViewerCopy != currentIsViewerCopy) {
+            return candidateIsViewerCopy;
+        }
+
+        boolean candidateIsOwnerCopy = isOwnerCopy(candidate);
+        boolean currentIsOwnerCopy = isOwnerCopy(current);
+        return candidateIsOwnerCopy && !currentIsOwnerCopy;
+    }
+
+    private boolean isOwnerCopy(Schedule schedule) {
+        return !StringUtils.hasText(schedule.getGroupScheduleCreatedBy())
+                || schedule.getGroupScheduleCreatedBy().equals(schedule.getUserId());
     }
 
     private boolean isGroupScheduleOwner(String userId, Schedule schedule) {
@@ -364,11 +507,26 @@ public class ScheduleService {
 
     private void deleteGroupScheduleCopies(Schedule schedule) {
         List<GroupScheduleParticipant> participants = repository.findParticipantsByGroupScheduleId(schedule.getGroupScheduleId());
+        if (participants.isEmpty()) {
+            deleteScheduleCopy(schedule);
+            return;
+        }
         for (GroupScheduleParticipant participant : participants) {
-            reminderSchedulingService.deleteScheduleJobs(participant.getUserId(), participant.getScheduleId());
-            repository.delete(participant.getUserId(), participant.getScheduleId());
+            deleteScheduleCopy(participant.getUserId(), participant.getScheduleId());
             repository.deleteParticipant(schedule.getGroupScheduleId(), participant.getUserId());
         }
+    }
+
+    private void deleteScheduleCopy(Schedule schedule) {
+        deleteScheduleCopy(schedule.getUserId(), schedule.getId());
+        if (StringUtils.hasText(schedule.getGroupScheduleId())) {
+            repository.deleteParticipant(schedule.getGroupScheduleId(), schedule.getUserId());
+        }
+    }
+
+    private void deleteScheduleCopy(String userId, String scheduleId) {
+        reminderSchedulingService.deleteScheduleJobs(userId, scheduleId);
+        repository.delete(userId, scheduleId);
     }
 
     private void notifyGroupScheduleCreated(String userId, Schedule schedule) {

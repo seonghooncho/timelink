@@ -3,6 +3,7 @@ package com.planner.domain.group.service;
 import com.planner.domain.community.model.CommunityPost;
 import com.planner.domain.community.repository.CommunityRepository;
 import com.planner.domain.coordination.model.Coordination;
+import com.planner.domain.coordination.model.CoordinationResponse;
 import com.planner.domain.coordination.repository.CoordinationRepository;
 import com.planner.domain.group.converter.GroupConverter;
 import com.planner.domain.group.dto.GroupCreateReqDTO;
@@ -37,6 +38,7 @@ import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.schedule.model.Schedule;
 import com.planner.domain.schedule.repository.ScheduleRepository;
+import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.domain.storage.model.ImagePurpose;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.model.ImageUpload;
@@ -82,6 +84,7 @@ public class GroupService {
     private static final int MEMBER_PROFILE_ACTIVITY_LIMIT = 3;
     private static final int PUBLIC_GROUP_SEARCH_SCAN_PAGES = 5;
     private static final int GROUP_CARD_SCHEDULE_PREVIEW_LIMIT = 2;
+    private static final int GROUP_CARD_SCHEDULE_SCAN_LIMIT = 30;
     private static final int GROUP_CARD_COORDINATION_SCAN_LIMIT = 10;
 
     private final GroupRepository repository;
@@ -90,6 +93,7 @@ public class GroupService {
     private final CursorCodec cursorCodec;
     private final StorageService storageService;
     private final ScheduleRepository scheduleRepository;
+    private final ScheduleService scheduleService;
     private final ImageUploadRepository imageUploadRepository;
     private final CommunityRepository communityRepository;
     private final CoordinationRepository coordinationRepository;
@@ -258,12 +262,31 @@ public class GroupService {
         List<Schedule> schedules = scheduleRepository.findUpcomingByGroupId(
                 groupId,
                 Instant.now().toString(),
-                GROUP_CARD_SCHEDULE_PREVIEW_LIMIT
+                GROUP_CARD_SCHEDULE_SCAN_LIMIT
         );
+        List<Schedule> uniqueSchedules = dedupeGroupSchedules(schedules, GROUP_CARD_SCHEDULE_PREVIEW_LIMIT);
         return new UpcomingScheduleSummary(
-                schedules.isEmpty() ? null : schedules.get(0),
-                schedules.size()
+                uniqueSchedules.isEmpty() ? null : uniqueSchedules.get(0),
+                uniqueSchedules.size()
         );
+    }
+
+    private List<Schedule> dedupeGroupSchedules(List<Schedule> schedules, int limit) {
+        List<Schedule> uniqueSchedules = new ArrayList<>();
+        List<String> seenKeys = new ArrayList<>();
+        for (Schedule schedule : schedules) {
+            String key = StringUtils.hasText(schedule.getGroupScheduleId())
+                    ? schedule.getGroupScheduleId()
+                    : schedule.getId();
+            if (!seenKeys.contains(key)) {
+                seenKeys.add(key);
+                uniqueSchedules.add(schedule);
+            }
+            if (uniqueSchedules.size() >= limit) {
+                break;
+            }
+        }
+        return uniqueSchedules;
     }
 
     private Coordination findActiveCoordination(String groupId) {
@@ -444,11 +467,13 @@ public class GroupService {
 
     public void delete(String userId, String groupId) {
         Group group = findGroupOrThrow(groupId);
-        if (!group.getCreatedBy().equals(userId)) {
-            throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
-        }
+        verifyManager(groupId, userId);
         List<GroupMember> members = repository.findMembersByGroupId(groupId);
         notifyGroupDeleted(userId, group, members);
+        scheduleService.deleteAllGroupSchedules(groupId);
+        deleteAllCoordinationsForGroup(groupId);
+        deleteAllGroupPosts(groupId);
+        deleteGroupIntroRecords(groupId);
         for (GroupMember m : members) {
             repository.deleteMember(groupId, m.getUserId());
         }
@@ -520,7 +545,10 @@ public class GroupService {
 
     public void leave(String userId, String groupId) {
         Group group = findGroupOrThrow(groupId);
-        verifyMembership(groupId, userId);
+        GroupMember member = repository.findMember(groupId, userId)
+                .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+        ensureNotLastManager(groupId, member);
+        cleanupMemberDeparture(groupId, userId, userId);
         repository.deleteMember(groupId, userId);
         refreshMemberCountAfterChange(group, -1);
     }
@@ -540,6 +568,8 @@ public class GroupService {
 
         GroupMember target = repository.findMember(groupId, targetUserId)
                 .orElseThrow(() -> new GroupException(GroupErrorCode.NOT_GROUP_MEMBER));
+        ensureNotLastManager(groupId, target);
+        cleanupMemberDeparture(groupId, targetUserId, managerUserId);
         repository.deleteMember(groupId, targetUserId);
         refreshMemberCountAfterChange(group, -1);
         notifyMemberRemoved(group, target);
@@ -775,6 +805,83 @@ public class GroupService {
         if (!"manager".equals(member.getRole())) {
             throw new GroupException(GroupErrorCode.NOT_GROUP_MANAGER);
         }
+    }
+
+    private void ensureNotLastManager(String groupId, GroupMember member) {
+        if (!"manager".equals(member.getRole())) {
+            return;
+        }
+        long managerCount = repository.findMembersByGroupId(groupId).stream()
+                .filter(groupMember -> "manager".equals(groupMember.getRole()))
+                .count();
+        if (managerCount <= 1) {
+            throw new GroupException(GroupErrorCode.CANNOT_LEAVE_LAST_MANAGER);
+        }
+    }
+
+    private void cleanupMemberDeparture(String groupId, String memberUserId, String actorUserId) {
+        scheduleService.cleanupFutureGroupSchedulesForRemovedMember(actorUserId, groupId, memberUserId);
+        cleanupActiveCoordinationResponses(groupId, memberUserId);
+    }
+
+    private void cleanupActiveCoordinationResponses(String groupId, String memberUserId) {
+        Cursor cursor = null;
+        do {
+            CursorPageResult<Coordination> page = coordinationRepository.findByGroupIdPaged(groupId, 100, cursor);
+            for (Coordination coordination : page.getItems()) {
+                if (!"active".equals(coordination.getStatus())) {
+                    continue;
+                }
+                List<CoordinationResponse> responses = coordinationRepository.findUserResponses(coordination.getId(), memberUserId);
+                for (CoordinationResponse response : responses) {
+                    coordinationRepository.deleteResponse(coordination.getId(), response.getSk());
+                }
+                if (!responses.isEmpty()) {
+                    decrementCoordinationResponseCount(groupId, coordination, responses.size());
+                }
+            }
+            cursor = page.getNextCursor();
+        } while (cursor != null);
+    }
+
+    private void decrementCoordinationResponseCount(String groupId, Coordination coordination, int removedCount) {
+        Integer currentCount = coordination.getResponseCount();
+        if (currentCount != null && currentCount - removedCount < 0) {
+            coordinationRepository.setResponseCount(groupId, coordination.getId(), 0);
+            return;
+        }
+        coordinationRepository.updateResponseCount(groupId, coordination.getId(), -removedCount);
+    }
+
+    private void deleteAllCoordinationsForGroup(String groupId) {
+        Cursor cursor = null;
+        do {
+            CursorPageResult<Coordination> page = coordinationRepository.findByGroupIdPaged(groupId, 100, cursor);
+            for (Coordination coordination : page.getItems()) {
+                for (CoordinationResponse response : coordinationRepository.findResponses(coordination.getId())) {
+                    coordinationRepository.deleteResponse(coordination.getId(), response.getSk());
+                }
+                coordinationRepository.deleteCoordination(groupId, coordination.getId());
+            }
+            cursor = page.getNextCursor();
+        } while (cursor != null);
+    }
+
+    private void deleteAllGroupPosts(String groupId) {
+        Cursor cursor = null;
+        do {
+            CursorPageResult<CommunityPost> page = communityRepository.findGroupPostsPaged(groupId, 100, cursor);
+            page.getItems().forEach(post -> communityRepository.deletePostCascade(post.getId()));
+            cursor = page.getNextCursor();
+        } while (cursor != null);
+    }
+
+    private void deleteGroupIntroRecords(String groupId) {
+        repository.findNoticesByGroupId(groupId, 0)
+                .forEach(notice -> repository.deleteNotice(groupId, notice.getSk()));
+        repository.findJoinRequestsByGroupId(groupId)
+                .forEach(request -> repository.deleteJoinRequest(groupId, request.getUserId()));
+        repository.deleteIntro(groupId);
     }
 
     private List<GroupMember> findMemberPreviews(String groupId) {
