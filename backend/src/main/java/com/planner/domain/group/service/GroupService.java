@@ -52,14 +52,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -935,7 +937,7 @@ public class GroupService {
 
     private String createUniqueInviteCode(String groupId, String now) {
         for (int attempt = 0; attempt < INVITE_CODE_RETRY_LIMIT; attempt++) {
-            String inviteCode = generateInviteCode();
+            String inviteCode = generateInviteCode(groupId, now, attempt);
             GroupInvite invite = GroupInvite.builder()
                     .pk("INVITE#" + inviteCode)
                     .sk("METADATA")
@@ -965,13 +967,13 @@ public class GroupService {
         repository.updateMemberCount(group.getId(), delta);
     }
 
-    private String generateInviteCode() {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder(8);
-        for (int i = 0; i < 8; i++) {
-            sb.append(chars.charAt(ThreadLocalRandom.current().nextInt(chars.length())));
-        }
-        return sb.toString();
+    private String generateInviteCode(String groupId, String now, int attempt) {
+        String seed = groupId + ":" + now + ":" + attempt;
+        String hex = UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8))
+                .toString()
+                .replace("-", "");
+        String base36 = new BigInteger(hex, 16).toString(36).toUpperCase(Locale.ROOT);
+        return base36.length() >= 8 ? base36.substring(0, 8) : String.format("%8s", base36).replace(' ', '0');
     }
 
     private void notifyGroupDeleted(String userId, Group group, List<GroupMember> members) {

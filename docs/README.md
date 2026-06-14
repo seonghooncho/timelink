@@ -92,7 +92,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 - [구조 문서 인덱스](architecture/README.md): 아키텍처 정합성, 이미지 처리 파이프라인, 확장 로드맵을 모아 둔 문서입니다.
 - [운영 배포 유의사항](operations/DEPLOYMENT_NOTES.md): S3/CloudFront/Lambda 배포 순서와 Google/Kakao 소셜 로그인 콜백 확인 항목을 정리한 배포 전 체크 문서입니다.
 - [모니터링 v1](operations/MONITORING_V1.md): CloudWatch/SNS 기반 저비용 운영 알림과 확장 전환 기준을 정리한 문서입니다.
-- [부하테스트 결과](testing/LOAD_TEST_REPORT.md): k6/Playwright로 확인한 처리량, 지연, 실패 양상과 cleanup 기준을 정리한 문서입니다.
+- [부하테스트 결과 v2](testing/LOAD_TEST_REPORT_V2.md): 최신 운영 구조에서 k6/Playwright로 확인한 처리량, 지연, 실패 양상과 cleanup 기준을 정리한 문서입니다.
 - [모바일 앱 스토어 제출 준비](mobile/STORE_READINESS.md): Expo 모바일 앱 구조, 검증 명령, 스토어 제출 전 외부 설정을 정리한 문서입니다.
 
 ## 문서 배치 기준

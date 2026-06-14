@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -187,6 +188,25 @@ class GroupServiceTest {
                         && group.getGsi3sk() != null
                         && group.getGsi3sk().contains(group.getId())
         ));
+    }
+
+    @Test
+    @DisplayName("create — 초대코드 충돌 시 다른 코드로 재시도한다")
+    void create_retriesDifferentInviteCodeWhenCollisionHappens() {
+        GroupCreateReqDTO req = new GroupCreateReqDTO();
+        req.setName("Study");
+        when(repository.saveInviteIfAbsent(any(GroupInvite.class))).thenReturn(false, true);
+
+        service.create("user1", req);
+
+        ArgumentCaptor<GroupInvite> captor = ArgumentCaptor.forClass(GroupInvite.class);
+        verify(repository, times(2)).saveInviteIfAbsent(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(GroupInvite::getInviteCode)
+                .hasSize(2)
+                .doesNotHaveDuplicates()
+                .allSatisfy(code -> assertThat((String) code).matches("[A-Z0-9]{8}"));
+        verify(repository).saveGroup(any(Group.class));
     }
 
     @Test

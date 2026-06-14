@@ -5,6 +5,7 @@ const APP_BASE = process.env.TIMELINK_APP_BASE || 'https://timelink.cloud';
 const API_BASE = `${process.env.TIMELINK_API_BASE || `${APP_BASE}/api/planner/v1`}/`.replace(/\/+$/, '/');
 const JWT_SECRET = process.env.TIMELINK_JWT_SECRET;
 const RUN_ID = process.env.TIMELINK_RUN_ID || `tl-load-pw-${Date.now()}`;
+const RUN_SHORT = RUN_ID.replace(/^tl-load-/, '').slice(-12);
 
 if (!JWT_SECRET) {
   throw new Error('TIMELINK_JWT_SECRET is required');
@@ -25,6 +26,11 @@ function tokenFor(userId: string) {
   const unsigned = `${header}.${payload}`;
   const signature = crypto.createHmac('sha256', JWT_SECRET!).update(unsigned).digest('base64url');
   return `${unsigned}.${signature}`;
+}
+
+function testTitle(prefix: string, max = 40) {
+  const value = `${prefix} ${RUN_SHORT}`;
+  return value.length <= max ? value : value.slice(0, max);
 }
 
 function makeUsers(count: number): TestUser[] {
@@ -128,7 +134,7 @@ test.describe.serial('Timelink serverless flow', () => {
     const managerApi = await apiAs(users[0]);
     const groupData = await okJson<{ id: string; inviteCode: string }>(await managerApi.post('groups', {
       data: {
-        name: `${RUN_ID} playwright group`,
+        name: testTitle('PW 모임', 30),
         description: `${RUN_ID} cleanup target`,
       },
     }));
@@ -141,7 +147,7 @@ test.describe.serial('Timelink serverless flow', () => {
 
     const coordinationData = await okJson<{ id: string }>(await managerApi.post(`groups/${groupData.id}/coordinations`, {
       data: {
-        title: `${RUN_ID} playwright coordination`,
+        title: testTitle('PW 조율'),
         mode: 'once',
         dates: [localDate(0), localDate(1), localDate(2)],
         startHour: 9,
@@ -191,7 +197,7 @@ test.describe.serial('Timelink serverless flow', () => {
 
     await okJson(await api.post('schedules', {
       data: {
-        title: `${RUN_ID} reminder schedule`,
+        title: testTitle('PW reminder'),
         content: `${RUN_ID} serverless reminder path`,
         category: 'important',
         startTime: future.toISOString(),
@@ -239,9 +245,49 @@ test.describe.serial('Timelink serverless flow', () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
 
-    for (const path of ['/', '/calendar', '/groups', '/mypage']) {
+    for (const path of ['/', '/calendar', '/groups', '/community', '/mypage']) {
       await expectNoHorizontalOverflow(page, path);
     }
+  });
+
+  test('group post composer stays above fixed group actions and creates a post', async ({ page }) => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    const api = await apiAs(user);
+    const groupData = await okJson<{ id: string }>(await api.post('groups', {
+      data: {
+        name: testTitle('PW 작성 모임', 30),
+        description: `${RUN_ID} cleanup target`,
+        visibility: 'PUBLIC',
+      },
+    }));
+
+    await loginPageAs(page, user);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/groups/${groupData.id}`);
+    await dismissInstallNotice(page);
+
+    const fab = page.getByRole('button', { name: '글쓰기' });
+    const fixedAction = page.getByRole('button', { name: '약속 만들기' });
+    await expect(fab).toBeVisible();
+    await expect(fixedAction).toBeVisible();
+
+    const fabBox = await fab.boundingBox();
+    const actionBox = await fixedAction.boundingBox();
+    expect(fabBox, '글쓰기 버튼 좌표가 있어야 합니다').toBeTruthy();
+    expect(actionBox, '하단 고정 액션 좌표가 있어야 합니다').toBeTruthy();
+    expect(fabBox!.y + fabBox!.height, '글쓰기 버튼이 하단 고정 액션과 겹치지 않아야 합니다')
+      .toBeLessThanOrEqual(actionBox!.y - 4);
+
+    await fab.click();
+    await expect(page.getByRole('heading', { name: '게시물 작성' })).toBeVisible();
+    const postTitle = testTitle('PW 작성 테스트');
+    await page.getByPlaceholder('제목을 입력해주세요').fill(postTitle);
+    await page.getByPlaceholder('멤버들에게 공유할 내용을 적어주세요.').fill(`${RUN_ID} 모임 게시글 작성 플로우`);
+    await page.getByRole('button', { name: '게시물 등록' }).click();
+    await expect(page.getByText(postTitle)).toBeVisible();
+
+    await api.dispose();
   });
 
   test('schedule duration contract rejects invalid values and preserves calculated end time', async () => {
@@ -259,7 +305,7 @@ test.describe.serial('Timelink serverless flow', () => {
       duration: number;
     }>(await api.post('schedules', {
       data: {
-        title: `${RUN_ID} duration schedule`,
+        title: testTitle('PW duration'),
         content: `${RUN_ID} duration contract`,
         category: 'task',
         startTime: start.toISOString(),
@@ -273,7 +319,7 @@ test.describe.serial('Timelink serverless flow', () => {
 
     const invalidStep = await api.post('schedules', {
       data: {
-        title: `${RUN_ID} invalid duration`,
+        title: testTitle('PW invalid'),
         category: 'task',
         startTime: start.toISOString(),
         duration: 1.25,
@@ -285,7 +331,7 @@ test.describe.serial('Timelink serverless flow', () => {
     lateStart.setUTCHours(23, 30, 0, 0);
     const crossingDay = await api.post('schedules', {
       data: {
-        title: `${RUN_ID} crossing duration`,
+        title: testTitle('PW crossing'),
         category: 'task',
         startTime: lateStart.toISOString(),
         duration: 1,

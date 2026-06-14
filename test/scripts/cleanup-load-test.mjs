@@ -14,6 +14,7 @@ function aws(args, options = {}) {
   const output = execFileSync('aws', args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
     ...options,
   });
   return output.trim();
@@ -87,6 +88,7 @@ function deleteScheduler(name) {
 const allItems = scanAll();
 const groupIds = new Set();
 const coordIds = new Set();
+const postIds = new Set();
 const schedulerNames = new Set();
 
 for (const item of allItems) {
@@ -97,6 +99,15 @@ for (const item of allItems) {
 
   if (matches && pk.startsWith('GROUP#') && sk === 'METADATA') {
     groupIds.add(pk.replace('GROUP#', ''));
+  }
+  if (matches && pk.startsWith('POST#')) {
+    postIds.add(pk.replace('POST#', ''));
+  }
+  if (matches && s(item.postId)) {
+    postIds.add(s(item.postId));
+  }
+  if (matches && s(item.id) && pk.startsWith('POST#') && sk === 'METADATA') {
+    postIds.add(s(item.id));
   }
   if (matches && pk.startsWith('GROUP#') && sk.startsWith('COORD#')) {
     coordIds.add(sk.replace('COORD#', ''));
@@ -117,8 +128,9 @@ for (const item of allItems) {
   const directMatch = strings.some((value) => value.includes(runId));
   const groupMatch = pk.startsWith('GROUP#') && groupIds.has(pk.replace('GROUP#', ''));
   const coordMatch = pk.startsWith('COORD#') && coordIds.has(pk.replace('COORD#', ''));
+  const postMatch = pk.startsWith('POST#') && postIds.has(pk.replace('POST#', ''));
 
-  if (directMatch || groupMatch || coordMatch) {
+  if (directMatch || groupMatch || coordMatch || postMatch) {
     keys.push(keyOf(item));
     if (s(item.schedulerName)) {
       schedulerNames.add(s(item.schedulerName));
@@ -139,5 +151,6 @@ console.log(JSON.stringify({
   deletedItems: keys.length,
   groupIds: groupIds.size,
   coordinationIds: coordIds.size,
+  postIds: postIds.size,
   deletedSchedulers,
 }, null, 2));
