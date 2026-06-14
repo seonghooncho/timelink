@@ -2,16 +2,16 @@
 
 ## 근본 목적
 
-운영 초기의 저비용 구조를 유지하면서, 부하테스트에서 드러난 Lambda throttle, API 지연, DynamoDB scan 재발 같은 장애 징후를 빠르게 확인하고 이메일 알림으로 놓치지 않게 하는 것이 목적입니다.
+운영 초기의 저비용 구조를 유지하면서, 부하테스트에서 드러난 Lambda throttle, API 지연, DynamoDB scan 재발 같은 장애 징후를 이메일과 Discord에서 빠르게 이해하고 놓치지 않게 하는 것이 목적입니다.
 
 ## 비목적
 
-이 문서는 APM, 분산 추적, 사용자 행동 분석, 고도화된 SLO 체계를 완성하는 문서가 아닙니다. 운영 초기에는 CloudWatch 기본 지표와 SNS 이메일 알림만 사용하고, 트래픽이 늘어날 때 구조를 확장합니다.
+이 문서는 APM, 분산 추적, 사용자 행동 분석, 고도화된 SLO 체계를 완성하는 문서가 아닙니다. 운영 초기에는 CloudWatch 기본 지표, SNS, Lambda formatter, SES, Discord webhook만 사용하고, 트래픽이 늘어날 때 구조를 확장합니다.
 
 ## 문서 기준
 
 - 버전: 모니터링 v1
-- 기준일: 2026-06-12
+- 기준일: 2026-06-14
 - 기준 환경: AWS account `160885253413`, region `ap-northeast-2`, 운영 도메인 `https://timelink.cloud`
 - 근거 문서: [부하테스트 결과 v2](../testing/LOAD_TEST_REPORT_V2.md), [확장 로드맵](../architecture/SCALING_ROADMAP.md)
 
@@ -22,12 +22,29 @@ Terraform `infra/terraform/minimum/monitoring.tf`에서 아래 리소스를 관�
 | 영역 | 리소스 |
 | --- | --- |
 | 알림 채널 | SNS topic `planner-prod-monitoring-alerts` |
-| 읽기용 알림 | Lambda `planner-prod-monitoring-alert-formatter` -> SES 한글 이메일 |
+| 읽기용 알림 | Lambda `planner-prod-monitoring-alert-formatter` -> SES 요약 이메일 + Discord webhook |
 | 백업 알림 | SNS email-json subscription `sunghuncho127@gmail.com` |
 | 지표/알람 | CloudWatch metric alarm |
-| 비용 구조 | CloudWatch 기본 지표 + SNS/Lambda/SES 중심의 저비용 구조 |
+| 비용 구조 | CloudWatch 기본 지표 + SNS/Lambda/SES/Discord webhook 중심의 저비용 구조 |
 
-CloudWatch 알람은 SNS topic으로 발행되고, formatter Lambda가 원본 JSON을 한글 요약 메일로 변환해 SES로 발송합니다. SES가 sandbox 상태이면 `monitoring_alert_email`로 지정한 이메일 identity가 인증되어 있어야 발송됩니다. 기존 SNS email-json 구독은 formatter 장애나 SES 인증 문제를 대비한 백업 경로로 유지합니다.
+CloudWatch 알람은 SNS topic으로 발행되고, formatter Lambda가 원본 JSON을 운영 요약으로 변환해 SES 이메일을 먼저 발송한 뒤 Discord webhook으로도 보냅니다. Discord webhook URL은 코드에 두지 않고 SSM SecureString `/planner/prod/monitoring/discord_webhook_url`에 저장합니다. 파라미터가 없거나 Discord 전송이 실패해도 이메일 발송은 실패 처리하지 않습니다.
+
+SES가 sandbox 상태이면 `monitoring_alert_email`로 지정한 이메일 identity가 인증되어 있어야 발송됩니다. 기존 SNS email-json 구독은 formatter 장애나 SES 인증 문제를 대비한 백업 경로로 당분간 유지합니다. formatter 이메일과 Discord 알림이 실제 운영에서 확인되면 raw JSON 백업 구독은 제거하거나 별도 백업 주소로 분리합니다.
+
+## 로그와 요청 추적
+
+| 영역 | 기준 |
+| --- | --- |
+| API Lambda log group | `/aws/lambda/planner-prod-api`, retention 14일 |
+| Notification worker log group | `/aws/lambda/planner-prod-notification-worker`, retention 14일 |
+| API Gateway access log group | `/aws/apigateway/planner-prod`, retention 14일 |
+| Image processor log group | `/aws/lambda/planner-prod-image-processor`, retention 14일 |
+| Formatter log group | `/aws/lambda/planner-prod-monitoring-alert-formatter`, retention 14일 |
+| Backend log level | `com.planner=INFO`, `software.amazon.awssdk=WARN`, `com.amazonaws.serverless.proxy=WARN` |
+
+API 요청은 `X-Request-Id`가 있으면 재사용하고 없으면 생성합니다. 응답에도 같은 `X-Request-Id`를 반환하며, 완료 로그는 `http_request_completed requestId=... method=... path=... status=... durationMs=...` 형태로 남깁니다.
+
+로그에는 Authorization header, JWT/OAuth/refresh token, request/response body 전체, 이메일, 전화번호, 초대코드 원문을 남기지 않습니다. path는 가능한 route template을 사용하고, fallback에서도 invite code와 주요 id segment를 마스킹합니다. AWS serverless container의 원문 access log는 `WARN`으로 낮추고, 서버 예외는 `ERROR` stack trace로 CloudWatch Logs에 남깁니다.
 
 ## 알람 기준
 
@@ -70,6 +87,17 @@ aws sns list-subscriptions-by-topic \
   --topic-arn "$(terraform output -raw monitoring_alert_topic_arn)"
 ```
 
+Discord webhook URL 저장:
+
+```sh
+aws ssm put-parameter \
+  --region ap-northeast-2 \
+  --name /planner/prod/monitoring/discord_webhook_url \
+  --type SecureString \
+  --value '<discord-webhook-url>' \
+  --overwrite
+```
+
 SES identity 인증 상태 확인:
 
 ```sh
@@ -82,11 +110,23 @@ aws sesv2 get-email-identity \
 Formatter Lambda 테스트:
 
 ```sh
+cd infra/terraform/minimum
+python3 -m unittest discover -s functions/monitoring-alert-formatter -p 'test_*.py'
+
 aws lambda invoke \
   --function-name "$(terraform output -raw monitoring_alert_formatter_function_name)" \
   --cli-binary-format raw-in-base64-out \
-  --payload file://test/fixtures/cloudwatch-alarm-sns-event.json \
+  --payload file://functions/monitoring-alert-formatter/fixtures/cloudwatch-alarm-sns-event.json \
   /tmp/timelink-monitoring-alert-test.json
+```
+
+Logs Insights 시작 쿼리:
+
+```sql
+fields @timestamp, @message
+filter @message like /requestId|http_request_completed|ERROR|Exception/
+sort @timestamp desc
+limit 50
 ```
 
 알람 확인:
@@ -111,7 +151,7 @@ npm run ops:backfill-metadata -- --fix-duplicate-invites
 
 ## 한계와 다음 개선 시점
 
-- SES 이메일은 확인과 대응 자동화가 없습니다. 알림이 하루 3회 이상 반복되면 Slack/Discord webhook 또는 Incident Manager로 전환합니다.
+- SES/Discord 알림은 확인과 대응 자동화가 없습니다. 알림이 하루 3회 이상 반복되면 Incident Manager 같은 대응 흐름을 검토합니다.
 - SES sandbox 상태에서는 인증된 주소로만 보낼 수 있습니다. 운영 알림 수신자를 늘리거나 도메인 발신 품질을 높일 때는 `timelink.cloud` 도메인 identity와 DKIM/SPF/DMARC를 Terraform/Cloudflare로 관리합니다.
 - CloudWatch 기본 지표는 어떤 API가 느린지까지 알려주지 않습니다. API Gateway p95가 2일 연속 2초를 넘거나 5xx가 반복되면 구조화 로그와 CloudWatch Logs Insights 쿼리를 문서화합니다.
 - Lambda throttle이 운영 중 1회라도 재발하면 예약 동시성/계정 동시성/비동기 큐 분리 여부를 검토합니다.

@@ -11,6 +11,11 @@ locals {
   }
   monitoring_api_gateway_stage = "$default"
   monitoring_dynamodb_table    = "${var.project_name}_${var.environment}_main"
+  monitoring_discord_webhook_parameter_name = (
+    var.monitoring_discord_webhook_parameter_name != ""
+    ? var.monitoring_discord_webhook_parameter_name
+    : "/${var.project_name}/${var.environment}/monitoring/discord_webhook_url"
+  )
 }
 
 data "archive_file" "monitoring_alert_formatter" {
@@ -52,7 +57,7 @@ resource "aws_lambda_permission" "monitoring_alert_formatter_sns" {
 
 resource "aws_lambda_function" "monitoring_alert_formatter" {
   function_name    = "${var.project_name}-${var.environment}-monitoring-alert-formatter"
-  description      = "Formats CloudWatch monitoring alerts into readable Korean emails."
+  description      = "Formats CloudWatch monitoring alerts into readable Korean emails and Discord messages."
   filename         = data.archive_file.monitoring_alert_formatter.output_path
   source_code_hash = data.archive_file.monitoring_alert_formatter.output_base64sha256
   handler          = "index.handler"
@@ -64,9 +69,10 @@ resource "aws_lambda_function" "monitoring_alert_formatter" {
 
   environment {
     variables = {
-      ALERT_EMAIL_FROM      = var.monitoring_alert_email
-      ALERT_EMAIL_FROM_NAME = "Timelink 운영 알림"
-      ALERT_EMAIL_TO        = var.monitoring_alert_email
+      ALERT_EMAIL_FROM               = var.monitoring_alert_email
+      ALERT_EMAIL_FROM_NAME          = "Timelink 운영 알림"
+      ALERT_EMAIL_TO                 = var.monitoring_alert_email
+      DISCORD_WEBHOOK_PARAMETER_NAME = local.monitoring_discord_webhook_parameter_name
     }
   }
 
@@ -115,6 +121,24 @@ resource "aws_iam_role_policy" "monitoring_alert_formatter_ses" {
           "ses:SendEmail"
         ]
         Resource = aws_sesv2_email_identity.monitoring_alert_sender.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "monitoring_alert_formatter_ssm" {
+  name = "${var.project_name}-${var.environment}-monitoring-alert-formatter-ssm"
+  role = aws_iam_role.monitoring_alert_formatter.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter"
+        ]
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.monitoring_discord_webhook_parameter_name}"
       }
     ]
   })

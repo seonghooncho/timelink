@@ -1,0 +1,11 @@
+{
+  "Records": [
+    {
+      "Sns": {
+        "MessageId": "sns-message-1",
+        "Timestamp": "2026-06-14T08:00:00.000Z",
+        "Message": "{\"AlarmName\":\"planner-prod-api-gateway-5xx\",\"AlarmDescription\":\"HTTP API returned 5xx responses.\",\"AWSAccountId\":\"160885253413\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"Threshold Crossed: 1 datapoint [1.0] was greater than or equal to the threshold (1.0).\",\"StateChangeTime\":\"2026-06-14T08:00:00.000+0000\",\"Region\":\"Asia Pacific (Seoul)\",\"Trigger\":{\"MetricName\":\"5xx\",\"Namespace\":\"AWS/ApiGateway\",\"Statistic\":\"Sum\",\"Period\":60,\"EvaluationPeriods\":1,\"DatapointsToAlarm\":1,\"Threshold\":1,\"ComparisonOperator\":\"GreaterThanOrEqualToThreshold\",\"Dimensions\":[{\"name\":\"ApiId\",\"value\":\"sotr621lgc\"},{\"name\":\"Stage\",\"value\":\"$default\"}]}}"
+      }
+    }
+  ]
+}

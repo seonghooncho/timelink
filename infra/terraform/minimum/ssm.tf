@@ -32,6 +32,20 @@ resource "aws_ssm_parameter" "backend_config" {
   value     = each.value
 }
 
+resource "aws_ssm_parameter" "backend_aws_sdk_log_level" {
+  overwrite = true
+  name      = "${local.backend_ssm_prefix}/logging.level.software.amazon.awssdk"
+  type      = "String"
+  value     = var.backend_aws_sdk_log_level
+}
+
+resource "aws_ssm_parameter" "backend_lambda_container_log_level" {
+  overwrite = true
+  name      = "${local.backend_ssm_prefix}/logging.level.com.amazonaws.serverless.proxy"
+  type      = "String"
+  value     = "WARN"
+}
+
 resource "aws_ssm_parameter" "backend_push_vapid_private_key" {
   count = var.push_vapid_private_key == "" ? 0 : 1
 
