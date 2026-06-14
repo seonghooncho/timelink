@@ -12,7 +12,7 @@ import { timeAgoLabel } from '../../utils/date';
 
 const TABS = [
   { key: 'schedule', label: '일정 알림' },
-  { key: 'group', label: '그룹 알림' },
+  { key: 'group', label: '모임 알림' },
 ];
 
 export function NotificationsScreen() {

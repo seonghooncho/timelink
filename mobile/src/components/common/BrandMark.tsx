@@ -31,7 +31,7 @@ export function BrandMark({ size = 'md', showWordmark = false }: BrandMarkProps)
       {showWordmark ? (
         <View style={{ gap: 3 }}>
           <Text style={styles.title}>Timelink</Text>
-          <Text style={styles.caption}>개인과 그룹 일정을 자연스럽게 연결합니다</Text>
+          <Text style={styles.caption}>개인과 모임 일정을 자연스럽게 연결합니다</Text>
         </View>
       ) : null}
     </View>

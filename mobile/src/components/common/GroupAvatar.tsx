@@ -4,6 +4,7 @@ import { colors, radius } from '../../constants/theme';
 
 interface GroupAvatarProps {
   image?: string;
+  thumbnail?: string;
   name: string;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -14,13 +15,14 @@ const sizeMap = {
   lg: 56,
 };
 
-export function GroupAvatar({ image, name, size = 'sm' }: GroupAvatarProps) {
+export function GroupAvatar({ image, thumbnail, name, size = 'sm' }: GroupAvatarProps) {
   const dimension = sizeMap[size];
+  const imageSource = thumbnail || image;
 
-  if (image) {
+  if (imageSource) {
     return (
       <Image
-        source={{ uri: image }}
+        source={{ uri: imageSource }}
         accessibilityLabel={name}
         style={{ width: dimension, height: dimension, borderRadius: size === 'lg' ? 16 : 12 }}
       />
@@ -34,9 +36,11 @@ export function GroupAvatar({ image, name, size = 'sm' }: GroupAvatarProps) {
   );
 }
 
-export function PersonAvatar({ image, name, size = 40 }: { image?: string; name: string; size?: number }) {
-  if (image) {
-    return <Image source={{ uri: image }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+export function PersonAvatar({ image, thumbnail, name, size = 40 }: { image?: string; thumbnail?: string; name: string; size?: number }) {
+  const imageSource = thumbnail || image;
+
+  if (imageSource) {
+    return <Image source={{ uri: imageSource }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   }
 
   return (

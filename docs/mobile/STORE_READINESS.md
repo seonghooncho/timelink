@@ -22,6 +22,7 @@ Timelink 모바일 앱을 `main/mobile`에서 운영 웹/백엔드와 같은 API
 
 ```sh
 npm run mobile:typecheck
+npm run mobile:test
 npm run mobile:prebuild:android
 npm run mobile:prebuild:ios
 npm run mobile:export:web
@@ -31,12 +32,17 @@ npm run mobile:export:web
 
 - 일정 생성은 `날짜 + 시작 시간 + 소요시간`으로 보낸다. 종료 시각은 앱에서 `시작 + 소요시간`으로 계산해 표시하고, 알림 기본값은 웹과 동일하게 꺼진 상태다.
 - 시작 시간은 30분 단위 선택 UI로 제한한다.
+- 일반 일정 생성에서는 모임 카테고리를 숨긴다. 모임 상세에서 만든 일정만 `category=group`으로 고정하고 참여 멤버를 선택해 생성한다.
+- 모임 화면은 `내 모임`과 `둘러보기` 탭으로 나뉜다. 공개 모임은 검색, 소개 페이지, 가입요청 흐름을 제공한다.
+- 모임 상세는 약속, 시간 조율, 모임 글을 같은 화면에서 확인하고, 모임 소개와 멤버 목록은 헤더 메뉴에서 접근한다.
+- 커뮤니티 탭은 게시글 목록, 익명 작성, 이미지 1장 첨부, 상세 댓글과 좋아요를 제공한다.
 - 프로필, 모임, 일정 이미지는 15MB 이하 파일을 presigned URL로 `upload/`에 올리고, 백엔드 WebP 처리 결과를 `imageId/imageStatus`로 추적한다. 프로필류와 모임 대표 이미지는 작은 화면에서 thumbnail variant를 우선 사용한다.
 - 모바일 이미지는 Expo 기본 편집 UI를 거쳐 업로드한다. 웹의 커스텀 crop/position UI와 완전히 같은 조작감은 추후 네이티브 crop 컴포넌트 도입 때 맞춘다.
 - 모임 알림 on/off는 모바일 마이페이지에 노출하지 않는다. 모임 알림은 서버 기본 정책대로 알림센터에 생성된다.
 - `pushAlarm` 설정값은 모바일에서도 조회/저장하지만, 현재 실제 푸시 대상은 Web Push 구독이다. 앱 자체 APNs/FCM 푸시는 별도 설계가 필요하다.
 - 일정 알림이 꺼져 있으면 리마인드 설정은 보이지만 수정할 수 없다.
 - 조율 결과 타임슬롯을 선택하면 투표한 사람의 프로필과 이름을 모달로 보여준다.
+- 모바일 테스트는 일정 시간 경계값, 이미지 제한/thumbnail 우선순위, 게시글 잠금/익명 표시 정책을 우선 보호한다.
 
 ## 스토어 제출 기준
 
@@ -67,7 +73,8 @@ npm run mobile:export:web
 ## 검증 결과
 
 - `npm run mobile:typecheck`: 통과
+- `npm run mobile:test`: 통과
 - `npm run mobile:export:web`: 통과
 - `npm run mobile:prebuild:android`: 통과
 - `npm run mobile:prebuild:ios`: 통과
-- `npm audit --omit=dev --audit-level=high`: high 이상 없음. Expo CLI 하위 `uuid/xcode` moderate 9건은 `npm audit fix --force`가 Expo 46 다운그레이드를 요구해 보류한다.
+- `npm audit --omit=dev --audit-level=high`: high 이상 없음. Expo/Jest 하위 moderate 취약점은 `npm audit fix --force`가 주요 패키지 교체를 요구해 보류한다.

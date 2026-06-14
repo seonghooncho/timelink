@@ -16,9 +16,21 @@ function mapSchedule(response: ScheduleResponse): Schedule {
     isCompleted: response.isCompleted,
     hasAlarm: response.hasAlarm,
     groupId: response.groupId,
+    groupScheduleId: response.groupScheduleId,
+    groupScheduleCreatedBy: response.groupScheduleCreatedBy,
+    groupScheduleOwner: response.groupScheduleOwner,
+    groupScheduleParticipant: response.groupScheduleParticipant,
     imageUrl: response.imageUrl,
     imageId: response.imageId,
     imageStatus: response.imageStatus,
+    participants: response.participants?.map((participant) => ({
+      userId: participant.userId,
+      nickname: participant.nickname,
+      avatarUrl: participant.avatarUrl,
+      thumbnailUrl: participant.thumbnailUrl,
+      imageId: participant.imageId,
+      imageStatus: participant.imageStatus,
+    })),
   };
 }
 
@@ -61,6 +73,17 @@ export function useDeleteSchedule() {
     mutationFn: (id: string) => scheduleApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['schedules'] });
+    },
+  });
+}
+
+export function useLeaveScheduleParticipation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => scheduleApi.leaveParticipation(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
     },
   });
 }

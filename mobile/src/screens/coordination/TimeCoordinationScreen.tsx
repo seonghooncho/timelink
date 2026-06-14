@@ -11,6 +11,7 @@ import { colors, radius } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
 import { coordinationApi, groupApi } from '../../services/api';
 import { GroupMember } from '../../types';
+import { COORDINATION_DESCRIPTION_MAX_LENGTH, COORDINATION_TITLE_MAX_LENGTH } from '../../constants/textLimits';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TimeCoordination'>;
 
@@ -26,6 +27,7 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
   const [tab, setTab] = useState('once');
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set());
   const [startHour, setStartHour] = useState(9);
@@ -93,6 +95,7 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
 
       const created = await coordinationApi.create(groupId, {
         title: trimmedTitle,
+        description: description.trim() || undefined,
         mode: tab === 'once' ? 'once' : 'repeat',
         dates,
         startHour,
@@ -113,12 +116,26 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
       <TabBar tabs={TABS} activeKey={tab} onChange={setTab} />
 
       <View style={styles.content}>
-        <AppTextInput value={title} onChangeText={setTitle} placeholder="제목" />
+        <AppTextInput
+          label={`제목 ${title.length}/${COORDINATION_TITLE_MAX_LENGTH}`}
+          value={title}
+          onChangeText={setTitle}
+          maxLength={COORDINATION_TITLE_MAX_LENGTH}
+          placeholder="시간 조율 제목"
+        />
+        <AppTextInput
+          label={`설명 ${description.length}/${COORDINATION_DESCRIPTION_MAX_LENGTH}`}
+          value={description}
+          onChangeText={setDescription}
+          maxLength={COORDINATION_DESCRIPTION_MAX_LENGTH}
+          placeholder="선택 사항"
+          multiline
+        />
 
         {members.length > 0 ? (
           <View>
             <Text style={styles.sectionLabel}>함께 조율할 멤버</Text>
-            <Text style={styles.sectionHint}>현재 버전에서는 그룹 전체 멤버가 같은 조율에 참여합니다.</Text>
+            <Text style={styles.sectionHint}>모임 전체 멤버가 같은 조율에 참여합니다.</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberScroll}>
               {members.map((member) => (
                 <View key={member.id} style={styles.memberChip}>

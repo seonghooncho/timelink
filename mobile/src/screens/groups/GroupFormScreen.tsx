@@ -12,6 +12,7 @@ import { colors, radius } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
 import { useCreateGroup } from '../../hooks/useGroups';
 import { uploadProcessedImage, validatePickedImage, type PickedImageAsset } from '../../utils/images';
+import { GROUP_DESCRIPTION_MAX_LENGTH, GROUP_NAME_MAX_LENGTH } from '../../constants/textLimits';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupForm'>;
 
@@ -19,6 +20,7 @@ export function GroupFormScreen({ navigation }: Props) {
   const createGroupMutation = useCreateGroup();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
   const [image, setImage] = useState<PickedImageAsset | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -51,7 +53,7 @@ export function GroupFormScreen({ navigation }: Props) {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('입력 필요', '그룹 이름을 입력해주세요.');
+      Alert.alert('입력 필요', '모임 이름을 입력해주세요.');
       return;
     }
 
@@ -60,22 +62,23 @@ export function GroupFormScreen({ navigation }: Props) {
       const created = await createGroupMutation.mutateAsync({
         name: name.trim(),
         description: description.trim(),
+        visibility,
         imageId: uploadedImage?.imageId,
       });
       navigation.replace('GroupDetail', { id: created.id });
     } catch (error) {
-      const message = error instanceof Error ? error.message : '그룹 생성 중 오류가 발생했습니다.';
+      const message = error instanceof Error ? error.message : '모임 생성 중 오류가 발생했습니다.';
       Alert.alert('생성 실패', message);
     }
   };
 
   return (
     <Screen>
-      <PageHeader title="새 그룹 만들기" showBack />
+      <PageHeader title="새 모임 만들기" showBack />
 
       <View style={styles.content}>
         <SectionCard>
-          <Text style={styles.sectionTitle}>그룹 사진</Text>
+          <Text style={styles.sectionTitle}>모임 사진</Text>
           <View style={styles.imageRow}>
             {preview ? (
               <View>
@@ -91,34 +94,43 @@ export function GroupFormScreen({ navigation }: Props) {
               </Pressable>
             )}
 
-            <Text style={styles.imageHint}>그룹을 대표하는 사진을 추가하세요. 15MB 이하 이미지가 WebP로 처리됩니다.</Text>
+            <Text style={styles.imageHint}>모임을 대표하는 사진을 추가하세요. 15MB 이하 이미지가 WebP로 처리됩니다.</Text>
           </View>
         </SectionCard>
 
         <SectionCard>
-          <AppTextInput label="그룹 이름" value={name} onChangeText={setName} maxLength={30} placeholder="그룹 이름을 입력하세요" />
-          <Text style={styles.countLabel}>{name.length}/30</Text>
+          <AppTextInput label="모임 이름" value={name} onChangeText={setName} maxLength={GROUP_NAME_MAX_LENGTH} placeholder="모임 이름을 입력하세요" />
+          <Text style={styles.countLabel}>{name.length}/{GROUP_NAME_MAX_LENGTH}</Text>
           <View style={{ height: 14 }} />
           <AppTextInput
-            label="그룹 설명"
+            label="모임 소개"
             value={description}
             onChangeText={setDescription}
-            maxLength={200}
-            placeholder="그룹에 대한 간단한 설명을 입력하세요"
+            maxLength={GROUP_DESCRIPTION_MAX_LENGTH}
+            placeholder="모임에 대한 간단한 소개를 입력하세요"
             multiline
           />
-          <Text style={styles.countLabel}>{description.length}/200</Text>
+          <Text style={styles.countLabel}>{description.length}/{GROUP_DESCRIPTION_MAX_LENGTH}</Text>
+          <View style={{ height: 14 }} />
+          <Text style={styles.sectionTitle}>공개 여부</Text>
+          <View style={styles.visibilityRow}>
+            <Pressable onPress={() => setVisibility('PRIVATE')} style={[styles.visibilityChip, visibility === 'PRIVATE' ? styles.visibilityChipActive : null]}>
+              <Text style={[styles.visibilityLabel, visibility === 'PRIVATE' ? styles.visibilityLabelActive : null]}>비공개</Text>
+            </Pressable>
+            <Pressable onPress={() => setVisibility('PUBLIC')} style={[styles.visibilityChip, visibility === 'PUBLIC' ? styles.visibilityChipActive : null]}>
+              <Text style={[styles.visibilityLabel, visibility === 'PUBLIC' ? styles.visibilityLabelActive : null]}>공개</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.visibilityHint}>{visibility === 'PUBLIC' ? '둘러보기에서 검색되고 가입요청을 받을 수 있어요.' : '초대 링크로만 참여할 수 있어요.'}</Text>
         </SectionCard>
 
         <SectionCard>
-          <Text style={styles.tipTitle}>그룹 생성 후</Text>
-          <Text style={styles.tipText}>• 그룹 상세 페이지에서 멤버를 초대할 수 있어요</Text>
-          <Text style={styles.tipText}>• 공유 링크로 간편하게 초대가 가능해요</Text>
-          <Text style={styles.tipText}>• 그룹 일정 조율 기능을 사용할 수 있어요</Text>
+          <Text style={styles.tipTitle}>모임 생성 후</Text>
+          <Text style={styles.tipText}>멤버를 초대하고, 약속과 시간 조율을 함께 관리할 수 있어요.</Text>
         </SectionCard>
 
         <AppButton
-          label={createGroupMutation.isPending ? '생성 중...' : '그룹 만들기'}
+          label={createGroupMutation.isPending ? '생성 중...' : '모임 만들기'}
           variant="group"
           loading={createGroupMutation.isPending}
           onPress={handleSubmit}
@@ -197,6 +209,34 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 11,
     lineHeight: 18,
+    color: colors.mutedForeground,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  visibilityChip: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visibilityChipActive: {
+    backgroundColor: colors.foreground,
+  },
+  visibilityLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.mutedForeground,
+  },
+  visibilityLabelActive: {
+    color: colors.card,
+  },
+  visibilityHint: {
+    marginTop: 8,
+    fontSize: 11,
     color: colors.mutedForeground,
   },
 });

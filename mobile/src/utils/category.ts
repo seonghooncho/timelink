@@ -8,7 +8,7 @@ export function getCategoryLabel(category: string) {
     case 'appointment':
       return '약속';
     case 'group':
-      return '그룹';
+      return '모임';
     case 'important':
       return '중요';
     case 'repeat':

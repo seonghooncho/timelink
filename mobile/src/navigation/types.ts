@@ -4,6 +4,7 @@ export type MainTabParamList = {
   Home: undefined;
   Calendar: undefined;
   Groups: undefined;
+  Community: undefined;
   MyPage: undefined;
 };
 
@@ -15,7 +16,9 @@ export type RootStackParamList = {
   GroupForm: undefined;
   GroupDetail: { id: string };
   GroupJoin: { inviteCode: string };
+  GroupIntro: { id: string };
   TimeCoordination: { groupId: string };
   CoordinationTimetable: { groupId: string; coordId: string };
+  CommunityPostDetail: { postId: string; groupId?: string };
   Notifications: undefined;
 };

@@ -4,6 +4,7 @@ import { colors, radius } from '../../constants/theme';
 import { Schedule } from '../../types';
 import { CategoryBadge } from '../common/CategoryBadge';
 import { AppButton } from '../common/AppButton';
+import { PersonAvatar } from '../common/GroupAvatar';
 import { formatDateTimeDuration } from '../../utils/date';
 
 interface ScheduleDetailSheetProps {
@@ -11,9 +12,10 @@ interface ScheduleDetailSheetProps {
   open: boolean;
   onClose: () => void;
   onDelete?: (schedule: Schedule) => void;
+  onLeaveParticipation?: (schedule: Schedule) => void;
 }
 
-export function ScheduleDetailSheet({ schedule, open, onClose, onDelete }: ScheduleDetailSheetProps) {
+export function ScheduleDetailSheet({ schedule, open, onClose, onDelete, onLeaveParticipation }: ScheduleDetailSheetProps) {
   if (!schedule) {
     return null;
   }
@@ -45,11 +47,47 @@ export function ScheduleDetailSheet({ schedule, open, onClose, onDelete }: Sched
             </View>
           ) : null}
 
+          {schedule.category === 'group' || schedule.participants?.length ? (
+            <View style={styles.participantSection}>
+              <View style={styles.participantHeader}>
+                <Text style={styles.participantTitle}>참여 인원</Text>
+                <Text style={styles.participantCount}>{schedule.participants?.length ?? 0}명</Text>
+              </View>
+              {!schedule.participants ? (
+                <Text style={styles.participantHint}>참여자 정보를 불러오는 중입니다.</Text>
+              ) : schedule.participants.length === 0 ? (
+                <Text style={styles.participantHint}>표시할 참여자가 없습니다.</Text>
+              ) : (
+                <View style={styles.participantRow}>
+                  {schedule.participants.map((participant) => (
+                    <View key={participant.userId} style={styles.participantItem}>
+                      <PersonAvatar
+                        image={participant.avatarUrl}
+                        thumbnail={participant.thumbnailUrl}
+                        name={participant.nickname || participant.userId}
+                        size={40}
+                      />
+                      <Text numberOfLines={1} style={styles.participantName}>{participant.nickname || participant.userId}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : null}
+
           {onDelete ? (
             <AppButton
               label="일정 삭제"
               variant="secondary"
               onPress={() => onDelete(schedule)}
+              style={{ marginTop: 20 }}
+            />
+          ) : null}
+          {onLeaveParticipation ? (
+            <AppButton
+              label="약속 빠지기"
+              variant="secondary"
+              onPress={() => onLeaveParticipation(schedule)}
               style={{ marginTop: 20 }}
             />
           ) : null}
@@ -113,5 +151,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.foreground,
     lineHeight: 22,
+  },
+  participantSection: {
+    marginTop: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 14,
+    gap: 10,
+  },
+  participantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  participantTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.foreground,
+  },
+  participantCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.mutedForeground,
+  },
+  participantHint: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+  },
+  participantRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  participantItem: {
+    width: 52,
+    alignItems: 'center',
+    gap: 6,
+  },
+  participantName: {
+    maxWidth: 52,
+    fontSize: 10,
+    color: colors.mutedForeground,
   },
 });

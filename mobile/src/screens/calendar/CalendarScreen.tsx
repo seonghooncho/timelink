@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen } from '../../components/layout/Screen';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { ScheduleDetailSheet } from '../../components/schedule/ScheduleDetailSheet';
@@ -8,12 +10,14 @@ import { CategoryBadge } from '../../components/common/CategoryBadge';
 import { colors, radius } from '../../constants/theme';
 import { useSchedules } from '../../hooks/useSchedules';
 import { Schedule } from '../../types';
+import { RootStackParamList } from '../../navigation/types';
 import { formatDateTimeDuration } from '../../utils/date';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function CalendarScreen() {
-  const { data: schedules = [] } = useSchedules();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { data: schedules = [], isLoading } = useSchedules();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
   const [detailSchedule, setDetailSchedule] = useState<Schedule | null>(null);
@@ -97,7 +101,9 @@ export function CalendarScreen() {
         <Text style={styles.sectionTitle}>
           {selectedDay ? `${month + 1}월 ${selectedDay}일 일정` : '날짜를 선택하세요'}
         </Text>
-        {selectedSchedules.length === 0 ? (
+        {isLoading ? (
+          <Text style={styles.emptyLabel}>일정을 불러오는 중입니다</Text>
+        ) : selectedSchedules.length === 0 ? (
           <Text style={styles.emptyLabel}>일정이 없습니다</Text>
         ) : (
           selectedSchedules.map((schedule) => (
@@ -119,6 +125,9 @@ export function CalendarScreen() {
       </View>
 
       <ScheduleDetailSheet schedule={detailSchedule} open={Boolean(detailSchedule)} onClose={() => setDetailSchedule(null)} />
+      <Pressable onPress={() => navigation.navigate('ScheduleForm', undefined)} style={styles.addButton}>
+        <Text style={styles.addButtonText}>일정 생성</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -246,5 +255,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     color: colors.mutedForeground,
+  },
+  addButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 96,
+    minHeight: 46,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  addButtonText: {
+    color: colors.card,
+    fontSize: 13,
+    fontWeight: '900',
   },
 });

@@ -111,7 +111,7 @@ export function LoginScreen({ navigation }: Props) {
       <View style={styles.hero}>
         <BrandMark size="lg" />
         <Text style={styles.brandTitle}>Timelink</Text>
-        <Text style={styles.brandCaption}>개인과 그룹 일정을{'\n'}자연스럽게 연결하세요</Text>
+        <Text style={styles.brandCaption}>개인과 모임 일정을{'\n'}자연스럽게 연결하세요</Text>
       </View>
 
       <View style={styles.actions}>

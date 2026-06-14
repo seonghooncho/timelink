@@ -11,14 +11,15 @@ import { ScheduleDetailSheet } from '../../components/schedule/ScheduleDetailShe
 import { Timetable } from '../../components/schedule/Timetable';
 import { colors } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
-import { useSchedules, useDeleteSchedule } from '../../hooks/useSchedules';
+import { useSchedules, useDeleteSchedule, useLeaveScheduleParticipation } from '../../hooks/useSchedules';
 import { Schedule } from '../../types';
 import { getDayLabel } from '../../utils/date';
 
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { data: schedules = [] } = useSchedules();
+  const { data: schedules = [], isLoading } = useSchedules();
   const deleteMutation = useDeleteSchedule();
+  const leaveParticipation = useLeaveScheduleParticipation();
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [timetableStart, setTimetableStart] = useState(new Date());
 
@@ -32,6 +33,20 @@ export function HomeScreen() {
         style: 'destructive',
         onPress: () => {
           deleteMutation.mutate(schedule.id);
+          setSelectedSchedule(null);
+        },
+      },
+    ]);
+  };
+
+  const handleLeaveParticipation = (schedule: Schedule) => {
+    Alert.alert('약속에서 빠질까요?', '내 캘린더에서만 이 약속이 사라집니다.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '빠지기',
+        style: 'destructive',
+        onPress: () => {
+          leaveParticipation.mutate(schedule.id);
           setSelectedSchedule(null);
         },
       },
@@ -54,7 +69,7 @@ export function HomeScreen() {
       </View>
 
       <View style={{ paddingTop: 8 }}>
-        {schedules.length === 0 ? (
+        {isLoading ? null : schedules.length === 0 ? (
           <View style={styles.emptyHero}>
             <BrandMark size="md" />
             <Text style={styles.emptyTitle}>일정이 없어요</Text>
@@ -88,7 +103,8 @@ export function HomeScreen() {
         schedule={selectedSchedule}
         open={Boolean(selectedSchedule)}
         onClose={() => setSelectedSchedule(null)}
-        onDelete={handleDelete}
+        onDelete={selectedSchedule?.groupScheduleOwner === false ? undefined : handleDelete}
+        onLeaveParticipation={selectedSchedule?.groupScheduleOwner === false && selectedSchedule?.groupScheduleParticipant !== false ? handleLeaveParticipation : undefined}
       />
     </Screen>
   );

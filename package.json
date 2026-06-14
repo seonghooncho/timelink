@@ -25,6 +25,7 @@
     "test:aws-metrics": "node test/scripts/collect-aws-metrics.mjs",
     "mobile:start": "npm --prefix mobile run start",
     "mobile:typecheck": "npm --prefix mobile run typecheck",
+    "mobile:test": "npm --prefix mobile run test",
     "mobile:prebuild:android": "npm --prefix mobile run prebuild:android",
     "mobile:prebuild:ios": "npm --prefix mobile run prebuild:ios",
     "mobile:export:web": "npm --prefix mobile run export:web",
