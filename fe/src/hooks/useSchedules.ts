@@ -3,7 +3,7 @@ import { scheduleApi, ScheduleCreateRequest, ScheduleListRequest, ScheduleUpdate
 import { Schedule } from '@/types/types';
 import { useAuth } from '@/context/AuthContext';
 
-function mapResponse(r: ScheduleResponse): Schedule {
+export function mapScheduleResponse(r: ScheduleResponse): Schedule {
   return {
     id: r.id,
     title: r.title,
@@ -22,7 +22,19 @@ function mapResponse(r: ScheduleResponse): Schedule {
     imageUrl: r.imageUrl,
     imageId: r.imageId,
     imageStatus: r.imageStatus,
+    participants: r.participants?.map(participant => ({
+      userId: participant.userId,
+      nickname: participant.nickname,
+      avatarUrl: participant.avatarUrl,
+      thumbnailUrl: participant.thumbnailUrl,
+      imageId: participant.imageId,
+      imageStatus: participant.imageStatus,
+    })),
   };
+}
+
+export async function fetchScheduleDetail(id: string): Promise<Schedule> {
+  return mapScheduleResponse(await scheduleApi.getById(id));
 }
 
 interface UseSchedulesOptions {
@@ -43,7 +55,7 @@ export function useSchedules(params?: ScheduleListRequest, options?: UseSchedule
       });
       return {
         ...page,
-        data: page.data.map(mapResponse),
+        data: page.data.map(mapScheduleResponse),
       };
     },
     getNextPageParam: (lastPage) => lastPage.meta?.nextCursor ?? undefined,

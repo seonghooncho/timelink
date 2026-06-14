@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
+import FAB from '@/components/common/FAB';
 import { CalendarAgendaSkeleton } from '@/components/common/LoadingStates';
 import { Schedule } from '@/types/types';
-import { useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
+import { fetchScheduleDetail, useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { formatDurationLabel, formatScheduleClock } from '@/lib/scheduleTime';
@@ -107,6 +108,17 @@ const CalendarPage: React.FC = () => {
     });
   };
 
+  const handleScheduleClick = (schedule: Schedule) => {
+    setDetailSchedule(schedule);
+    if (schedule.groupScheduleId && !schedule.participants) {
+      void fetchScheduleDetail(schedule.id)
+        .then((detail) => {
+          setDetailSchedule((current) => current?.id === schedule.id ? detail : current);
+        })
+        .catch(() => undefined);
+    }
+  };
+
   return (
     <MobileLayout>
       <div className="flex flex-col h-full">
@@ -151,7 +163,7 @@ const CalendarPage: React.FC = () => {
               ) : (
                 <ScrollableFadeList ariaLabel="선택한 날짜의 일정 목록">
                   {selectedSchedules.map(s => (
-                    <button key={s.id} onClick={() => setDetailSchedule(s)}
+                    <button key={s.id} onClick={() => handleScheduleClick(s)}
                       className="w-full flex items-center gap-3 p-3 bg-card rounded-xl border border-border text-left hover:border-muted-foreground/20 transition-all">
                       <div className="h-8 w-1 shrink-0 rounded-full" style={getScheduleColorStyle(s, 'line')} />
                       <div className="min-w-0 flex-1">
@@ -190,6 +202,7 @@ const CalendarPage: React.FC = () => {
         onDelete={handleDeleteRequest}
         onLeaveGroupSchedule={handleLeaveGroupSchedule}
       />
+      <FAB to="/schedule/new" ariaLabel="일정 생성" icon={<CalendarClock className="h-6 w-6" />} />
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Bell, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '@/components/common/BrandMark';
@@ -13,7 +13,7 @@ import { useApp } from '@/context/AppContext';
 import { Schedule } from '@/types/types';
 import { getDayLabel } from '@/utils';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
-import { useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
+import { fetchScheduleDetail, useSchedules, useUpdateSchedule, useDeleteSchedule, useLeaveGroupSchedule } from '@/hooks/useSchedules';
 import { getDefaultScheduleAnchor, getDefaultTimetableStart } from '@/components/schedule/timetableUtils';
 import { appToast } from '@/lib/appToast';
 import { addLocalDays, maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
@@ -27,6 +27,7 @@ const MainPage: React.FC = () => {
   const [timetableStart, setTimetableStart] = useState(() => getDefaultTimetableStart());
   const [confirmDelete, setConfirmDelete] = useState<Schedule | null>(null);
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
+  const scheduleDetailRequestIdRef = useRef(0);
 
   const scheduleRange = useMemo(() => {
     const today = getDefaultTimetableStart();
@@ -97,6 +98,16 @@ const MainPage: React.FC = () => {
     setActiveScheduleId(schedule.id);
     setSelectedSchedule(schedule);
     setShowScheduleDetail(true);
+    if (schedule.groupScheduleId && !schedule.participants) {
+      const requestId = ++scheduleDetailRequestIdRef.current;
+      void fetchScheduleDetail(schedule.id)
+        .then((detail) => {
+          if (scheduleDetailRequestIdRef.current === requestId) {
+            setSelectedSchedule((current) => current?.id === schedule.id ? detail : current);
+          }
+        })
+        .catch(() => undefined);
+    }
   };
 
   const handleEmptyTimetableClick = () => {

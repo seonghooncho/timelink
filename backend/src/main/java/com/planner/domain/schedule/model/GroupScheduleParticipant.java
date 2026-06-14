@@ -22,6 +22,11 @@ public class GroupScheduleParticipant {
     private String userId;
     private String scheduleId;
     private String createdBy;
+    private String nickname;
+    private String avatarUrl;
+    private String thumbnailUrl;
+    private String imageId;
+    private String imageStatus;
     private String createdAt;
 
     @DynamoDbPartitionKey

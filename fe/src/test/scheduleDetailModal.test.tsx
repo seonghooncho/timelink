@@ -123,4 +123,28 @@ describe('ScheduleDetailModal', () => {
 
     expect(onLeaveGroupSchedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'schedule-1' }));
   });
+
+  it('그룹 일정 상세에서 참여인원 프로필을 보여준다', () => {
+    render(
+      <ScheduleDetailModal
+        schedule={makeSchedule({
+          groupId: 'group-1',
+          groupScheduleId: 'group-schedule-1',
+          category: 'group',
+          participants: [
+            { userId: 'user-1', nickname: '민지', avatarUrl: '' },
+            { userId: 'user-2', nickname: '현우', avatarUrl: '' },
+          ],
+        })}
+        open
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('참여인원')).toBeInTheDocument();
+    expect(screen.getByText('2명')).toBeInTheDocument();
+    expect(screen.getByText('민지')).toBeInTheDocument();
+    expect(screen.getByText('현우')).toBeInTheDocument();
+  });
 });

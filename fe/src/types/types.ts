@@ -1,5 +1,14 @@
 export type ScheduleCategory = 'task' | 'appointment' | 'group' | 'important' | 'repeat';
 
+export interface ScheduleParticipant {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+}
+
 export interface Schedule {
   id: string;
   title: string;
@@ -19,6 +28,7 @@ export interface Schedule {
   imageUrl?: string;
   imageId?: string;
   imageStatus?: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  participants?: ScheduleParticipant[];
 }
 
 export interface Group {

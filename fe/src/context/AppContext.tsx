@@ -3,9 +3,9 @@ import { Schedule } from '@/types/types';
 
 interface AppContextType {
   selectedSchedule: Schedule | null;
-  setSelectedSchedule: (s: Schedule | null) => void;
+  setSelectedSchedule: React.Dispatch<React.SetStateAction<Schedule | null>>;
   showScheduleDetail: boolean;
-  setShowScheduleDetail: (v: boolean) => void;
+  setShowScheduleDetail: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

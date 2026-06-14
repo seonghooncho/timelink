@@ -260,9 +260,24 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 **Response** `200 OK`
 ```json
 {
-  "data": { "id": "uuid", "title": "수강 신청", ... }
+  "data": {
+    "id": "uuid",
+    "title": "수강 신청",
+    "group_id": "group-uuid",
+    "group_schedule_id": "group-schedule-uuid",
+    "participants": [
+      {
+        "user_id": "user-1",
+        "nickname": "민지",
+        "avatar_url": "https://...",
+        "thumbnail_url": "https://..."
+      }
+    ]
+  }
 }
 ```
+
+`participants`는 모임 일정 단건 조회와 모임 일정 생성/수정 응답에서만 내려온다. 일정 목록은 카드 렌더링 비용을 줄이기 위해 참여자 프로필을 포함하지 않는다.
 
 ---
 
@@ -298,7 +313,15 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "group_id": "group-uuid",
     "group_schedule_id": "group-schedule-uuid",
     "group_schedule_created_by": "user-1",
-    "group_schedule_owner": true
+    "group_schedule_owner": true,
+    "participants": [
+      {
+        "user_id": "user-1",
+        "nickname": "민지",
+        "avatar_url": "https://...",
+        "thumbnail_url": "https://..."
+      }
+    ]
   }
 }
 ```
@@ -1937,4 +1960,4 @@ Community
 
 ---
 
-*마지막 업데이트: 2026-06-13 (모임 소개 글 목록, 공개범위, 모임 일정 참여자 선택 API 반영)*
+*마지막 업데이트: 2026-06-14 (모임 일정 상세 참여자 프로필 응답 반영)*

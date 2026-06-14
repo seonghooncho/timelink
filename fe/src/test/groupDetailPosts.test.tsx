@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   setShowScheduleDetail: vi.fn(),
   useGroups: vi.fn(),
   useSchedules: vi.fn(),
+  useUpdateSchedule: vi.fn(),
+  useDeleteSchedule: vi.fn(),
+  useLeaveGroupSchedule: vi.fn(),
+  fetchScheduleDetail: vi.fn(),
   useGroupPosts: vi.fn(),
   useCreateGroupPost: vi.fn(),
   useGroupPostComments: vi.fn(),
@@ -38,6 +42,10 @@ vi.mock('@/hooks/useGroups', () => ({
 
 vi.mock('@/hooks/useSchedules', () => ({
   useSchedules: mocks.useSchedules,
+  useUpdateSchedule: mocks.useUpdateSchedule,
+  useDeleteSchedule: mocks.useDeleteSchedule,
+  useLeaveGroupSchedule: mocks.useLeaveGroupSchedule,
+  fetchScheduleDetail: mocks.fetchScheduleDetail,
 }));
 
 vi.mock('@/hooks/useCommunity', () => ({
@@ -106,6 +114,10 @@ describe('GroupDetailPage group posts', () => {
     mocks.setShowScheduleDetail.mockReset();
     mocks.useGroups.mockReset();
     mocks.useSchedules.mockReset();
+    mocks.useUpdateSchedule.mockReset();
+    mocks.useDeleteSchedule.mockReset();
+    mocks.useLeaveGroupSchedule.mockReset();
+    mocks.fetchScheduleDetail.mockReset();
     mocks.useGroupPosts.mockReset();
     mocks.useCreateGroupPost.mockReset();
     mocks.useGroupPostComments.mockReset();
@@ -132,6 +144,14 @@ describe('GroupDetailPage group posts', () => {
       hasNextPage: false,
       isFetchingNextPage: false,
     });
+    mocks.useUpdateSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    mocks.useDeleteSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    mocks.useLeaveGroupSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    mocks.fetchScheduleDetail.mockImplementation(async (scheduleId: string) => makeGroupSchedule({
+      id: scheduleId,
+      groupScheduleId: 'group-schedule-1',
+      participants: [],
+    }));
     mocks.useGroupPosts.mockReturnValue({
       data: [],
       isLoading: false,

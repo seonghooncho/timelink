@@ -3,6 +3,8 @@ package com.planner.domain.schedule.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class ScheduleResDTO {
@@ -24,6 +26,7 @@ public class ScheduleResDTO {
     private String imageUrl;
     private String imageId;
     private String imageStatus;
+    private List<ScheduleParticipantResDTO> participants;
     private String createdAt;
     private String updatedAt;
 }
