@@ -83,7 +83,7 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
         startHour,
         endHour,
       });
-      navigate(`/groups/${groupId}/coordination/${result.id}/timetable`, { state: { justCreated: true } });
+      navigate(`/groups/${groupId}/coordination/${result.id}/timetable`);
     } catch (error) {
       appToast.error('조율 생성에 실패했습니다', error);
     } finally {

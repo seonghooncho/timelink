@@ -171,4 +171,31 @@ describe('ScheduleDetailModal', () => {
     expect(screen.getByText('민지')).toBeInTheDocument();
     expect(screen.getByText('현우')).toBeInTheDocument();
   });
+
+  it('참여인원 클릭 시 참여자와 일정을 전달한다', () => {
+    const onParticipantClick = vi.fn();
+    render(
+      <ScheduleDetailModal
+        schedule={makeSchedule({
+          groupId: 'group-1',
+          groupScheduleId: 'group-schedule-1',
+          category: 'group',
+          participants: [
+            { userId: 'user-1', nickname: '민지', avatarUrl: '' },
+          ],
+        })}
+        open
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        onParticipantClick={onParticipantClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '민지 프로필 보기' }));
+
+    expect(onParticipantClick).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', nickname: '민지' }),
+      expect.objectContaining({ id: 'schedule-1', groupId: 'group-1' }),
+    );
+  });
 });

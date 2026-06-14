@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   createNotice: vi.fn(),
   getIntroPosts: vi.fn(),
+  getMemberProfile: vi.fn(),
 }));
 
 vi.mock('@/services/api', async () => {
@@ -26,6 +27,7 @@ vi.mock('@/services/api', async () => {
       update: mocks.update,
       createNotice: mocks.createNotice,
       getIntroPosts: mocks.getIntroPosts,
+      getMemberProfile: mocks.getMemberProfile,
     },
   };
 });
@@ -54,7 +56,17 @@ describe('GroupIntroPage', () => {
     mocks.update.mockReset();
     mocks.createNotice.mockReset();
     mocks.getIntroPosts.mockReset();
+    mocks.getMemberProfile.mockReset();
     mocks.update.mockResolvedValue({});
+    mocks.getMemberProfile.mockResolvedValue({
+      id: 'member-1',
+      userId: 'user-2',
+      role: 'member',
+      nickname: '러닝민지',
+      avatarUrl: '',
+      joinedAt: '2026-06-01T00:00:00Z',
+      recentActivities: [],
+    });
 
     mocks.getIntro.mockResolvedValue({
       id: 'group-1',
@@ -121,6 +133,16 @@ describe('GroupIntroPage', () => {
     expect(screen.getAllByRole('button', { name: '가입 요청하기' }).length).toBeGreaterThan(0);
   });
 
+  it('nudges non-members to join when opening a post author profile', async () => {
+    renderPage();
+
+    await screen.findByText('지난주 후기');
+    fireEvent.click(await screen.findByRole('button', { name: '민지 프로필 보기' }));
+
+    expect(screen.getByText('가입 후 글 전체와 댓글을 볼 수 있어요.')).toBeInTheDocument();
+    expect(mocks.getMemberProfile).not.toHaveBeenCalled();
+  });
+
   it('shows member-only intro posts as locked for non-members', async () => {
     mocks.getIntroPosts.mockResolvedValue({
       data: [{
@@ -180,5 +202,37 @@ describe('GroupIntroPage', () => {
     expect(screen.getByDisplayValue('주말 러닝')).toBeInTheDocument();
     expect(screen.getByDisplayValue('한강 러닝')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '공개' })).toBeInTheDocument();
+  });
+
+  it('opens the meetup member profile for members from intro posts', async () => {
+    mocks.getIntro.mockResolvedValue({
+      id: 'group-1',
+      name: '주말 러닝',
+      description: '한강 러닝',
+      imageUrl: '',
+      imageStatus: undefined,
+      visibility: 'PUBLIC',
+      memberCount: 12,
+      myRole: 'member',
+      joinRequestStatus: null,
+      introText: '천천히 함께 달립니다.',
+      images: [],
+      notices: [],
+      postPreviews: [],
+      memberPreviews: [
+        { id: 'member-1', userId: 'user-2', role: 'member', nickname: '러닝민지', avatarUrl: '', joinedAt: '2026-06-01T00:00:00Z' },
+      ],
+      member: true,
+      canEditIntro: false,
+      canWriteNotice: false,
+    });
+
+    renderPage();
+
+    await screen.findByText('지난주 후기');
+    fireEvent.click(await screen.findByRole('button', { name: '민지 프로필 보기' }));
+
+    expect(await screen.findByText('멤버 프로필')).toBeInTheDocument();
+    expect(mocks.getMemberProfile).toHaveBeenCalledWith('group-1', 'user-2');
   });
 });

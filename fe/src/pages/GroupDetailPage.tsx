@@ -47,7 +47,7 @@ import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { getScheduleEndDate } from '@/lib/scheduleTime';
-import { Schedule } from '@/types/types';
+import { Schedule, ScheduleParticipant } from '@/types/types';
 
 const getRoleLabel = (role: string) => (role === 'manager' ? '관리자' : '멤버');
 
@@ -207,6 +207,7 @@ const GroupDetailPage: React.FC = () => {
   const memberCountLabel = memberCount > 99 ? '99+' : String(memberCount);
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
+  const isCurrentGroupMember = Boolean(currentMember || group?.myRole);
   const groupScheduleCountLabel = `${visibleGroupSchedules.length}개`;
   const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/invite/${group.inviteCode}` : '';
@@ -315,6 +316,19 @@ const GroupDetailPage: React.FC = () => {
     } finally {
       setIsMemberProfileLoading(false);
     }
+  };
+
+  const openMemberProfileOrJoinPrompt = (memberUserId?: string) => {
+    if (!memberUserId) return;
+    if (!isCurrentGroupMember) {
+      navigate(`/groups/${id}/intro`);
+      return;
+    }
+    openMemberProfile(memberUserId);
+  };
+
+  const handleScheduleParticipantClick = (participant: ScheduleParticipant) => {
+    openMemberProfileOrJoinPrompt(participant.userId);
   };
 
   const openMyMemberProfileEditor = () => {
@@ -735,7 +749,12 @@ const GroupDetailPage: React.FC = () => {
         ) : groupPosts.length > 0 ? (
           <div>
             {groupPosts.map((post) => (
-              <GroupPostItem key={post.id} groupId={id || ''} post={post} />
+              <GroupPostItem
+                key={post.id}
+                groupId={id || ''}
+                post={post}
+                onAuthorClick={openMemberProfileOrJoinPrompt}
+              />
             ))}
             {hasNextGroupPostPage ? (
               <div className="px-5 pt-3">
@@ -1056,6 +1075,7 @@ const GroupDetailPage: React.FC = () => {
         onUpdate={handleScheduleUpdate}
         onDelete={handleScheduleDeleteRequest}
         onLeaveGroupSchedule={handleLeaveGroupSchedule}
+        onParticipantClick={handleScheduleParticipantClick}
       />
 
       <div className="h-24" aria-hidden="true" />
@@ -1116,9 +1136,10 @@ const GroupDetailPage: React.FC = () => {
 interface GroupPostItemProps {
   groupId: string;
   post: CommunityPostResponse;
+  onAuthorClick: (memberUserId?: string) => void;
 }
 
-const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
+const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorClick }) => {
   const [showComments, setShowComments] = useState(false);
   const toggleLike = useToggleGroupPostLike(groupId, post.id);
 
@@ -1133,6 +1154,7 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
   return (
     <PostListItem
       post={post}
+      onAuthorClick={() => onAuthorClick(post.authorUserId)}
       actions={
         <>
           <button
@@ -1160,7 +1182,7 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
       }
     >
       {showComments ? (
-        <GroupPostComments groupId={groupId} postId={post.id} />
+        <GroupPostComments groupId={groupId} postId={post.id} onAuthorClick={onAuthorClick} />
       ) : null}
     </PostListItem>
   );
@@ -1169,9 +1191,10 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post }) => {
 interface GroupPostCommentsProps {
   groupId: string;
   postId: string;
+  onAuthorClick: (memberUserId?: string) => void;
 }
 
-const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }) => {
+const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId, onAuthorClick }) => {
   const [content, setContent] = useState('');
   const {
     data: comments = [],
@@ -1227,7 +1250,7 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
           </div>
         ) : comments.length > 0 ? (
           comments.map((comment) => (
-            <GroupPostCommentItem key={comment.id} comment={comment} />
+            <GroupPostCommentItem key={comment.id} comment={comment} onAuthorClick={onAuthorClick} />
           ))
         ) : (
           <p className="border-y border-dashed border-border/70 px-3 py-4 text-center text-[11px] text-muted-foreground">
@@ -1252,19 +1275,33 @@ const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId }
 
 interface GroupPostCommentItemProps {
   comment: CommunityCommentResponse;
+  onAuthorClick: (memberUserId?: string) => void;
 }
 
-const GroupPostCommentItem: React.FC<GroupPostCommentItemProps> = ({ comment }) => (
+const GroupPostCommentItem: React.FC<GroupPostCommentItemProps> = ({ comment, onAuthorClick }) => (
   <div className="flex items-start gap-2 border-b border-border/50 px-1 py-2.5 last:border-b-0">
-    <Avatar className="h-7 w-7 border border-border/70">
-      <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
-      <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
-        {comment.authorNickname.slice(0, 1)}
-      </AvatarFallback>
-    </Avatar>
+    <button
+      type="button"
+      onClick={() => onAuthorClick(comment.authorUserId)}
+      className="shrink-0 rounded-full"
+      aria-label={`${comment.authorNickname} 프로필 보기`}
+    >
+      <Avatar className="h-7 w-7 border border-border/70">
+        <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
+        <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+          {comment.authorNickname.slice(0, 1)}
+        </AvatarFallback>
+      </Avatar>
+    </button>
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
-        <p className="truncate text-[11px] font-bold text-foreground">{comment.authorNickname}</p>
+        <button
+          type="button"
+          onClick={() => onAuthorClick(comment.authorUserId)}
+          className="min-w-0 truncate text-[11px] font-bold text-foreground"
+        >
+          {comment.authorNickname}
+        </button>
         <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelativeTime(comment.createdAt)}</span>
       </div>
       <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-foreground">{comment.content}</p>

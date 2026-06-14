@@ -472,4 +472,46 @@ describe('GroupDetailPage group posts', () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('확인했습니다.'));
   });
+
+  it('opens the meetup member profile from a group post author', async () => {
+    mocks.useGroupPosts.mockReturnValue({
+      data: [{
+        id: 'post-1',
+        groupId: 'group-1',
+        title: '내일 준비물',
+        content: '노트북 챙겨오세요.',
+        authorUserId: 'user-2',
+        authorNickname: '지훈',
+        authorAvatarUrl: '',
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        mine: false,
+        createdAt: '2026-06-13T00:00:00Z',
+        updatedAt: '2026-06-13T00:00:00Z',
+      }],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+    mocks.getMemberProfile.mockResolvedValue({
+      id: 'member-2',
+      userId: 'user-2',
+      nickname: '지훈',
+      avatarUrl: '',
+      role: 'member',
+      joinedAt: '2026-06-13T00:00:00Z',
+      mine: false,
+      recentActivities: [],
+    });
+
+    renderPage();
+
+    await screen.findByText('내일 준비물');
+    fireEvent.click(screen.getAllByRole('button', { name: '지훈 프로필 보기' })[0]);
+
+    expect(await screen.findByText('멤버 프로필')).toBeInTheDocument();
+    expect(mocks.getMemberProfile).toHaveBeenCalledWith('group-1', 'user-2');
+  });
 });

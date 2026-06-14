@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
@@ -23,9 +23,7 @@ import {
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { id: groupId, coordId } = useParams();
-  const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
 
   const [coordination, setCoordination] = useState<CoordinationDetailResponse | null>(null);
   const [group, setGroup] = useState<GroupDetailResponse | null>(null);
@@ -376,10 +374,11 @@ const CoordinationTimetablePage: React.FC = () => {
           <button
             type="button"
             onClick={handleShareCoordination}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-colors hover:text-foreground"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-bold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
             aria-label="시간 조율 공유"
           >
             <Share2 className="h-4 w-4" />
+            공유
           </button>
         ) : undefined}
       />
@@ -400,32 +399,6 @@ const CoordinationTimetablePage: React.FC = () => {
             ) : null}
           </div>
         </div>
-      ) : null}
-      {coordinationShareUrl ? (
-        <section className="mx-4 mt-3 rounded-2xl border border-coord-green/20 bg-coord-green/5 px-3.5 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Share2 className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-bold text-foreground">
-                {justCreated ? '시간 조율이 만들어졌어요' : '멤버들에게 가능한 시간을 받아보세요'}
-              </p>
-              <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                {justCreated
-                  ? '내 가능 시간을 선택한 뒤 멤버들에게 공유해보세요.'
-                  : '링크를 받은 멤버는 바로 이 조율 화면으로 이동합니다.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleShareCoordination}
-              className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              공유하기
-            </button>
-          </div>
-        </section>
       ) : null}
       <div className="flex gap-2 px-4 py-3">
         <button onClick={() => setViewMode('select')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'select' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>내가 가능한 시간</button>

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   useCommunityPosts: vi.fn(),
   useCreateCommunityPost: vi.fn(),
+  useToggleCommunityLike: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -22,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/hooks/useCommunity', () => ({
   useCommunityPosts: mocks.useCommunityPosts,
   useCreateCommunityPost: mocks.useCreateCommunityPost,
+  useToggleCommunityLike: mocks.useToggleCommunityLike,
 }));
 
 function renderPage() {
@@ -43,6 +45,7 @@ describe('CommunityPage', () => {
     mocks.navigate.mockReset();
     mocks.useCommunityPosts.mockReset();
     mocks.useCreateCommunityPost.mockReset();
+    mocks.useToggleCommunityLike.mockReset();
     mocks.useCommunityPosts.mockReturnValue({
       data: [],
       isLoading: false,
@@ -51,6 +54,10 @@ describe('CommunityPage', () => {
       isFetchingNextPage: false,
     });
     mocks.useCreateCommunityPost.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+    mocks.useToggleCommunityLike.mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
     });
@@ -125,5 +132,39 @@ describe('CommunityPage', () => {
     expect(screen.getByText('약속 잡는 팁')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('toggles like from the post list', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    mocks.useToggleCommunityLike.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    });
+    mocks.useCommunityPosts.mockReturnValue({
+      data: [{
+        id: 'post-1',
+        title: '약속 잡는 팁',
+        content: '시간 후보를 너무 많이 열지 않는 것이 좋아요.',
+        authorNickname: '민지',
+        authorUserId: 'user-1',
+        likeCount: 3,
+        commentCount: 2,
+        likedByMe: true,
+        mine: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '좋아요 취소' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(true));
+    expect(mocks.navigate).not.toHaveBeenCalledWith('/community/posts/post-1');
   });
 });
