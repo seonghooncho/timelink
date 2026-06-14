@@ -20,39 +20,63 @@ export TIMELINK_JWT_SECRET="$(aws ssm get-parameter \
   --output text)"
 ```
 
-## 실행
-
-프로필별 데이터가 서로 영향을 주지 않도록 `smoke`, `baseline`, `quota_probe`는 가능하면 서로 다른 `TIMELINK_RUN_ID`로 실행하고 각 실행 직후 cleanup을 수행합니다.
+CloudWatch metric을 같이 모으려면 API Gateway와 CloudFront ID를 추가합니다.
 
 ```sh
-k6 run --summary-export "test-results/k6/${TIMELINK_RUN_ID}-smoke.json" \
-  -e TIMELINK_JWT_SECRET="$TIMELINK_JWT_SECRET" \
-  -e TIMELINK_RUN_ID="$TIMELINK_RUN_ID" \
-  -e TIMELINK_LOAD_PROFILE=smoke \
-  test/k6/timelink-load-test.js
-
-k6 run --summary-export "test-results/k6/${TIMELINK_RUN_ID}-baseline.json" \
-  -e TIMELINK_JWT_SECRET="$TIMELINK_JWT_SECRET" \
-  -e TIMELINK_RUN_ID="$TIMELINK_RUN_ID" \
-  -e TIMELINK_LOAD_PROFILE=baseline \
-  test/k6/timelink-load-test.js
-
-k6 run --summary-export "test-results/k6/${TIMELINK_RUN_ID}-quota-probe.json" \
-  -e TIMELINK_JWT_SECRET="$TIMELINK_JWT_SECRET" \
-  -e TIMELINK_RUN_ID="$TIMELINK_RUN_ID" \
-  -e TIMELINK_LOAD_PROFILE=quota_probe \
-  test/k6/timelink-load-test.js
+export TIMELINK_API_GATEWAY_ID=<http-api-id>
+export TIMELINK_API_GATEWAY_STAGE='$default'
+export TIMELINK_CLOUDFRONT_DISTRIBUTION_ID=<distribution-id>
 ```
 
 ## 프로필
 
-- `smoke`: 배포/인증/기본 API가 깨지지 않았는지 확인합니다.
-- `baseline`: Lambda 동시성 10 기준으로 운영 초기 예상 혼합 트래픽을 검증합니다.
-- `quota_probe`: 동시성 10을 넘는 짧은 probe로 throttling과 오류 양상을 확인합니다.
+| 프로필 | 목적 | 기본 구성 |
+| --- | --- | --- |
+| `smoke_prod` | 운영 API 기본 경로 확인 | 6명, 2 VU, 30초 |
+| `baseline_20vu` | 운영 초기 혼합 트래픽 기준선 | 24명, 20 VU, 5분 |
+| `reserved_limit_50vu` | API Lambda reserved concurrency 50 근처 확인 | 60명, 50 VU, 5분 |
+| `probe_75vu_short` | 짧은 초과 probe | 80명, 75 VU, 90초 |
+| `group_scale_read` | 큰 모임 상세/멤버/게시글/조율 조회 확인 | 50명 모임, 30 VU, 3분 |
+| `coordination_heatmap_scale` | 조율 상세 heatmap 응답 전체 조회 병목 확인 | 50명 응답, 30 VU, 3분 |
+| `community_group_post_mix` | 커뮤니티/모임 게시판 읽기/댓글/좋아요 확인 | 40명, 25 VU, 3분 |
+| `write_burst_schedule_notification` | 일정 생성/완료/알림 설정 write burst 확인 | 30명, 20 VU, 3분 |
+
+기존 이름 `smoke`, `baseline`, `quota_probe`는 각각 `smoke_prod`, `baseline_20vu`, `probe_75vu_short` alias로 남겨둡니다.
+
+## 실행
+
+프로필마다 다른 `TIMELINK_RUN_ID`를 쓰고, 실행 직후 cleanup합니다. 같은 run id를 여러 프로필에 재사용하면 데이터 규모가 섞여 결과 해석이 어려워집니다.
+
+```sh
+mkdir -p test-results/k6 test-results/aws test-results/cleanup
+
+PROFILE=smoke_prod
+RUN_ID=tl-load-${PROFILE}-$(date -u +%Y%m%dT%H%M%SZ)
+START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+k6 run --summary-export "test-results/k6/${RUN_ID}.json" \
+  -e TIMELINK_JWT_SECRET="$TIMELINK_JWT_SECRET" \
+  -e TIMELINK_RUN_ID="$RUN_ID" \
+  -e TIMELINK_LOAD_PROFILE="$PROFILE" \
+  test/k6/timelink-load-test.js
+END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+node test/scripts/collect-aws-metrics.mjs "$START" "$END" > "test-results/aws/${RUN_ID}.json"
+node test/scripts/cleanup-load-test.mjs "$RUN_ID" > "test-results/cleanup/${RUN_ID}.json"
+```
+
+권장 실행 순서는 `smoke_prod` → Playwright → `baseline_20vu` → `reserved_limit_50vu` → 규모별 세부 프로필 → `probe_75vu_short`입니다. `probe_75vu_short`에서 5xx나 Lambda throttle이 급증하면 즉시 중단합니다.
+
+## 판단 기준
+
+- HTTP 실패율 1% 미만
+- API p95 2초 미만
+- API p99 7초 미만
+- Lambda throttle 0 또는 일시적 소량
+- DynamoDB throttle 0
+- cleanup 후 테스트 데이터와 Scheduler 잔여 없음
 
 ## 정리
 
-테스트 후 아래 cleanup을 반드시 실행합니다.
+테스트 후 cleanup은 반드시 실행합니다.
 
 ```sh
 node test/scripts/cleanup-load-test.mjs "$TIMELINK_RUN_ID"

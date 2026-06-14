@@ -13,7 +13,7 @@
 - 버전: 모니터링 v1
 - 기준일: 2026-06-12
 - 기준 환경: AWS account `160885253413`, region `ap-northeast-2`, 운영 도메인 `https://timelink.cloud`
-- 근거 문서: [부하테스트 결과](../testing/LOAD_TEST_REPORT.md), [확장 로드맵](../architecture/SCALING_ROADMAP.md)
+- 근거 문서: [부하테스트 결과 v2](../testing/LOAD_TEST_REPORT_V2.md), [확장 로드맵](../architecture/SCALING_ROADMAP.md)
 
 ## 현재 모니터링 구조
 
@@ -34,7 +34,7 @@ CloudWatch 알람은 SNS topic으로 발행되고, formatter Lambda가 원본 JS
 | 알람 | 기준 | 이유 |
 | --- | --- | --- |
 | API Lambda Errors | 1분 내 1건 이상 | 사용자 요청 실패의 직접 신호입니다. |
-| API Lambda Throttles | 1분 내 1건 이상 | 부하테스트 quota probe에서 실제로 throttle이 발생했습니다. |
+| API Lambda Throttles | 1분 내 1건 이상 | 75 VU probe에서 reserved concurrency 50에 닿자 실제 throttle이 발생했습니다. |
 | Notification worker Errors/Throttles | 1분 내 1건 이상 | 일정/리마인드 푸시 누락을 빠르게 확인합니다. |
 | AI Lambda Errors/Throttles | 1분 내 1건 이상 | AI 기능이 API와 별도 Lambda라 별도 감시합니다. |
 | API Lambda p95 Duration | 5분 p95 3초 초과가 2회 연속 | Lambda 내부 처리 지연을 잡습니다. |
