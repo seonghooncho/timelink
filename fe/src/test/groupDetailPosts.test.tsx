@@ -92,6 +92,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/groups/group-1']}>
         <Routes>
           <Route path="/groups/:id" element={<GroupDetailPage />} />
+          <Route path="/groups/:id/posts/:postId" element={<div>group-post-detail</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -438,8 +439,7 @@ describe('GroupDetailPage group posts', () => {
     }));
   });
 
-  it('opens comments and creates a group post comment', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({ id: 'comment-new' });
+  it('opens the group post detail page from the post list', async () => {
     mocks.useGroupPosts.mockReturnValue({
       data: [{
         id: 'post-1',
@@ -461,16 +461,13 @@ describe('GroupDetailPage group posts', () => {
       hasNextPage: false,
       isFetchingNextPage: false,
     });
-    mocks.useCreateGroupPostComment.mockReturnValue({ mutateAsync, isPending: false });
 
     renderPage();
 
     await screen.findByText('내일 준비물');
     fireEvent.click(screen.getByRole('button', { name: '댓글 0개 보기' }));
-    fireEvent.change(screen.getByPlaceholderText('댓글을 입력해주세요'), { target: { value: '확인했습니다.' } });
-    fireEvent.click(screen.getByRole('button', { name: '댓글 등록' }));
 
-    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('확인했습니다.'));
+    expect(await screen.findByText('group-post-detail')).toBeInTheDocument();
   });
 
   it('opens the meetup member profile from a group post author', async () => {

@@ -122,11 +122,19 @@ public class CommunityRepository {
     }
 
     public CursorPageResult<CommunityComment> findCommentsByPostIdPaged(String postId, int limit, Cursor cursor) {
+        return findCommentsByPostIdPaged(postId, limit, cursor, true);
+    }
+
+    public Optional<CommunityComment> findLatestCommentByPostId(String postId) {
+        return findCommentsByPostIdPaged(postId, 1, null, false).getItems().stream().findFirst();
+    }
+
+    private CursorPageResult<CommunityComment> findCommentsByPostIdPaged(String postId, int limit, Cursor cursor, boolean scanIndexForward) {
         var request = QueryEnhancedRequest.builder()
                 .queryConditional(QueryConditional.sortBeginsWith(
                         k -> k.partitionValue("POST#" + postId).sortValue("COMMENT#")
                 ))
-                .scanIndexForward(true);
+                .scanIndexForward(scanIndexForward);
 
         if (limit > 0) request.limit(limit);
         if (cursor != null) request.exclusiveStartKey(toAttributeMap(cursor));

@@ -67,27 +67,39 @@ const PostListItem: React.FC<PostListItemProps> = ({
     </>
   );
 
-  const contentNode = (
-    <>
-      <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-5 text-foreground">{post.title}</h3>
-      <p className="mt-1 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-muted-foreground">{post.content}</p>
+  const previewComment = post.previewComment;
+  const thumbnailNode = post.imageUrl ? (
+    <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-muted">
+      <img
+        src={post.imageUrl}
+        alt=""
+        className="h-full w-full object-cover"
+        loading="lazy"
+      />
+    </div>
+  ) : post.imageStatus === 'PROCESSING' ? (
+    <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-muted text-primary">
+      <ImageIcon className="h-4 w-4" aria-hidden="true" />
+    </div>
+  ) : null;
 
-      {post.imageUrl ? (
-        <div className="mt-3 overflow-hidden rounded-xl bg-muted">
-          <img
-            src={post.imageUrl}
-            alt=""
-            className="aspect-[4/3] w-full object-cover"
-            loading="lazy"
-          />
-        </div>
-      ) : post.imageStatus === 'PROCESSING' ? (
-        <div className="mt-3 flex aspect-[4/3] items-center justify-center gap-2 rounded-xl bg-muted px-3 py-3 text-[11px] font-semibold text-muted-foreground">
-          <ImageIcon className="h-4 w-4 shrink-0 text-primary" />
-          이미지 처리 중입니다
-        </div>
-      ) : null}
-    </>
+  const contentNode = (
+    <div className="flex min-w-0 gap-3">
+      <div className="min-w-0 flex-1">
+        <h3 className="line-clamp-1 text-sm font-bold leading-5 text-foreground">{post.title}</h3>
+        <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-muted-foreground">{post.content}</p>
+        {previewComment ? (
+          <p className="mt-1 line-clamp-1 text-[11px] leading-5 text-muted-foreground">
+            <span className="font-bold text-foreground">댓글</span>
+            {' '}
+            <span className="font-semibold">{previewComment.authorNickname}</span>
+            {': '}
+            {previewComment.content}
+          </p>
+        ) : null}
+      </div>
+      {thumbnailNode}
+    </div>
   );
 
   const body = (
@@ -113,20 +125,20 @@ const PostListItem: React.FC<PostListItemProps> = ({
           </div>
 
           {onClick ? (
-            <button type="button" onClick={onClick} className="mt-1 w-full text-left">
+            <button type="button" onClick={onClick} className="mt-1.5 w-full text-left">
               {contentNode}
             </button>
           ) : (
-            <div className="mt-1">{contentNode}</div>
+            <div className="mt-1.5">{contentNode}</div>
           )}
 
           {actions ? (
-            <div className="mt-3 flex min-h-8 items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
+            <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
               <div className="min-w-0 flex items-center gap-2">{actions}</div>
               <span className="shrink-0">{formatRelativeTime(post.createdAt)}</span>
             </div>
           ) : (
-            <div className="mt-3 flex min-h-8 items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
+            <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
               <div className="flex min-w-0 items-center gap-4">
                 <span className="flex items-center gap-1">
                   <Heart className={cn('h-3.5 w-3.5', post.likedByMe && 'fill-primary text-primary')} />
@@ -148,7 +160,7 @@ const PostListItem: React.FC<PostListItemProps> = ({
   );
 
   const rootClassName = cn(
-    'w-full border-b border-border/60 px-5 py-4 text-left transition-colors',
+    'w-full border-b border-border/60 px-5 py-3.5 text-left transition-colors',
     onClick && 'hover:bg-muted/25',
     className,
   );

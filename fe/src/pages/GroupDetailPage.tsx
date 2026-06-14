@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Copy, Heart, Info, LogOut, Menu, MessageCircle, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Heart, Info, LogOut, Menu, MessageCircle, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
@@ -17,20 +17,16 @@ import ScheduleStrip from '@/components/schedule/ScheduleStrip';
 import ScheduleDetailModal from '@/components/schedule/ScheduleDetailModal';
 import { ListSkeleton, ScheduleStripSkeleton } from '@/components/common/LoadingStates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useGroups } from '@/hooks/useGroups';
 import {
   useCreateGroupPost,
-  useCreateGroupPostComment,
-  useGroupPostComments,
   useGroupPosts,
   useToggleGroupPostLike,
 } from '@/hooks/useCommunity';
 import { fetchScheduleDetail, mapScheduleResponse, useDeleteSchedule, useLeaveGroupSchedule, useUpdateSchedule } from '@/hooks/useSchedules';
 import {
-  CommunityCommentResponse,
   CommunityPostResponse,
   coordinationApi,
   CoordinationResponse as CoordResp,
@@ -44,7 +40,6 @@ import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
-import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { getScheduleEndDate } from '@/lib/scheduleTime';
 import { Schedule, ScheduleParticipant } from '@/types/types';
@@ -754,6 +749,7 @@ const GroupDetailPage: React.FC = () => {
                 groupId={id || ''}
                 post={post}
                 onAuthorClick={openMemberProfileOrJoinPrompt}
+                onClick={() => navigate(`/groups/${id}/posts/${post.id}`)}
               />
             ))}
             {hasNextGroupPostPage ? (
@@ -1137,10 +1133,10 @@ interface GroupPostItemProps {
   groupId: string;
   post: CommunityPostResponse;
   onAuthorClick: (memberUserId?: string) => void;
+  onClick: () => void;
 }
 
-const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorClick }) => {
-  const [showComments, setShowComments] = useState(false);
+const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorClick, onClick }) => {
   const toggleLike = useToggleGroupPostLike(groupId, post.id);
 
   const handleToggleLike = async () => {
@@ -1154,6 +1150,7 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorCl
   return (
     <PostListItem
       post={post}
+      onClick={onClick}
       onAuthorClick={() => onAuthorClick(post.authorUserId)}
       actions={
         <>
@@ -1173,142 +1170,17 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorCl
           </button>
           <button
             type="button"
-            onClick={() => setShowComments((prev) => !prev)}
+            onClick={onClick}
             className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 text-[11px] font-bold text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={`댓글 ${post.commentCount ?? 0}개 ${showComments ? '접기' : '보기'}`}
+            aria-label={`댓글 ${post.commentCount ?? 0}개 보기`}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             댓글 {post.commentCount ?? 0}개
           </button>
         </>
       }
-    >
-      {showComments ? (
-        <GroupPostComments groupId={groupId} postId={post.id} onAuthorClick={onAuthorClick} />
-      ) : null}
-    </PostListItem>
+    />
   );
 };
-
-interface GroupPostCommentsProps {
-  groupId: string;
-  postId: string;
-  onAuthorClick: (memberUserId?: string) => void;
-}
-
-const GroupPostComments: React.FC<GroupPostCommentsProps> = ({ groupId, postId, onAuthorClick }) => {
-  const [content, setContent] = useState('');
-  const {
-    data: comments = [],
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useGroupPostComments(groupId, postId);
-  const createComment = useCreateGroupPostComment(groupId, postId);
-
-  const handleCreateComment = async () => {
-    const value = content.trim();
-    if (!value) {
-      appToast.error('댓글을 입력해주세요');
-      return;
-    }
-
-    try {
-      await createComment.mutateAsync(value);
-      setContent('');
-      appToast.success('댓글을 등록했습니다');
-    } catch (error) {
-      appToast.error('댓글을 등록하지 못했습니다', error);
-    }
-  };
-
-  return (
-    <div className="mt-3 border-t border-border/60 pt-3 pl-12">
-      <div className="flex gap-2">
-        <Textarea
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          maxLength={500}
-          rows={2}
-          className="min-h-[48px] flex-1 resize-none rounded-xl bg-muted text-base"
-          placeholder="댓글을 입력해주세요"
-        />
-        <button
-          type="button"
-          onClick={handleCreateComment}
-          disabled={createComment.isPending}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-50"
-          aria-label="댓글 등록"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="mt-3">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-5">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : comments.length > 0 ? (
-          comments.map((comment) => (
-            <GroupPostCommentItem key={comment.id} comment={comment} onAuthorClick={onAuthorClick} />
-          ))
-        ) : (
-          <p className="border-y border-dashed border-border/70 px-3 py-4 text-center text-[11px] text-muted-foreground">
-            아직 댓글이 없습니다.
-          </p>
-        )}
-
-        {hasNextPage ? (
-          <button
-            type="button"
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="w-full border-y border-border/60 py-2 text-[11px] font-semibold text-muted-foreground disabled:opacity-50"
-          >
-            {isFetchingNextPage ? '불러오는 중...' : '댓글 더보기'}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-};
-
-interface GroupPostCommentItemProps {
-  comment: CommunityCommentResponse;
-  onAuthorClick: (memberUserId?: string) => void;
-}
-
-const GroupPostCommentItem: React.FC<GroupPostCommentItemProps> = ({ comment, onAuthorClick }) => (
-  <div className="flex items-start gap-2 border-b border-border/50 px-1 py-2.5 last:border-b-0">
-    <button
-      type="button"
-      onClick={() => onAuthorClick(comment.authorUserId)}
-      className="shrink-0 rounded-full"
-      aria-label={`${comment.authorNickname} 프로필 보기`}
-    >
-      <Avatar className="h-7 w-7 border border-border/70">
-        <AvatarImage src={comment.authorAvatarUrl} alt={comment.authorNickname} />
-        <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
-          {comment.authorNickname.slice(0, 1)}
-        </AvatarFallback>
-      </Avatar>
-    </button>
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onAuthorClick(comment.authorUserId)}
-          className="min-w-0 truncate text-[11px] font-bold text-foreground"
-        >
-          {comment.authorNickname}
-        </button>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelativeTime(comment.createdAt)}</span>
-      </div>
-      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-foreground">{comment.content}</p>
-    </div>
-  </div>
-);
 
 export default GroupDetailPage;

@@ -21,6 +21,7 @@ public class CommunityPostResDTO {
     private String authorAvatarUrl;
     private Integer likeCount;
     private Integer commentCount;
+    private CommunityCommentResDTO previewComment;
     private Boolean likedByMe;
     private Boolean mine;
     private String createdAt;

@@ -163,6 +163,20 @@ class CommunityServiceTest {
     }
 
     @Test
+    @DisplayName("getPosts — 댓글이 있으면 최신 댓글 preview를 포함한다")
+    void getPosts_includesLatestCommentPreview() {
+        when(repository.findPostsPaged(20, null))
+                .thenReturn(CursorPageResult.<CommunityPost>builder().items(List.of(post("other"))).build());
+        when(repository.findLatestCommentByPostId("p1")).thenReturn(Optional.of(comment("user1")));
+
+        CursorPageResult<CommunityPostResDTO> result = service.getPosts("user1", 20, null);
+
+        assertThat(result.getItems()).hasSize(1);
+        assertThat(result.getItems().get(0).getPreviewComment()).isNotNull();
+        assertThat(result.getItems().get(0).getPreviewComment().getContent()).isEqualTo("댓글");
+    }
+
+    @Test
     @DisplayName("resolveLimit — 목록 조회 개수를 1~100 범위로 보정한다")
     void resolveLimit_clampsBoundaries() {
         assertThat(service.resolveLimit(null)).isEqualTo(20);
