@@ -86,16 +86,17 @@ const PostListItem: React.FC<PostListItemProps> = ({
   const contentNode = (
     <div className="flex min-w-0 gap-3">
       <div className="min-w-0 flex-1">
-        <h3 className="line-clamp-1 text-sm font-bold leading-5 text-foreground">{post.title}</h3>
-        <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-muted-foreground">{post.content}</p>
+        <h3 className="line-clamp-1 text-[15px] font-bold leading-5 text-foreground">{post.title}</h3>
+        <p className="mt-0.5 line-clamp-1 text-[13px] leading-5 text-muted-foreground">{post.content}</p>
         {previewComment ? (
-          <p className="mt-1 line-clamp-1 text-[11px] leading-5 text-muted-foreground">
-            <span className="font-bold text-foreground">댓글</span>
-            {' '}
-            <span className="font-semibold">{previewComment.authorNickname}</span>
-            {': '}
-            {previewComment.content}
-          </p>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-5 text-muted-foreground">
+            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/70" aria-hidden="true">ㄴ</span>
+            <p className="line-clamp-1 min-w-0">
+              <span className="font-semibold">{previewComment.authorNickname}</span>
+              {': '}
+              {previewComment.content}
+            </p>
+          </div>
         ) : null}
       </div>
       {thumbnailNode}

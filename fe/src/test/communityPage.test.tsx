@@ -141,6 +141,7 @@ describe('CommunityPage', () => {
     const { container } = renderPage();
 
     expect(screen.getByText('약속 잡는 팁')).toBeInTheDocument();
+    expect(screen.getByText('ㄴ')).toBeInTheDocument();
     expect(screen.getByText(/저도 이 방식 좋아요/)).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '댓글 2개 보기' })).toBeInTheDocument();
