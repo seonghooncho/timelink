@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ScrollableFadeList from '@/components/common/ScrollableFadeList';
-import { coordinationApi, CoordinationDetailResponse, groupApi, GroupMemberResponse, HeatmapEntry, SlotEntry } from '@/services/api';
+import { coordinationApi, CoordinationDetailResponse, groupApi, GroupDetailResponse, GroupMemberResponse, HeatmapEntry, SlotEntry } from '@/services/api';
 import { useSchedules } from '@/hooks/useSchedules';
 import { Schedule } from '@/types/types';
-import { X } from 'lucide-react';
+import { Share2, X } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
 import {
   buildCoordinationSlotKey,
@@ -22,9 +23,12 @@ import {
 
 const CoordinationTimetablePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: groupId, coordId } = useParams();
+  const justCreated = Boolean((location.state as { justCreated?: boolean } | null)?.justCreated);
 
   const [coordination, setCoordination] = useState<CoordinationDetailResponse | null>(null);
+  const [group, setGroup] = useState<GroupDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'select' | 'result'>('select');
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
@@ -66,12 +70,22 @@ const CoordinationTimetablePage: React.FC = () => {
     groupApi.getMembers(groupId).then(setMembers).catch(() => setMembers([]));
   }, [groupId]);
 
+  useEffect(() => {
+    if (!groupId) return;
+    groupApi.getById(groupId).then(setGroup).catch(() => setGroup(null));
+  }, [groupId]);
+
   const dates = useMemo(() => coordination?.dates ?? [], [coordination?.dates]);
   const startHour = coordination?.startHour ?? 9;
   const endHour = coordination?.endHour ?? 18;
   const title = coordination?.title || '시간 조율';
   const description = coordination?.description?.trim();
   const hasLongDescription = Boolean(description && description.length > 90);
+  const coordinationShareUrl = useMemo(() => {
+    if (!group?.inviteCode || !coordId) return '';
+    const params = new URLSearchParams({ coord: coordId });
+    return `${getPublicAppOrigin()}/invite/${group.inviteCode}?${params.toString()}`;
+  }, [coordId, group?.inviteCode]);
 
   const hours = useMemo(() => { const h: number[] = []; for (let i = startHour; i < endHour; i++) h.push(i); return h; }, [startHour, endHour]);
 
@@ -218,6 +232,40 @@ const CoordinationTimetablePage: React.FC = () => {
     } catch (error) { appToast.error('제출에 실패했습니다', error); } finally { setIsSubmitting(false); }
   };
 
+  const handleShareCoordination = async () => {
+    if (!coordinationShareUrl) {
+      appToast.error('공유 링크를 만들 수 없습니다');
+      return;
+    }
+
+    const shareTitle = `${group?.name || 'Timelink'} 시간 조율`;
+    const shareText = `${title} 가능한 시간을 선택해주세요.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: coordinationShareUrl,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        appToast.error('공유에 실패했습니다', error);
+        return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(coordinationShareUrl);
+      appToast.success('공유 링크가 복사되었습니다');
+    } catch (error) {
+      appToast.error('공유 링크 복사에 실패했습니다', error);
+    }
+  };
+
   const handleCreateGroupSchedule = () => {
     if (!groupId) {
       appToast.error('그룹 정보를 찾을 수 없습니다');
@@ -320,7 +368,21 @@ const CoordinationTimetablePage: React.FC = () => {
 
   return (
     <MobileLayout>
-      <PageHeader title={title} showBack backTo={groupId ? `/groups/${groupId}` : '/groups'} />
+      <PageHeader
+        title={title}
+        showBack
+        backTo={groupId ? `/groups/${groupId}` : '/groups'}
+        rightElement={coordinationShareUrl ? (
+          <button
+            type="button"
+            onClick={handleShareCoordination}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-colors hover:text-foreground"
+            aria-label="시간 조율 공유"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        ) : undefined}
+      />
       {description ? (
         <div className="px-4 pt-3">
           <div className="rounded-xl border border-coord-green/15 bg-coord-green/5 px-3 py-2.5">
@@ -338,6 +400,32 @@ const CoordinationTimetablePage: React.FC = () => {
             ) : null}
           </div>
         </div>
+      ) : null}
+      {coordinationShareUrl ? (
+        <section className="mx-4 mt-3 rounded-2xl border border-coord-green/20 bg-coord-green/5 px-3.5 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Share2 className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-bold text-foreground">
+                {justCreated ? '시간 조율이 만들어졌어요' : '멤버들에게 가능한 시간을 받아보세요'}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                {justCreated
+                  ? '내 가능 시간을 선택한 뒤 멤버들에게 공유해보세요.'
+                  : '링크를 받은 멤버는 바로 이 조율 화면으로 이동합니다.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleShareCoordination}
+              className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              공유하기
+            </button>
+          </div>
+        </section>
       ) : null}
       <div className="flex gap-2 px-4 py-3">
         <button onClick={() => setViewMode('select')} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'select' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'}`}>내가 가능한 시간</button>

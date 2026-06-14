@@ -118,7 +118,7 @@ const CoordinationOneTime: React.FC<CoordinationOneTimeProps> = ({ groupId }) =>
         startHour,
         endHour,
       });
-      navigate(`/groups/${groupId}/coordination/${result.id}/timetable`);
+      navigate(`/groups/${groupId}/coordination/${result.id}/timetable`, { state: { justCreated: true } });
     } catch (err) {
       appToast.error('조율 생성에 실패했습니다', err);
     } finally {
