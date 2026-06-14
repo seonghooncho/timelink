@@ -18,7 +18,7 @@
 ├── mobile/     # Expo React Native 모바일 앱
 ├── backend/    # Spring Boot 백엔드
 ├── ai/         # FastAPI 기반 AI 서비스
-├── infra/      # Terraform 문서와 init/minimum/cloudflare_free 스택
+├── infra/      # Terraform 문서와 init/minimum/cloudflare_dns 스택
 ├── docs/       # 설계/운영 문서
 └── package.json
 ```
@@ -102,11 +102,12 @@ terraform plan
 terraform apply
 ```
 
-Cloudflare 무료 정적 서빙을 쓰려면 아래 스택을 별도로 사용할 수 있습니다.
+Cloudflare 운영 DNS를 Terraform에서 추적하려면 아래 스택을 별도로 사용합니다.
 
 ```sh
-cd infra/terraform/cloudflare_free
-terraform init
+cd infra/terraform/cloudflare_dns
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
@@ -122,7 +123,7 @@ terraform apply
 
 - 프론트엔드: 빌드 타임 환경변수 없이 상대 경로 `/api/planner/v1`, `/api/ai/v1`를 사용하고 로컬에서는 Vite proxy를 통해 백엔드/AI로 연결됩니다.
 - 백엔드/AI 런타임 설정: AWS SSM Parameter Store에서 읽습니다. Terraform은 일반 설정만 적재하고, secret 값은 SSM에 별도로 넣은 뒤 Lambda에는 `APP_CONFIG_PREFIX`만 전달합니다.
-- Cloudflare 무료 프론트 스택: `cloudflare_api_token`, `cloudflare_account_id`, `api_origin`이 필요합니다. 이 값들은 Git에 커밋하지 않습니다.
+- Cloudflare DNS 스택: `CLOUDFLARE_API_TOKEN`과 `cloudflare_zone_id`가 필요합니다. 토큰과 로컬 `terraform.tfvars`는 Git에 커밋하지 않습니다.
 - 로컬 개발용 민감값은 `ai/.env`, Terraform `terraform.tfvars` 또는 `TF_VAR_*`로만 주입하고 Git에는 올리지 않습니다.
 
 상세 구조와 아키텍처 설명은 [docs/README.md](docs/README.md)를 참고하면 됩니다.

@@ -186,6 +186,14 @@ const LoginPage: React.FC = () => {
         </Link>
 
         <p className="mt-10 text-[11px] text-muted-foreground/70 text-center leading-relaxed">
+          <Link to="/about" className="font-semibold text-primary underline-offset-2 hover:underline">
+            서비스 소개
+          </Link>
+          {' · '}
+          <Link to="/contact" className="font-semibold text-primary underline-offset-2 hover:underline">
+            문의
+          </Link>
+          <br />
           처음 시작할 때{' '}
           <Link to="/terms" className="font-semibold text-primary underline-offset-2 hover:underline">
             이용약관

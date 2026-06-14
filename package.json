@@ -37,8 +37,12 @@
     "infra:init:validate": "cd infra/terraform/init && terraform validate",
     "infra:fmt": "cd infra/terraform && terraform fmt -recursive",
     "infra:validate": "cd infra/terraform/minimum && terraform validate",
-    "infra:cloudflare:fmt": "cd infra/terraform/cloudflare_free && terraform fmt -recursive",
-    "infra:cloudflare:validate": "cd infra/terraform/cloudflare_free && terraform validate"
+    "infra:cloudflare:fmt": "cd infra/terraform/cloudflare_dns && terraform fmt -recursive",
+    "infra:cloudflare:validate": "cd infra/terraform/cloudflare_dns && terraform validate",
+    "infra:cloudflare-dns:fmt": "cd infra/terraform/cloudflare_dns && terraform fmt -recursive",
+    "infra:cloudflare-dns:validate": "cd infra/terraform/cloudflare_dns && terraform validate",
+    "infra:cloudflare-dns:plan": "cd infra/terraform/cloudflare_dns && terraform plan",
+    "infra:cloudflare-dns:apply": "cd infra/terraform/cloudflare_dns && terraform apply"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0"
