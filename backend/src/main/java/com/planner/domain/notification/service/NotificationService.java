@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -100,6 +101,13 @@ public class NotificationService {
     public NotificationSettingsResDTO updateSettings(String userId, NotificationSettingsUpdateReqDTO req) {
         NotificationSettings settings = repository.findSettings(userId)
                 .orElseGet(() -> createDefaultSettings(userId));
+        Boolean previousScheduleAlarm = settings.getScheduleAlarm();
+        Boolean previousRemindOneDayBefore = settings.getRemindOneDayBefore();
+        String previousRemindOneDayBeforeTime = settings.getRemindOneDayBeforeTime();
+        Boolean previousRemindSameDay = settings.getRemindSameDay();
+        String previousRemindSameDayTime = settings.getRemindSameDayTime();
+        Boolean previousImportantAlarm = settings.getImportantAlarm();
+        String previousImportantAlarmTime = settings.getImportantAlarmTime();
 
         if (req.getScheduleAlarm() != null) settings.setScheduleAlarm(req.getScheduleAlarm());
         if (req.getGroupAlarm() != null) {
@@ -120,8 +128,38 @@ public class NotificationService {
         settings.setUpdatedAt(Instant.now().toString());
 
         repository.saveSettings(settings);
-        reminderSchedulingService.syncUserReminders(userId, settings);
+        if (reminderSettingsChanged(
+                previousScheduleAlarm,
+                previousRemindOneDayBefore,
+                previousRemindOneDayBeforeTime,
+                previousRemindSameDay,
+                previousRemindSameDayTime,
+                previousImportantAlarm,
+                previousImportantAlarmTime,
+                settings
+        )) {
+            reminderSchedulingService.syncUserReminders(userId, settings);
+        }
         return NotificationConverter.toSettingsResponse(settings);
+    }
+
+    private boolean reminderSettingsChanged(
+            Boolean previousScheduleAlarm,
+            Boolean previousRemindOneDayBefore,
+            String previousRemindOneDayBeforeTime,
+            Boolean previousRemindSameDay,
+            String previousRemindSameDayTime,
+            Boolean previousImportantAlarm,
+            String previousImportantAlarmTime,
+            NotificationSettings settings
+    ) {
+        return !Objects.equals(previousScheduleAlarm, settings.getScheduleAlarm())
+                || !Objects.equals(previousRemindOneDayBefore, settings.getRemindOneDayBefore())
+                || !Objects.equals(previousRemindOneDayBeforeTime, settings.getRemindOneDayBeforeTime())
+                || !Objects.equals(previousRemindSameDay, settings.getRemindSameDay())
+                || !Objects.equals(previousRemindSameDayTime, settings.getRemindSameDayTime())
+                || !Objects.equals(previousImportantAlarm, settings.getImportantAlarm())
+                || !Objects.equals(previousImportantAlarmTime, settings.getImportantAlarmTime());
     }
 
     public void createGroupNotification(String userId, String title, String content) {

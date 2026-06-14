@@ -1,9 +1,15 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
 
 const runId = process.argv[2];
 const tableName = process.env.TIMELINK_TABLE_NAME || 'planner_prod_main';
 const schedulerGroup = process.env.TIMELINK_SCHEDULER_GROUP || 'planner-prod-notification-reminders';
+const schedulerDeleteConcurrencyInput = Number(process.env.TIMELINK_SCHEDULER_DELETE_CONCURRENCY || 8);
+const schedulerDeleteConcurrency = Number.isFinite(schedulerDeleteConcurrencyInput) && schedulerDeleteConcurrencyInput > 0
+  ? Math.floor(schedulerDeleteConcurrencyInput)
+  : 8;
+const execFileAsync = promisify(execFile);
 
 if (!runId) {
   console.error('Usage: node test/scripts/cleanup-load-test.mjs <runId>');
@@ -62,10 +68,10 @@ function batchDelete(keys) {
   }
 }
 
-function deleteScheduler(name) {
+async function deleteScheduler(name) {
   if (!name) return false;
   try {
-    aws([
+    await execFileAsync('aws', [
       'scheduler',
       'delete-schedule',
       '--group-name',
@@ -74,7 +80,10 @@ function deleteScheduler(name) {
       name,
       '--output',
       'json',
-    ]);
+    ], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
     return true;
   } catch (error) {
     const stderr = String(error.stderr || '');
@@ -83,6 +92,23 @@ function deleteScheduler(name) {
     }
     throw error;
   }
+}
+
+async function deleteSchedulers(names) {
+  const queue = [...names];
+  let deleted = 0;
+  const workerCount = Math.max(1, Math.min(schedulerDeleteConcurrency, queue.length || 1));
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (queue.length > 0) {
+      const name = queue.shift();
+      if (await deleteScheduler(name)) {
+        deleted += 1;
+      }
+    }
+  }));
+
+  return deleted;
 }
 
 const allItems = scanAll();
@@ -138,10 +164,7 @@ for (const item of allItems) {
   }
 }
 
-let deletedSchedulers = 0;
-for (const name of schedulerNames) {
-  if (deleteScheduler(name)) deletedSchedulers += 1;
-}
+const deletedSchedulers = await deleteSchedulers(schedulerNames);
 
 batchDelete(keys);
 

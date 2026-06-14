@@ -58,7 +58,7 @@ public class ScheduleService {
         Schedule schedule = ScheduleConverter.toEntity(userId, req);
         applyScheduleImage(userId, schedule, req.getImageId());
         repository.save(schedule);
-        reminderSchedulingService.rescheduleSchedule(userId, schedule);
+        reminderSchedulingService.scheduleNewSchedule(userId, schedule);
         notifyGroupScheduleCreated(userId, schedule);
         return ScheduleConverter.toResponse(schedule);
     }
@@ -96,7 +96,7 @@ public class ScheduleService {
                     .createdBy(userId)
                     .createdAt(now)
                     .build());
-            reminderSchedulingService.rescheduleSchedule(participantUserId, schedule);
+            reminderSchedulingService.scheduleNewSchedule(participantUserId, schedule);
             createdSchedules.add(schedule);
         }
 

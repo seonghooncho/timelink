@@ -116,7 +116,7 @@ class ScheduleServiceTest {
             assertThat(saved.getGsi4sk()).isNull();
             assertThat(saved.getEndTime()).isEqualTo("2025-03-10T10:00:00Z");
             assertThat(saved.getDuration()).isEqualTo(1.0);
-            then(reminderSchedulingService).should().rescheduleSchedule(eq(USER_ID), any(Schedule.class));
+            then(reminderSchedulingService).should().scheduleNewSchedule(eq(USER_ID), any(Schedule.class));
         }
 
         @Test

@@ -64,6 +64,10 @@ public class ReminderSchedulingService {
 
     public void rescheduleSchedule(String userId, Schedule schedule) {
         deleteScheduleJobs(userId, schedule.getId());
+        scheduleNewSchedule(userId, schedule);
+    }
+
+    public void scheduleNewSchedule(String userId, Schedule schedule) {
         NotificationSettings settings = notificationRepository.findSettings(userId).orElse(null);
         if (settings == null || !Boolean.TRUE.equals(settings.getScheduleAlarm()) || !hasSchedulerConfig()) {
             return;
