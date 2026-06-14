@@ -335,6 +335,53 @@ class ScheduleServiceTest {
             assertThat(result.get(0).getGroupScheduleParticipant()).isFalse();
             assertThat(result.get(0).getParticipants()).hasSize(2);
         }
+
+        @Test
+        @DisplayName("모임 상세용 약속 목록은 참여 멤버에게 참여 상태와 본인 사본을 우선 표시한다")
+        void shouldPreferViewerCopyForParticipant() {
+            Schedule ownerCopy = Schedule.builder()
+                    .id("s-owner")
+                    .userId("owner")
+                    .title("원본 제목")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .duration(1.0)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy("owner")
+                    .build();
+            Schedule viewerCopy = Schedule.builder()
+                    .id("s-viewer")
+                    .userId("member-2")
+                    .title("참여자 사본")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .duration(1.0)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy("owner")
+                    .build();
+
+            given(groupRepository.findMember("g1", "member-2"))
+                    .willReturn(Optional.of(sampleMember("g1", "member-2")));
+            given(repository.findByGroupIdAndTimeRange(eq("g1"), anyString(), anyString(), anyInt()))
+                    .willReturn(List.of(ownerCopy, viewerCopy));
+            given(repository.findParticipantsByGroupScheduleId("gs1")).willReturn(List.of(
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId("owner").scheduleId("s-owner").build(),
+                    GroupScheduleParticipant.builder().groupScheduleId("gs1").userId("member-2").scheduleId("s-viewer").build()
+            ));
+            given(groupRepository.findMembersByGroupId("g1")).willReturn(List.of(
+                    sampleMember("g1", "owner"),
+                    sampleMember("g1", "member-2")
+            ));
+
+            List<ScheduleResDTO> result = service.getGroupSchedules("member-2", "g1", null, null, 20);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo("s-viewer");
+            assertThat(result.get(0).getGroupScheduleParticipant()).isTrue();
+            assertThat(result.get(0).getGroupScheduleOwner()).isFalse();
+        }
     }
 
     @Nested
@@ -370,6 +417,31 @@ class ScheduleServiceTest {
             then(repository).should().deleteParticipant("gs1", "member-2");
             then(notificationService).should().createGroupScheduleDeletedNotification(eq(USER_ID), any(Schedule.class));
             then(notificationService).should().createGroupScheduleDeletedNotification(eq("member-2"), any(Schedule.class));
+        }
+
+        @Test
+        @DisplayName("탈퇴한 멤버가 참여자이면 자기 일정 사본만 제거한다")
+        void shouldDeleteOnlyRemovedParticipantCopy() {
+            Schedule participantCopy = Schedule.builder()
+                    .id("s-member")
+                    .userId(USER_ID)
+                    .title("미래 모임")
+                    .category("group")
+                    .startTime("2099-03-10T09:00:00Z")
+                    .duration(1.0)
+                    .groupId("g1")
+                    .groupScheduleId("gs1")
+                    .groupScheduleCreatedBy("owner")
+                    .build();
+            given(repository.findByUserIdAndTimeRange(eq(USER_ID), anyString(), anyString()))
+                    .willReturn(List.of(participantCopy));
+
+            service.cleanupFutureGroupSchedulesForRemovedMember("manager", "g1", USER_ID);
+
+            then(repository).should().delete(USER_ID, "s-member");
+            then(repository).should().deleteParticipant("gs1", USER_ID);
+            then(repository).should(never()).findParticipantsByGroupScheduleId("gs1");
+            then(notificationService).should(never()).createGroupScheduleDeletedNotification(anyString(), any(Schedule.class));
         }
     }
 

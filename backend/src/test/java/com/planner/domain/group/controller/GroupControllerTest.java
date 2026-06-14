@@ -12,6 +12,7 @@ import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.error.GroupErrorCode;
 import com.planner.domain.group.error.GroupException;
 import com.planner.domain.group.service.GroupService;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
 import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.cursor.CursorPageResult;
@@ -142,6 +143,29 @@ class GroupControllerTest {
 
     @Test
     @WithMockUser(username = "user1")
+    @DisplayName("GET /groups/{id}/schedules — limit 최대값은 100")
+    void getSchedules_clampsLimit() throws Exception {
+        ScheduleResDTO dto = ScheduleResDTO.builder()
+                .id("s1")
+                .title("모임 약속")
+                .category("group")
+                .groupScheduleParticipant(false)
+                .build();
+        when(scheduleService.getGroupSchedules("user1", "g1", "2026-06-01", "2026-06-30", 100))
+                .thenReturn(List.of(dto));
+
+        mockMvc.perform(get(BASE + "/g1/schedules")
+                        .param("startDate", "2026-06-01")
+                        .param("endDate", "2026-06-30")
+                        .param("limit", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].groupScheduleParticipant").value(false));
+
+        verify(scheduleService).getGroupSchedules("user1", "g1", "2026-06-01", "2026-06-30", 100);
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
     @DisplayName("GET /groups/{id} — 상세 조회 200")
     void getDetail_returns200() throws Exception {
         GroupDetailResDTO dto = GroupDetailResDTO.builder()
@@ -209,6 +233,22 @@ class GroupControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /groups — 이름과 설명 최대 길이를 넘으면 400")
+    void create_rejectsOverlongText() throws Exception {
+        GroupCreateReqDTO req = new GroupCreateReqDTO();
+        req.setName("가".repeat(31));
+        req.setDescription("나".repeat(201));
+
+        mockMvc.perform(post(BASE).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).create(anyString(), any());
     }
 
     @Test

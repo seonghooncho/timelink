@@ -2,6 +2,7 @@ package com.planner.domain.storage.service;
 
 import com.planner.domain.storage.dto.ImageUploadResDTO;
 import com.planner.domain.storage.dto.PresignImageUploadReqDTO;
+import com.planner.domain.storage.dto.PresignImageUploadResDTO;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.repository.ImageUploadRepository;
 import com.planner.global.config.AwsProperties;
@@ -153,6 +154,27 @@ class StorageServiceTest {
                 .hasMessage("15MB 이하의 이미지만 업로드 가능합니다");
         then(imageUploadRepository).shouldHaveNoInteractions();
         then(s3Presigner).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("presigned 업로드는 정확히 15MB 이미지를 허용한다")
+    void createPresignedUpload_allowsExactMaxSize() throws MalformedURLException {
+        PresignImageUploadReqDTO req = new PresignImageUploadReqDTO();
+        req.setPurpose("GROUP");
+        req.setFileName("group.webp");
+        req.setContentType("image/webp");
+        req.setContentLength(MAX_IMAGE_SIZE_BYTES);
+
+        PresignedPutObjectRequest presigned = org.mockito.Mockito.mock(PresignedPutObjectRequest.class);
+        org.mockito.BDDMockito.given(presigned.url()).willReturn(URI.create("https://upload.test/group").toURL());
+        org.mockito.BDDMockito.given(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).willReturn(presigned);
+
+        PresignImageUploadResDTO result = storageService.createPresignedUpload("user-1", req);
+
+        assertThat(result.getMaxSizeBytes()).isEqualTo(MAX_IMAGE_SIZE_BYTES);
+        assertThat(result.getUploadKey()).startsWith("upload/group/user-1/");
+        assertThat(result.getHeaders()).containsEntry("Content-Type", "image/webp");
+        then(imageUploadRepository).should().save(any());
     }
 
     @Test

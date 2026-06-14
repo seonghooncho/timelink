@@ -10,6 +10,7 @@ import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
+import com.planner.global.response.CustomResponse;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
@@ -102,6 +103,28 @@ class ScheduleControllerTest {
 
     @Test
     @WithMockUser(username = "user1")
+    @DisplayName("GET /schedules — limit은 1~100 범위로 보정한다")
+    void getAll_clampsLimitBoundaries() throws Exception {
+        CursorPageResult<ScheduleResDTO> defaultPage = CursorPageResult.<ScheduleResDTO>builder().items(List.of()).build();
+        CursorPageResult<ScheduleResDTO> maxPage = CursorPageResult.<ScheduleResDTO>builder().items(List.of()).build();
+        when(service.getAllPaged("user1", 20, null)).thenReturn(defaultPage);
+        when(service.toPageMeta(defaultPage, 20)).thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
+        when(service.getAllPaged("user1", 100, "cursor-1")).thenReturn(maxPage);
+        when(service.toPageMeta(maxPage, 100)).thenReturn(CustomResponse.PageMeta.builder().perPage(100).build());
+
+        mockMvc.perform(get(BASE).param("limit", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.perPage").value(20));
+        mockMvc.perform(get(BASE).param("limit", "200").param("cursor", "cursor-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.perPage").value(100));
+
+        verify(service).getAllPaged("user1", 20, null);
+        verify(service).getAllPaged("user1", 100, "cursor-1");
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
     @DisplayName("GET /schedules/{id} — 단건 조회")
     void getById_returns200() throws Exception {
         when(service.getById("user1", "s1")).thenReturn(sampleRes());
@@ -151,6 +174,25 @@ class ScheduleControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /schedules — 제목과 내용 최대 길이를 넘으면 400")
+    void create_rejectsOverlongText() throws Exception {
+        ScheduleCreateReqDTO req = new ScheduleCreateReqDTO();
+        req.setTitle("가".repeat(41));
+        req.setContent("나".repeat(1001));
+        req.setCategory("task");
+        req.setStartTime("2025-03-10T09:00");
+        req.setDuration(1.0);
+
+        mockMvc.perform(post(BASE).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).create(anyString(), any());
     }
 
     @Test

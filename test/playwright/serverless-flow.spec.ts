@@ -238,6 +238,116 @@ test.describe.serial('Timelink serverless flow', () => {
     await api.dispose();
   });
 
+  test('group schedule visibility separates group detail from personal calendars', async () => {
+    const users = makeUsers(3);
+    await Promise.all(users.map(prepareUser));
+
+    const managerApi = await apiAs(users[0]);
+    const groupData = await okJson<{ id: string; inviteCode: string }>(await managerApi.post('groups', {
+      data: {
+        name: testTitle('PW 약속 정책', 30),
+        description: `${RUN_ID} group schedule visibility`,
+      },
+    }));
+
+    for (const user of users.slice(1)) {
+      const api = await apiAs(user);
+      await retryOkJson(() => api.post('groups/join', { data: { inviteCode: groupData.inviteCode } }));
+      await api.dispose();
+    }
+
+    const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    start.setUTCHours(11, 0, 0, 0);
+    const scheduleTitle = testTitle('PW 선택 멤버 약속');
+    const created = await okJson<{ groupScheduleId: string }>(await managerApi.post('schedules', {
+      data: {
+        title: scheduleTitle,
+        category: 'group',
+        startTime: start.toISOString(),
+        duration: 1,
+        groupId: groupData.id,
+        participantUserIds: [users[1].userId],
+      },
+    }));
+
+    const participantApi = await apiAs(users[1]);
+    const nonParticipantApi = await apiAs(users[2]);
+    const range = `startDate=${encodeURIComponent(new Date(Date.now()).toISOString())}&endDate=${encodeURIComponent(new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString())}&limit=20`;
+
+    const groupSchedules = await okJson<Array<{ title: string; groupScheduleId: string; groupScheduleParticipant: boolean }>>(
+      await nonParticipantApi.get(`groups/${groupData.id}/schedules?${range}`),
+    );
+    const readonlySchedule = groupSchedules.find((item) => item.groupScheduleId === created.groupScheduleId);
+    expect(readonlySchedule?.title).toBe(scheduleTitle);
+    expect(readonlySchedule?.groupScheduleParticipant).toBe(false);
+
+    const participantSchedules = await okJson<Array<{ groupScheduleId?: string }>>(
+      await participantApi.get(`schedules?${range}`),
+    );
+    const nonParticipantSchedules = await okJson<Array<{ groupScheduleId?: string }>>(
+      await nonParticipantApi.get(`schedules?${range}`),
+    );
+    expect(participantSchedules.some((item) => item.groupScheduleId === created.groupScheduleId)).toBe(true);
+    expect(nonParticipantSchedules.some((item) => item.groupScheduleId === created.groupScheduleId)).toBe(false);
+
+    await participantApi.dispose();
+    await nonParticipantApi.dispose();
+    await managerApi.dispose();
+  });
+
+  test('API rejects max plus one text boundaries for core write paths', async () => {
+    const [user] = makeUsers(1);
+    await prepareUser(user);
+    const api = await apiAs(user);
+
+    const start = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    start.setUTCHours(9, 0, 0, 0);
+
+    expect((await api.post('schedules', {
+      data: {
+        title: '가'.repeat(41),
+        content: '나',
+        category: 'task',
+        startTime: start.toISOString(),
+        duration: 1,
+      },
+    })).status()).toBeGreaterThanOrEqual(400);
+
+    expect((await api.post('groups', {
+      data: {
+        name: '가'.repeat(31),
+        description: '나'.repeat(201),
+      },
+    })).status()).toBeGreaterThanOrEqual(400);
+
+    const groupData = await okJson<{ id: string }>(await api.post('groups', {
+      data: {
+        name: testTitle('PW 경계 모임', 30),
+        description: `${RUN_ID} boundary group`,
+      },
+    }));
+
+    expect((await api.post(`groups/${groupData.id}/coordinations`, {
+      data: {
+        title: '가'.repeat(41),
+        description: '나'.repeat(301),
+        mode: 'once',
+        dates: [localDate(0)],
+        startHour: 9,
+        endHour: 18,
+      },
+    })).status()).toBeGreaterThanOrEqual(400);
+
+    expect((await api.post('community/posts', {
+      data: {
+        title: '가'.repeat(41),
+        content: '나'.repeat(2001),
+      },
+    })).status()).toBeGreaterThanOrEqual(400);
+
+    await api.dispose();
+  });
+
   test('mobile PWA core pages do not create horizontal overflow after responsive assets load', async ({ page }) => {
     const [user] = makeUsers(1);
     await prepareUser(user);
@@ -266,6 +376,15 @@ test.describe.serial('Timelink serverless flow', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/groups/${groupData.id}`);
     await dismissInstallNotice(page);
+    const width = await page.evaluate(() => ({
+      documentScrollWidth: document.documentElement.scrollWidth,
+      documentClientWidth: document.documentElement.clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+    }));
+    expect(width.documentScrollWidth, `group detail overflow ${JSON.stringify(width)}`)
+      .toBeLessThanOrEqual(width.documentClientWidth + 1);
+    expect(width.bodyScrollWidth, `group detail body overflow ${JSON.stringify(width)}`)
+      .toBeLessThanOrEqual(width.documentClientWidth + 1);
 
     const fab = page.getByRole('button', { name: '글쓰기' });
     const fixedAction = page.getByRole('button', { name: '약속 만들기' });

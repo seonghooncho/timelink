@@ -19,11 +19,16 @@ class ScheduleTimeCalculatorTest {
     @Test
     @DisplayName("소요시간은 30분 단위 양수만 허용한다")
     void resolveDuration_rejectsInvalidStep() {
+        assertThat(ScheduleTimeCalculator.resolveDuration(0.5)).isEqualTo(0.5);
         assertThatThrownBy(() -> ScheduleTimeCalculator.resolveDuration(1.25))
                 .isInstanceOf(ScheduleException.class)
                 .extracting("errorCode")
                 .isEqualTo(ScheduleErrorCode.INVALID_DURATION);
         assertThatThrownBy(() -> ScheduleTimeCalculator.resolveDuration(0.0))
+                .isInstanceOf(ScheduleException.class)
+                .extracting("errorCode")
+                .isEqualTo(ScheduleErrorCode.INVALID_DURATION);
+        assertThatThrownBy(() -> ScheduleTimeCalculator.resolveDuration(Double.POSITIVE_INFINITY))
                 .isInstanceOf(ScheduleException.class)
                 .extracting("errorCode")
                 .isEqualTo(ScheduleErrorCode.INVALID_DURATION);
@@ -44,5 +49,14 @@ class ScheduleTimeCalculatorTest {
                 .isInstanceOf(ScheduleException.class)
                 .extracting("errorCode")
                 .isEqualTo(ScheduleErrorCode.SCHEDULE_CROSSES_DAY);
+    }
+
+    @Test
+    @DisplayName("시작시간 형식이 올바르지 않으면 예외를 던진다")
+    void calculateEndTime_rejectsInvalidStartTime() {
+        assertThatThrownBy(() -> ScheduleTimeCalculator.calculateEndTime("2026/06/13 09:00", 1.0))
+                .isInstanceOf(ScheduleException.class)
+                .extracting("errorCode")
+                .isEqualTo(ScheduleErrorCode.INVALID_START_TIME);
     }
 }

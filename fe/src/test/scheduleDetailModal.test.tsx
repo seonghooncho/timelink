@@ -124,6 +124,30 @@ describe('ScheduleDetailModal', () => {
     expect(onLeaveGroupSchedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'schedule-1' }));
   });
 
+  it('참여자로 선택되지 않은 그룹 일정은 읽기 전용으로 보여준다', () => {
+    render(
+      <ScheduleDetailModal
+        schedule={makeSchedule({
+          groupId: 'group-1',
+          groupScheduleId: 'group-schedule-1',
+          groupScheduleCreatedBy: 'owner-user',
+          groupScheduleOwner: false,
+          groupScheduleParticipant: false,
+        })}
+        open
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        onLeaveGroupSchedule={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('참여자로 선택되지 않은 모임 약속입니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '수정하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '일정 삭제' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /약속 빠지기/ })).not.toBeInTheDocument();
+  });
+
   it('그룹 일정 상세에서 참여인원 프로필을 보여준다', () => {
     render(
       <ScheduleDetailModal

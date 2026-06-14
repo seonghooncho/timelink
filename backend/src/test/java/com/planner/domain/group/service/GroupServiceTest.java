@@ -839,6 +839,19 @@ class GroupServiceTest {
     }
 
     @Test
+    @DisplayName("leave — 마지막 관리자는 모임을 나갈 수 없다")
+    void leave_lastManagerThrows() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(sampleMember("g1", "user1", "manager")));
+
+        assertThatThrownBy(() -> service.leave("user1", "g1"))
+                .isInstanceOf(GroupException.class);
+        verify(repository, never()).deleteMember(anyString(), anyString());
+        verify(scheduleService, never()).cleanupFutureGroupSchedulesForRemovedMember(anyString(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("removeMember — 관리자가 다른 멤버를 내보낸다")
     void removeMember_managerRemovesMember() {
         when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
@@ -855,6 +868,20 @@ class GroupServiceTest {
                 eq("모임에서 내보내졌습니다"),
                 contains("Study 모임에서 내보내졌습니다")
         );
+    }
+
+    @Test
+    @DisplayName("removeMember — 마지막 관리자는 내보낼 수 없다")
+    void removeMember_lastManagerThrows() {
+        when(repository.findGroupById("g1")).thenReturn(Optional.of(sampleGroup("g1", "user1")));
+        when(repository.findMember("g1", "user1")).thenReturn(Optional.of(sampleMember("g1", "user1", "manager")));
+        when(repository.findMember("g1", "user2")).thenReturn(Optional.of(sampleMember("g1", "user2", "manager")));
+        when(repository.findMembersByGroupId("g1")).thenReturn(List.of(sampleMember("g1", "user2", "manager")));
+
+        assertThatThrownBy(() -> service.removeMember("user1", "g1", "user2"))
+                .isInstanceOf(GroupException.class);
+        verify(repository, never()).deleteMember(anyString(), anyString());
+        verify(scheduleService, never()).cleanupFutureGroupSchedulesForRemovedMember(anyString(), anyString(), anyString());
     }
 
     @Test
