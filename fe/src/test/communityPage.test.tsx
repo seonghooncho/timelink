@@ -117,6 +117,16 @@ describe('CommunityPage', () => {
         authorUserId: 'user-1',
         likeCount: 3,
         commentCount: 2,
+        previewComment: {
+          id: 'comment-1',
+          postId: 'post-1',
+          content: '저도 이 방식 좋아요.',
+          authorUserId: 'user-2',
+          authorNickname: '지훈',
+          mine: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
         likedByMe: true,
         mine: false,
         createdAt: new Date().toISOString(),
@@ -131,9 +141,10 @@ describe('CommunityPage', () => {
     const { container } = renderPage();
 
     expect(screen.getByText('약속 잡는 팁')).toBeInTheDocument();
+    expect(screen.getByText(/저도 이 방식 좋아요/)).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '댓글 2개 보기' })).toBeInTheDocument();
-    expect(container.querySelector('img[src="https://example.com/post.jpg"]')).toHaveClass('aspect-[4/3]');
+    expect(container.querySelector('img[src="https://example.com/post.jpg"]')?.parentElement).toHaveClass('h-[72px]');
   });
 
   it('toggles like from the post list', async () => {

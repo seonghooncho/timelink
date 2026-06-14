@@ -160,7 +160,7 @@ const GroupIntroPage: React.FC = () => {
       openJoinModal();
       return;
     }
-    navigate(`/groups/${id}`);
+    navigate(`/groups/${id}/posts/${post.id}`);
   };
 
   const openMemberProfile = async (memberUserId?: string) => {

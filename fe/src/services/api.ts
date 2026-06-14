@@ -477,6 +477,7 @@ export interface CommunityPostResponse {
   authorAvatarUrl?: string;
   likeCount: number;
   commentCount: number;
+  previewComment?: CommunityCommentResponse;
   likedByMe: boolean;
   mine: boolean;
   createdAt: string;

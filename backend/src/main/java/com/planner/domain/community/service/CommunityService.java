@@ -62,7 +62,7 @@ public class CommunityService {
         Cursor cursor = cursorToken != null ? cursorCodec.decode(cursorToken) : null;
         CursorPageResult<CommunityPost> page = repository.findPostsPaged(size, cursor);
         List<CommunityPostResDTO> dtos = page.getItems().stream()
-                .map(post -> CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId)))
+                .map(post -> toPostResponse(userId, post))
                 .toList();
         return CursorPageResult.<CommunityPostResDTO>builder()
                 .items(dtos)
@@ -100,7 +100,7 @@ public class CommunityService {
         Cursor cursor = cursorToken != null ? cursorCodec.decode(cursorToken) : null;
         CursorPageResult<CommunityPost> page = repository.findGroupPostsPaged(groupId, size, cursor);
         List<CommunityPostResDTO> dtos = page.getItems().stream()
-                .map(post -> CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId)))
+                .map(post -> toPostResponse(userId, post))
                 .toList();
         return CursorPageResult.<CommunityPostResDTO>builder()
                 .items(dtos)
@@ -120,12 +120,12 @@ public class CommunityService {
     public CommunityPostResDTO getPost(String userId, String postId) {
         CommunityPost post = findPostOrThrow(postId);
         requirePostVisible(post, userId);
-        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(postId, userId));
+        return toPostResponse(userId, post);
     }
 
     public CommunityPostResDTO getGroupPost(String userId, String groupId, String postId) {
         CommunityPost post = findGroupPostOrThrow(userId, groupId, postId);
-        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(postId, userId));
+        return toPostResponse(userId, post);
     }
 
     public CommunityPostResDTO updatePost(String userId, String postId, CommunityPostUpdateReqDTO req) {
@@ -332,7 +332,17 @@ public class CommunityService {
         applyPostImage(userId, post, req.getImageId());
         post.setUpdatedAt(Instant.now().toString());
         repository.savePost(post);
-        return CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId));
+        return toPostResponse(userId, post);
+    }
+
+    private CommunityPostResDTO toPostResponse(String userId, CommunityPost post) {
+        CommunityPostResDTO dto = CommunityConverter.toPostResponse(post, userId, repository.isLikedBy(post.getId(), userId));
+        if (post.getCommentCount() != null && post.getCommentCount() > 0) {
+            repository.findLatestCommentByPostId(post.getId())
+                    .map(comment -> CommunityConverter.toCommentResponse(comment, userId))
+                    .ifPresent(dto::setPreviewComment);
+        }
+        return dto;
     }
 
     private void applyPostImage(String userId, CommunityPost post, String imageId) {

@@ -1,50 +1,52 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PostDetailView from '@/components/community/PostDetailView';
-import CommunityProfileSheet from '@/components/community/CommunityProfileSheet';
+import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import {
-  useCommunityComments,
-  useCommunityPost,
-  useCreateCommunityComment,
-  useDeleteCommunityComment,
-  useDeleteCommunityPost,
-  useToggleCommunityLike,
-  useUpdateCommunityComment,
-  useUpdateCommunityPost,
+  useCreateGroupPostComment,
+  useDeleteGroupPost,
+  useDeleteGroupPostComment,
+  useGroupPost,
+  useGroupPostComments,
+  useToggleGroupPostLike,
+  useUpdateGroupPost,
+  useUpdateGroupPostComment,
 } from '@/hooks/useCommunity';
-import { communityApi, CommunityPublicProfileResponse } from '@/services/api';
+import { groupApi, GroupMemberProfileResponse } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 
-const CommunityPostDetailPage: React.FC = () => {
-  const { postId } = useParams<{ postId: string }>();
+const GroupPostDetailPage: React.FC = () => {
+  const { id, postId } = useParams<{ id: string; postId: string }>();
   const navigate = useNavigate();
-  const { data: post, isLoading } = useCommunityPost(postId);
+  const { data: post, isLoading } = useGroupPost(id, postId);
   const {
     data: comments = [],
     isLoading: isCommentsLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useCommunityComments(postId);
-  const toggleLike = useToggleCommunityLike(postId || '');
-  const updatePost = useUpdateCommunityPost(postId || '');
-  const deletePost = useDeleteCommunityPost();
-  const createComment = useCreateCommunityComment(postId || '');
-  const updateComment = useUpdateCommunityComment(postId || '');
-  const deleteComment = useDeleteCommunityComment(postId || '');
-  const [profileTarget, setProfileTarget] = useState<CommunityPublicProfileResponse | null>(null);
+  } = useGroupPostComments(id, postId);
+  const toggleLike = useToggleGroupPostLike(id || '', postId || '');
+  const updatePost = useUpdateGroupPost(id || '', postId || '');
+  const deletePost = useDeleteGroupPost(id || '');
+  const createComment = useCreateGroupPostComment(id || '', postId || '');
+  const updateComment = useUpdateGroupPostComment(id || '', postId || '');
+  const deleteComment = useDeleteGroupPostComment(id || '', postId || '');
+  const [profileTarget, setProfileTarget] = useState<GroupMemberProfileResponse | null>(null);
   const [showProfileSheet, setShowProfileSheet] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-  const openProfile = async (userId?: string) => {
-    if (!userId) return;
+  const backTo = id ? `/groups/${id}` : '/groups';
+
+  const openMemberProfile = async (memberUserId?: string) => {
+    if (!id || !memberUserId) return;
     setProfileTarget(null);
     setShowProfileSheet(true);
     setIsProfileLoading(true);
     try {
-      setProfileTarget(await communityApi.getPublicProfile(userId));
+      setProfileTarget(await groupApi.getMemberProfile(id, memberUserId));
     } catch (error) {
-      appToast.error('프로필을 불러오지 못했습니다', error);
+      appToast.error('멤버 프로필을 불러오지 못했습니다', error);
       setShowProfileSheet(false);
     } finally {
       setIsProfileLoading(false);
@@ -53,8 +55,8 @@ const CommunityPostDetailPage: React.FC = () => {
 
   return (
     <PostDetailView
-      headerTitle="게시물"
-      backTo="/community"
+      headerTitle="모임 글"
+      backTo={backTo}
       post={post}
       isLoading={isLoading}
       comments={comments}
@@ -66,34 +68,27 @@ const CommunityPostDetailPage: React.FC = () => {
       isCreateCommentPending={createComment.isPending}
       isUpdateCommentPending={updateComment.isPending}
       onFetchNextComments={() => fetchNextPage()}
-      onAuthorClick={openProfile}
+      onAuthorClick={openMemberProfile}
       onToggleLike={() => toggleLike.mutateAsync(Boolean(post?.likedByMe)).then(() => undefined)}
       onUpdatePost={(data) => updatePost.mutateAsync(data).then(() => undefined)}
       onDeletePost={async () => {
         if (!postId) return;
         await deletePost.mutateAsync(postId);
-        navigate('/community', { replace: true });
+        navigate(backTo, { replace: true });
       }}
       onCreateComment={(content) => createComment.mutateAsync(content).then(() => undefined)}
       onUpdateComment={(commentId, content) => updateComment.mutateAsync({ commentId, content }).then(() => undefined)}
       onDeleteComment={(commentId) => deleteComment.mutateAsync(commentId).then(() => undefined)}
     >
-      <CommunityProfileSheet
+      <GroupMemberProfileSheet
         open={showProfileSheet}
+        groupId={id || ''}
         profile={profileTarget}
         isLoading={isProfileLoading}
         onClose={() => setShowProfileSheet(false)}
-        onGroupClick={(groupId) => {
-          setShowProfileSheet(false);
-          navigate(`/groups/${groupId}/intro`);
-        }}
-        onActivityClick={(activityPostId) => {
-          setShowProfileSheet(false);
-          navigate(`/community/posts/${activityPostId}`);
-        }}
       />
     </PostDetailView>
   );
 };
 
-export default CommunityPostDetailPage;
+export default GroupPostDetailPage;
