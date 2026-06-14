@@ -10,9 +10,9 @@ AWS Activate Founders 신청 화면에서 사용자가 로그인, 계정 연결,
 
 ## Readiness Verdict
 
-ALMOST READY.
+READY.
 
-신청 답변과 공개 근거는 준비됐다. 다만 `contact@timelink.cloud`는 AWS SES 수신 파이프라인과 Cloudflare DNS가 구성됐지만, SES 도메인 검증이 아직 `PENDING`이다. 신청을 바로 진행해야 하면 신청 연락처에는 검증된 founder Gmail을 사용하고, public product/contact에는 `contact@timelink.cloud`를 보조 연락처로 둔다. SES 검증이 `SUCCESS`가 된 뒤에는 `contact@timelink.cloud`를 주 연락처로 써도 된다.
+신청 답변, 공개 근거, 공식 연락 이메일이 준비됐다. `contact@timelink.cloud`는 AWS SES 도메인/DKIM 검증이 `SUCCESS`이고, Cloudflare DNS와 SES 수신 rule이 구성되어 있으며, 테스트 메일 수신과 forwarding mailbox 전달까지 확인됐다. AWS Activate 신청서의 회사 이메일 또는 연락 이메일에는 `contact@timelink.cloud`를 사용한다.
 
 Official AWS Apply URL:
 
@@ -46,14 +46,13 @@ Official AWS criteria checked on 2026-06-14:
 | Project/start date | 2026-06 |
 | Legal entity | Individual/solo founder unless a registered business exists |
 | Target market | Korean university students, study groups, team projects, clubs, side-project teams, small communities, friend groups |
+| Contact email | contact@timelink.cloud |
 
 ## Contact Field
 
-Use this conservative order:
+Use `contact@timelink.cloud` for the AWS Activate company email or contact email field.
 
-1. If AWS asks for the application/business email today, use the verified founder Gmail directly in AWS.
-2. If SES domain verification becomes `SUCCESS` before submission, use `contact@timelink.cloud`.
-3. Do not store personal address, phone, tax, billing, or identity verification data in this repository.
+Do not store personal address, phone, tax, billing, or identity verification data in this repository.
 
 ## Copy-Paste Answers
 

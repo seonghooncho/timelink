@@ -21,6 +21,9 @@ Timelink의 공개 연락처 `contact@timelink.cloud`를 AWS SES 기반 수신 �
 - Lambda function: `timelink-contact-forwarder`
 - Lambda role: `timelink-contact-forwarder-role`
 - Forward target: configured in the Lambda environment, not stored in this repository.
+- SES domain verification: `SUCCESS`
+- SES DKIM verification: `SUCCESS`
+- End-to-end test status: `contact@timelink.cloud` receives and forwards test email successfully.
 
 ## Cloudflare DNS Records
 
@@ -37,14 +40,14 @@ Add these records in Cloudflare DNS for `timelink.cloud`. Keep web-serving recor
 
 Cloudflare may display the full record name after saving, for example `wzij45sa2o62e4udoswoidjw3rxmjct7._domainkey.timelink.cloud`.
 
-## Manual Steps
+## Completed Manual Steps
 
-1. Open Cloudflare DNS for `timelink.cloud`.
-2. Add the MX, CNAME, SPF TXT, and DMARC TXT records above.
-3. Open the SES verification email sent to the forwarding mailbox and click the verification link.
-4. Wait for SES identity verification to become `SUCCESS`.
-5. Send a test email to `contact@timelink.cloud`.
-6. Confirm the raw email object appears in S3 and the forwarded message arrives in the forwarding mailbox.
+1. Cloudflare DNS records for SES receiving, SPF, DMARC, and DKIM were added.
+2. SES domain identity verification for `timelink.cloud` reached `SUCCESS`.
+3. SES DKIM verification for `timelink.cloud` reached `SUCCESS`.
+4. A test email to `contact@timelink.cloud` was received into S3.
+5. Lambda forwarding completed without an error after the IAM policy was constrained to `ses:FromAddress = contact@timelink.cloud`.
+6. The forwarded message arrived in the forwarding mailbox.
 
 ## Verification Commands
 
