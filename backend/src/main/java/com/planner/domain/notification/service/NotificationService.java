@@ -17,6 +17,7 @@ import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -175,7 +176,10 @@ public class NotificationService {
                 userId,
                 "모임 일정이 추가되었습니다",
                 "%s 일정이 추가되었습니다.".formatted(schedule.getTitle()),
-                Boolean.TRUE.equals(schedule.getIsImportant())
+                Boolean.TRUE.equals(schedule.getIsImportant()),
+                "SCHEDULE",
+                resolveScheduleTargetId(schedule),
+                resolveScheduleTargetUrl(schedule)
         );
     }
 
@@ -184,7 +188,10 @@ public class NotificationService {
                 userId,
                 "모임 일정이 변경되었습니다",
                 "%s 일정이 변경되었습니다.".formatted(schedule.getTitle()),
-                Boolean.TRUE.equals(schedule.getIsImportant())
+                Boolean.TRUE.equals(schedule.getIsImportant()),
+                "SCHEDULE",
+                resolveScheduleTargetId(schedule),
+                resolveScheduleTargetUrl(schedule)
         );
     }
 
@@ -193,7 +200,10 @@ public class NotificationService {
                 userId,
                 "모임 일정이 삭제되었습니다",
                 "%s 일정이 삭제되었습니다.".formatted(schedule.getTitle()),
-                Boolean.TRUE.equals(schedule.getIsImportant())
+                Boolean.TRUE.equals(schedule.getIsImportant()),
+                "SCHEDULE",
+                resolveScheduleTargetId(schedule),
+                resolveScheduleTargetUrl(schedule)
         );
     }
 
@@ -245,9 +255,9 @@ public class NotificationService {
                 event.getContent(),
                 event.getCategory(),
                 Boolean.TRUE.equals(event.getImportant()),
-                null,
-                null,
-                null,
+                event.getTargetType(),
+                event.getTargetId(),
+                event.getTargetUrl(),
                 isPushEnabled(settings)
         );
         reminderSchedulingService.deleteJobRecord(event.getUserId(), event.getJobId());
@@ -278,6 +288,17 @@ public class NotificationService {
             return TYPE_GROUP.equals(notification.getType()) || CATEGORY_GROUP.equals(notification.getCategory());
         }
         return type.equals(notification.getType());
+    }
+
+    private String resolveScheduleTargetId(Schedule schedule) {
+        if (StringUtils.hasText(schedule.getGroupScheduleId())) {
+            return schedule.getGroupScheduleId();
+        }
+        return schedule.getId();
+    }
+
+    private String resolveScheduleTargetUrl(Schedule schedule) {
+        return StringUtils.hasText(schedule.getGroupId()) ? "/groups/%s".formatted(schedule.getGroupId()) : "/calendar";
     }
 
     private void createNotificationIfAbsent(

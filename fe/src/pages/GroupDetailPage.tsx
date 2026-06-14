@@ -1161,7 +1161,8 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorCl
             type="button"
             onClick={handleToggleLike}
             disabled={toggleLike.isPending}
-            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
+            aria-label={post.likedByMe ? '좋아요 취소' : '좋아요'}
+            className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-colors ${
               post.likedByMe
                 ? 'border-primary/30 bg-primary/10 text-primary'
                 : 'border-border bg-background text-muted-foreground'
@@ -1173,10 +1174,11 @@ const GroupPostItem: React.FC<GroupPostItemProps> = ({ groupId, post, onAuthorCl
           <button
             type="button"
             onClick={() => setShowComments((prev) => !prev)}
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground"
+            className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 text-[11px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={`댓글 ${post.commentCount ?? 0}개 ${showComments ? '접기' : '보기'}`}
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            댓글 {post.commentCount ?? 0}
+            댓글 {post.commentCount ?? 0}개
           </button>
         </>
       }

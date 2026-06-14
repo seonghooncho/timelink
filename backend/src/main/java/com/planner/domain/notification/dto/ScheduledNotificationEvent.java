@@ -14,4 +14,7 @@ public class ScheduledNotificationEvent {
     private Boolean important;
     private String scheduleId;
     private String reminderType;
+    private String targetType;
+    private String targetId;
+    private String targetUrl;
 }

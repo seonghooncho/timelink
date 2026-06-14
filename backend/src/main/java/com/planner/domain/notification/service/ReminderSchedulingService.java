@@ -163,6 +163,9 @@ public class ReminderSchedulingService {
         event.setImportant(Boolean.TRUE.equals(schedule.getIsImportant()));
         event.setScheduleId(schedule.getId());
         event.setReminderType(reminderType);
+        event.setTargetType("SCHEDULE");
+        event.setTargetId(schedule.getId());
+        event.setTargetUrl(resolveScheduleTargetUrl(schedule));
 
         createScheduler(schedulerName, scheduledAt, event);
         ReminderJob job = ReminderJob.builder()
@@ -183,6 +186,12 @@ public class ReminderSchedulingService {
                 .updatedAt(Instant.now().toString())
                 .build();
         jobRepository.save(job);
+    }
+
+    private String resolveScheduleTargetUrl(Schedule schedule) {
+        return StringUtils.hasText(schedule.getGroupId())
+                ? "/groups/%s".formatted(schedule.getGroupId())
+                : "/calendar";
     }
 
     private void createScheduler(String schedulerName, Instant scheduledAt, ScheduledNotificationEvent event) {

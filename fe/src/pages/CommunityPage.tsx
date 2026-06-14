@@ -285,10 +285,15 @@ const CommunityPostListItem: React.FC<CommunityPostListItemProps> = ({ post, onC
             <Heart className={`h-3.5 w-3.5 ${post.likedByMe ? 'fill-primary' : ''}`} />
             {post.likeCount ?? 0}
           </button>
-          <span className="flex h-8 items-center gap-1.5 rounded-xl border border-transparent px-1 text-[11px] font-bold text-muted-foreground">
+          <button
+            type="button"
+            onClick={onClick}
+            className="flex h-8 items-center gap-1.5 rounded-xl border border-transparent px-1 text-[11px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={`댓글 ${post.commentCount ?? 0}개 보기`}
+          >
             <MessageCircle className="h-3.5 w-3.5" />
-            {post.commentCount ?? 0}
-          </span>
+            댓글 {post.commentCount ?? 0}개
+          </button>
         </>
       }
     />

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Menu, Share2, X } from "lucide-react";
+import { Check, Copy, Download, Menu, Share2, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import {
   BeforeInstallPromptEvent,
-  isIos,
-  isMobileDevice,
+  getPwaInstallEnvironment,
   isStandalonePwa,
 } from "@/utils/pwa";
+import { appToast } from "@/lib/appToast";
 
 const DISMISSED_UNTIL_KEY = "timelink:pwa-install-dismissed-until";
 const DISMISS_DAYS = 7;
@@ -22,6 +22,14 @@ const SUPPRESSED_PATH_PATTERNS = [
   /^\/groups\/new(?:\/|$)/,
   /^\/groups\/[^/]+\/coordination(?:\/|$)/,
 ];
+const CONTEXTUAL_PATH_PATTERNS = [
+  /^\/mypage(?:\/|$)/,
+  /^\/groups(?:\/|$)/,
+  /^\/groups\/join\/[^/]+/,
+  /^\/groups\/[^/]+\/intro(?:\/|$)/,
+  /^\/invite\/[^/]+/,
+  /^\/notifications(?:\/|$)/,
+];
 
 function isDismissed() {
   const dismissedUntil = Number(localStorage.getItem(DISMISSED_UNTIL_KEY) || 0);
@@ -32,16 +40,20 @@ function isSuppressedPath(pathname: string) {
   return SUPPRESSED_PATH_PATTERNS.some((pattern) => pattern.test(pathname));
 }
 
+function isContextualPath(pathname: string) {
+  return CONTEXTUAL_PATH_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
 const PwaInstallPrompt = () => {
   const { pathname } = useLocation();
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const iosDevice = useMemo(() => isIos(), []);
-  const mobileDevice = useMemo(() => isMobileDevice(), []);
+  const [copied, setCopied] = useState(false);
+  const environment = useMemo(() => getPwaInstallEnvironment(Boolean(installEvent)), [installEvent]);
 
   useEffect(() => {
-    if (isStandalonePwa() || isSuppressedPath(pathname) || isDismissed()) {
+    if (isStandalonePwa() || isSuppressedPath(pathname) || !isContextualPath(pathname) || isDismissed()) {
       setVisible(false);
       return;
     }
@@ -68,7 +80,7 @@ const PwaInstallPrompt = () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, [iosDevice, pathname]);
+  }, [pathname]);
 
   const dismissPrompt = useCallback(() => {
     localStorage.setItem(DISMISSED_UNTIL_KEY, String(Date.now() + DISMISS_MS));
@@ -92,16 +104,23 @@ const PwaInstallPrompt = () => {
     }
   }, [installEvent]);
 
+  const copyCurrentLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      appToast.success("현재 링크를 복사했습니다");
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch (error) {
+      appToast.error("링크를 복사하지 못했습니다", error);
+    }
+  }, []);
+
   if (!visible || isStandalonePwa()) {
     return null;
   }
 
-  const showInstallButton = Boolean(installEvent && !mobileDevice);
-  const guide = iosDevice
-    ? "공유 → 홈 화면에 추가를 누르면 앱처럼 열려요."
-    : showInstallButton
-      ? "설치 버튼을 누르면 홈 화면에 바로 추가돼요."
-      : "브라우저 메뉴 → 앱 설치를 누르면 바로 열 수 있어요.";
+  const showInstallButton = environment.canNativePrompt && Boolean(installEvent);
+  const guide = environment.guide;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 app-layer-notice px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
@@ -117,6 +136,7 @@ const PwaInstallPrompt = () => {
           <p className="text-[13px] font-semibold leading-5 text-foreground">
             Timelink를 홈 화면에 추가
           </p>
+          <p className="mt-0.5 text-[10px] font-semibold text-primary">{environment.label}</p>
           <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{guide}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -130,14 +150,27 @@ const PwaInstallPrompt = () => {
                 <Download className="h-3.5 w-3.5" aria-hidden="true" />
                 {installing ? "설치 중" : "설치"}
               </button>
+            ) : environment.showCopyLink ? (
+              <button
+                type="button"
+                className="pressable inline-flex h-8 items-center gap-1.5 rounded-xl border border-border/80 bg-background/80 px-3 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted"
+                onClick={copyCurrentLink}
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                )}
+                {copied ? "복사됨" : environment.actionLabel}
+              </button>
             ) : (
               <span className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-border/80 bg-background/80 px-3 text-[11px] font-medium text-foreground">
-                {iosDevice ? (
+                {environment.kind === "ios-safari" || environment.kind === "ios-chrome" ? (
                   <Share2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                 ) : (
                   <Menu className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                 )}
-                {iosDevice ? "공유 → 홈 화면에 추가" : "메뉴 → 앱 설치"}
+                {environment.actionLabel}
               </span>
             )}
           </div>

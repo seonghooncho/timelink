@@ -163,6 +163,24 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("createGroupScheduleNotification — 그룹 일정 targetUrl을 함께 저장한다")
+    void createGroupScheduleNotification_savesScheduleTarget() {
+        Schedule schedule = sampleSchedule("s1", "2026-06-20T09:00:00Z");
+        schedule.setGroupId("group-1");
+        schedule.setGroupScheduleId("group-schedule-1");
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, true, false)));
+        when(repository.findByUserIdAndNotifId(eq("user1"), anyString())).thenReturn(Optional.empty());
+
+        service.createGroupScheduleNotification("user1", schedule);
+
+        verify(repository).saveNotification(argThat(notification ->
+                "SCHEDULE".equals(notification.getTargetType())
+                        && "group-schedule-1".equals(notification.getTargetId())
+                        && "/groups/group-1".equals(notification.getTargetUrl())
+        ));
+    }
+
+    @Test
     @DisplayName("markRead — 직접 키 조회로 읽음 처리")
     void markRead_success() {
         Notification n = sampleNotif("n1", "schedule", false);
@@ -294,6 +312,9 @@ class NotificationServiceTest {
         event.setContent("3월 10일 09:00 · 회의");
         event.setCategory("task");
         event.setImportant(false);
+        event.setTargetType("SCHEDULE");
+        event.setTargetId("s1");
+        event.setTargetUrl("/calendar");
 
         when(repository.findSettings("user1")).thenReturn(Optional.of(settings(true, false, true)));
         when(repository.findByUserIdAndNotifId("user1", "remind-one-day-s1"))
@@ -305,6 +326,9 @@ class NotificationServiceTest {
                 "remind-one-day-s1".equals(notification.getId())
                         && "schedule".equals(notification.getType())
                         && notification.getContent().contains("회의")
+                        && "SCHEDULE".equals(notification.getTargetType())
+                        && "s1".equals(notification.getTargetId())
+                        && "/calendar".equals(notification.getTargetUrl())
         ));
         verify(webPushService).sendNotification(eq("user1"), any(Notification.class));
         verify(reminderSchedulingService).deleteJobRecord("user1", "one-day-s1");

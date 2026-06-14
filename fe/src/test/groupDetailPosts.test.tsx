@@ -466,7 +466,7 @@ describe('GroupDetailPage group posts', () => {
     renderPage();
 
     await screen.findByText('내일 준비물');
-    fireEvent.click(screen.getByRole('button', { name: '댓글 0' }));
+    fireEvent.click(screen.getByRole('button', { name: '댓글 0개 보기' }));
     fireEvent.change(screen.getByPlaceholderText('댓글을 입력해주세요'), { target: { value: '확인했습니다.' } });
     fireEvent.click(screen.getByRole('button', { name: '댓글 등록' }));
 

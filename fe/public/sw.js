@@ -1,5 +1,38 @@
-const CACHE_NAME = "timelink-static-v2";
+const CACHE_NAME = "timelink-static-v3";
 const APP_SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/applogo.png"];
+
+const hasControlCharacter = (value) => {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 31 || code === 127) return true;
+  }
+  return false;
+};
+
+const isSafeInternalPath = (value) => {
+  if (!value || typeof value !== "string") return false;
+  const path = value.trim();
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  if (hasControlCharacter(path)) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return false;
+  return true;
+};
+
+const resolveNotificationTarget = (data) => {
+  if (isSafeInternalPath(data?.url)) return data.url.trim();
+  const targetType = typeof data?.targetType === "string" ? data.targetType.trim().toUpperCase() : "";
+  const targetId = typeof data?.targetId === "string" ? data.targetId.trim() : "";
+
+  if (targetType && targetId) {
+    const id = encodeURIComponent(targetId);
+    if (targetType === "GROUP_JOIN_REQUEST") return `/groups/${id}?panel=joinRequests`;
+    if (targetType === "GROUP") return `/groups/${id}`;
+    if (targetType === "COMMUNITY_POST" || targetType === "POST") return `/community/posts/${id}`;
+    if (targetType === "SCHEDULE") return "/calendar";
+  }
+
+  return "/notifications";
+};
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -64,6 +97,8 @@ self.addEventListener("push", (event) => {
     badge: "/applogo.png",
     data: {
       url: data.url || fallback.url,
+      targetType: data.targetType,
+      targetId: data.targetId,
       notificationId: data.notificationId,
     },
   };
@@ -73,15 +108,14 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || "/notifications";
+  const targetUrl = resolveNotificationTarget(event.notification.data);
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         const url = new URL(client.url);
         if (url.origin === self.location.origin) {
-          client.navigate(targetUrl);
-          return client.focus();
+          return client.navigate(targetUrl).then((nextClient) => (nextClient || client).focus());
         }
       }
       return self.clients.openWindow(targetUrl);
