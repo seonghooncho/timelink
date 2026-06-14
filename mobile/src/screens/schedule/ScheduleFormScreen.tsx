@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ImageIcon, LoaderCircle } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,9 +9,9 @@ import { AppButton } from '../../components/common/AppButton';
 import { AppTextInput } from '../../components/common/AppTextInput';
 import { colors, radius } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
-import { aiApi } from '../../services/api';
+import { aiApi, groupApi } from '../../services/api';
 import { useCreateSchedule } from '../../hooks/useSchedules';
-import { ScheduleCategory } from '../../types';
+import { GroupMember, ScheduleCategory } from '../../types';
 import { isoDate } from '../../utils/date';
 import {
   DEFAULT_SCHEDULE_DURATION,
@@ -22,12 +22,13 @@ import {
   validateScheduleDateTime,
 } from '../../utils/scheduleTime';
 import { uploadProcessedImage, validatePickedImage, type PickedImageAsset } from '../../utils/images';
+import { SCHEDULE_CONTENT_MAX_LENGTH, SCHEDULE_TITLE_MAX_LENGTH } from '../../constants/textLimits';
 
 const categories: Array<{ value: ScheduleCategory; label: string }> = [
   { value: 'task', label: '할 일' },
   { value: 'appointment', label: '약속' },
   { value: 'repeat', label: '반복' },
-  { value: 'group', label: '그룹' },
+  { value: 'group', label: '모임' },
 ];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScheduleForm'>;
@@ -48,9 +49,30 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
   const [duration, setDuration] = useState(DEFAULT_SCHEDULE_DURATION);
   const [isImportant, setIsImportant] = useState(false);
   const [hasAlarm, setHasAlarm] = useState(false);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [participantUserIds, setParticipantUserIds] = useState<string[]>([]);
+  const [memberQuery, setMemberQuery] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [pickedImage, setPickedImage] = useState<PickedImageAsset | null>(null);
+
+  useEffect(() => {
+    if (!groupContext.groupId) return;
+    groupApi.getMembers(groupContext.groupId)
+      .then((items) => {
+        setMembers(items);
+        setParticipantUserIds(items.map((member) => member.userId));
+      })
+      .catch(() => setMembers([]));
+  }, [groupContext.groupId]);
+
+  const filteredMembers = useMemo(() => {
+    const query = memberQuery.trim().toLowerCase();
+    if (!query) return members;
+    return members.filter((member) => (member.nickname || member.userId).toLowerCase().includes(query));
+  }, [memberQuery, members]);
+
+  const allSelected = members.length > 0 && members.every((member) => participantUserIds.includes(member.userId));
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -109,6 +131,19 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
       return;
     }
 
+    const startAt = new Date(formatLocalDateTime(startDate, startTime));
+    if (startAt.getTime() < Date.now()) {
+      Alert.alert('지난 일정입니다', '이미 지난 시간입니다. 그래도 만들까요?', [
+        { text: '취소', style: 'cancel' },
+        { text: '만들기', onPress: () => submitSchedule() },
+      ]);
+      return;
+    }
+
+    await submitSchedule();
+  };
+
+  const submitSchedule = async () => {
     try {
       const uploadedImage = pickedImage
         ? await uploadProcessedImage('SCHEDULE', pickedImage)
@@ -123,18 +158,19 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
         duration,
         hasAlarm,
         groupId: category === 'group' ? groupContext.groupId : undefined,
+        participantUserIds: category === 'group' ? participantUserIds : undefined,
         imageId: uploadedImage?.imageId,
       });
       navigation.replace('MainTabs');
     } catch (error) {
-      const message = error instanceof Error ? error.message : '일정 등록에 실패했습니다.';
+      const message = error instanceof Error ? error.message : '일정 생성에 실패했습니다.';
       Alert.alert('등록 실패', message);
     }
   };
 
   return (
     <Screen>
-      <PageHeader title="일정 등록" showBack />
+      <PageHeader title="일정 생성" showBack />
 
       <View style={styles.content}>
         <Pressable onPress={handlePickImage} disabled={isAnalyzing} style={styles.photoCard}>
@@ -158,7 +194,7 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
               ) : (
                 <>
                   <View style={styles.photoIconCircle}><Camera color={colors.primary} size={20} /></View>
-                  <Text style={styles.photoPrimary}>사진으로 일정 등록</Text>
+                  <Text style={styles.photoPrimary}>사진으로 일정 생성</Text>
                   <Text style={styles.photoSecondary}>포스터, 메시지, 캘린더 등을 찍으면 AI가 자동으로 채워줘요</Text>
                 </>
               )}
@@ -166,28 +202,72 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
           )}
         </Pressable>
 
-        <View>
-          <Text style={styles.fieldLabel}>카테고리</Text>
-          <View style={styles.categoryRow}>
-            {availableCategories.map((item) => (
-              <Pressable
-                key={item.value}
-                onPress={() => setCategory(item.value)}
-                style={[styles.categoryChip, category === item.value ? styles.categoryChipActive : null]}
-              >
-                <Text style={[styles.categoryLabel, category === item.value ? styles.categoryLabelActive : null]}>{item.label}</Text>
-              </Pressable>
-            ))}
+        {!groupContext.groupId ? (
+          <View>
+            <Text style={styles.fieldLabel}>카테고리</Text>
+            <View style={styles.categoryRow}>
+              {availableCategories.map((item) => (
+                <Pressable
+                  key={item.value}
+                  onPress={() => setCategory(item.value)}
+                  style={[styles.categoryChip, category === item.value ? styles.categoryChipActive : null]}
+                >
+                  <Text style={[styles.categoryLabel, category === item.value ? styles.categoryLabelActive : null]}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-          {groupContext.groupId ? (
-            <Text style={styles.groupHint}>현재 그룹: {groupContext.groupName || '선택된 그룹'}</Text>
-          ) : (
-            <Text style={styles.groupHint}>그룹 일정은 그룹 상세 화면에서 만들 수 있습니다.</Text>
-          )}
-        </View>
+        ) : (
+          <View>
+            <Text style={styles.fieldLabel}>카테고리</Text>
+            <View style={[styles.categoryChip, styles.categoryChipActive, styles.fixedCategoryChip]}>
+              <Text style={styles.categoryLabelActive}>모임</Text>
+            </View>
+            <Text style={styles.groupHint}>현재 모임: {groupContext.groupName || '선택된 모임'}</Text>
+          </View>
+        )}
 
-        <AppTextInput label="제목" value={title} onChangeText={setTitle} placeholder="일정 제목을 입력하세요" />
-        <AppTextInput label="내용" value={content} onChangeText={setContent} placeholder="일정 내용을 입력하세요" multiline />
+        <AppTextInput label={`제목 ${title.length}/${SCHEDULE_TITLE_MAX_LENGTH}`} value={title} onChangeText={setTitle} maxLength={SCHEDULE_TITLE_MAX_LENGTH} placeholder="일정 제목을 입력하세요" />
+        <AppTextInput label={`내용 ${content.length}/${SCHEDULE_CONTENT_MAX_LENGTH}`} value={content} onChangeText={setContent} maxLength={SCHEDULE_CONTENT_MAX_LENGTH} placeholder="일정 내용을 입력하세요" multiline />
+
+        {groupContext.groupId ? (
+          <View style={styles.memberSection}>
+            <View style={styles.memberSectionHeader}>
+              <Text style={styles.fieldLabel}>참여 멤버</Text>
+              <Pressable
+                onPress={() => {
+                  if (allSelected) setParticipantUserIds([]);
+                  else setParticipantUserIds(members.map((member) => member.userId));
+                }}
+                style={styles.selectAllButton}
+              >
+                <Text style={styles.selectAllLabel}>{allSelected ? '전체 해제' : '전체 선택'}</Text>
+              </Pressable>
+            </View>
+            <AppTextInput value={memberQuery} onChangeText={setMemberQuery} placeholder="이름 검색" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberScroll}>
+              {filteredMembers.map((member) => {
+                const selected = participantUserIds.includes(member.userId);
+                return (
+                  <Pressable
+                    key={member.id}
+                    onPress={() => {
+                      setParticipantUserIds((prev) => selected
+                        ? prev.filter((userId) => userId !== member.userId)
+                        : [...prev, member.userId]);
+                    }}
+                    style={[styles.memberChip, selected ? styles.memberChipSelected : null]}
+                  >
+                    <Text numberOfLines={1} style={[styles.memberChipName, selected ? styles.memberChipNameSelected : null]}>
+                      {member.nickname || member.userId}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Text style={styles.groupHint}>{participantUserIds.length}명 선택</Text>
+          </View>
+        ) : null}
 
         <AppTextInput label="날짜" value={startDate} onChangeText={setStartDate} placeholder="2026-06-13" />
 
@@ -234,7 +314,7 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
           </Pressable>
         </View>
 
-        <AppButton label={createMutation.isPending ? '등록 중...' : '등록하기'} onPress={handleSubmit} loading={createMutation.isPending} />
+        <AppButton label={createMutation.isPending ? '생성 중...' : '생성하기'} onPress={handleSubmit} loading={createMutation.isPending} />
       </View>
     </Screen>
   );
@@ -338,6 +418,52 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 11,
     color: colors.mutedForeground,
+  },
+  fixedCategoryChip: {
+    alignSelf: 'flex-start',
+  },
+  memberSection: {
+    gap: 10,
+  },
+  memberSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectAllButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.categoryGroupLight,
+  },
+  selectAllLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.categoryGroupStrong,
+  },
+  memberScroll: {
+    gap: 8,
+  },
+  memberChip: {
+    maxWidth: 110,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  memberChipSelected: {
+    borderColor: colors.categoryGroup,
+    backgroundColor: colors.categoryGroupLight,
+  },
+  memberChipName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.mutedForeground,
+  },
+  memberChipNameSelected: {
+    color: colors.categoryGroupStrong,
   },
   grid: {
     flexDirection: 'row',

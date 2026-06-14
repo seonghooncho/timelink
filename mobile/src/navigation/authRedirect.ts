@@ -93,6 +93,11 @@ export function navigateAfterAuth(navigation: RootNavigation, redirectPath: stri
     return;
   }
 
+  if (pathname === '/community') {
+    resetMainTabs('Community');
+    return;
+  }
+
   if (pathname === '/mypage') {
     resetMainTabs('MyPage');
     return;
@@ -155,6 +160,27 @@ export function navigateAfterAuth(navigation: RootNavigation, redirectPath: stri
     return;
   }
 
+  const groupIntro = pathname.match(/^\/groups\/([^/]+)\/intro$/);
+  if (groupIntro) {
+    resetWithGroups({
+      name: 'GroupIntro',
+      params: { id: decodeURIComponent(groupIntro[1]) },
+    });
+    return;
+  }
+
+  const communityPost = pathname.match(/^\/community\/posts\/([^/]+)$/);
+  if (communityPost) {
+    navigation.reset({
+      index: 1,
+      routes: [
+        { name: 'MainTabs', params: { screen: 'Community' } },
+        { name: 'CommunityPostDetail', params: { postId: decodeURIComponent(communityPost[1]) } },
+      ],
+    });
+    return;
+  }
+
   const groupDetail = pathname.match(/^\/groups\/([^/]+)$/);
   if (groupDetail) {
     resetWithGroups({
@@ -173,6 +199,7 @@ type RootStackResetRoute =
   | { name: 'ScheduleForm' }
   | { name: 'GroupJoin'; params: RootStackParamList['GroupJoin'] }
   | { name: 'GroupDetail'; params: RootStackParamList['GroupDetail'] }
+  | { name: 'GroupIntro'; params: RootStackParamList['GroupIntro'] }
   | { name: 'TimeCoordination'; params: RootStackParamList['TimeCoordination'] }
   | { name: 'CoordinationTimetable'; params: RootStackParamList['CoordinationTimetable'] };
 

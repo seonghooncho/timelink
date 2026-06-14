@@ -90,5 +90,5 @@ export function processingImageLabel(status?: ImageStatus) {
 }
 
 export function completedImageUrl(result: ImageUploadResponse) {
-  return result.status === 'COMPLETED' ? result.url : undefined;
+  return result.status === 'COMPLETED' ? (result.thumbnailUrl || result.url) : undefined;
 }

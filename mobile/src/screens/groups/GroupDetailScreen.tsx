@@ -1,76 +1,125 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Link as LinkIcon, LogOut, UserPlus, Users } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, Clock3, EllipsisVertical, PenLine, UserPlus, Users } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 import { Screen } from '../../components/layout/Screen';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { SectionCard } from '../../components/common/SectionCard';
 import { AppButton } from '../../components/common/AppButton';
-import { GroupAvatar, PersonAvatar } from '../../components/common/GroupAvatar';
 import { EmptyState } from '../../components/common/EmptyState';
 import { LoadingState } from '../../components/common/LoadingState';
-import { colors, radius } from '../../constants/theme';
+import { GroupAvatar, PersonAvatar } from '../../components/common/GroupAvatar';
+import { ScheduleDetailSheet } from '../../components/schedule/ScheduleDetailSheet';
+import { PostComposerModal } from '../../components/community/PostComposerModal';
+import { PostListItem } from '../../components/community/PostListItem';
+import { colors, radius, shadows } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/types';
-import { coordinationApi, groupApi } from '../../services/api';
-import { useGroupDetail } from '../../hooks/useGroups';
-import { useSchedules } from '../../hooks/useSchedules';
+import { groupApi, groupPostApi } from '../../services/api';
+import { useGroupDetail, useGroupSchedules } from '../../hooks/useGroups';
+import { useCreateGroupPost, useGroupPosts } from '../../hooks/useCommunity';
+import { useDeleteSchedule, useLeaveScheduleParticipation } from '../../hooks/useSchedules';
 import { CoordinationSummary, GroupMember, Schedule } from '../../types';
+import { coordinationApi } from '../../services/api';
 import { formatDateTimeDuration } from '../../utils/date';
-import { getCategoryLabel } from '../../utils/category';
+import { uploadProcessedImage, type PickedImageAsset } from '../../utils/images';
 import { env } from '../../config/env';
-import { useAuth } from '../../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
-const MEMBER_PREVIEW_LIMIT = 3;
-const GROUP_SCHEDULE_PREVIEW_LIMIT = 3;
-const COORDINATION_PREVIEW_LIMIT = 2;
+const COORDINATION_PREVIEW_LIMIT = 4;
 
 export function GroupDetailScreen({ navigation, route }: Props) {
-  const queryClient = useQueryClient();
   const { id } = route.params;
-  const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const { data: group, isLoading } = useGroupDetail(id);
-  const { data: schedules = [] } = useSchedules();
+  const [showPastSchedules, setShowPastSchedules] = useState(false);
+  const { data: groupSchedules = [], isLoading: schedulesLoading } = useGroupSchedules(id, showPastSchedules);
+  const { data: posts = [], isLoading: postsLoading } = useGroupPosts(id);
+  const createPost = useCreateGroupPost(id);
+  const deleteSchedule = useDeleteSchedule();
+  const leaveParticipation = useLeaveScheduleParticipation();
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [coordinations, setCoordinations] = useState<CoordinationSummary[]>([]);
-  const [membersExpanded, setMembersExpanded] = useState(false);
-  const [schedulesExpanded, setSchedulesExpanded] = useState(false);
-  const [coordinationsExpanded, setCoordinationsExpanded] = useState(false);
+  const [showClosedCoordinations, setShowClosedCoordinations] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [memberOnlyPost, setMemberOnlyPost] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   useEffect(() => {
     groupApi.getMembers(id).then(setMembers).catch(() => setMembers([]));
-    coordinationApi.getAll(id, 'active').then(setCoordinations).catch(() => setCoordinations([]));
   }, [id]);
 
-  const groupSchedules = useMemo(
-    () => schedules
-      .filter((schedule) => schedule.groupId === id)
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [id, schedules],
-  );
+  useEffect(() => {
+    coordinationApi.getAll(id, showClosedCoordinations ? undefined : 'active')
+      .then((items) => setCoordinations(showClosedCoordinations ? items : items.filter((item) => item.status !== 'closed')))
+      .catch(() => setCoordinations([]));
+  }, [id, showClosedCoordinations]);
+
+  const inviteLink = group?.inviteCode ? `${env.webAppOrigin}/groups/join/${group.inviteCode}` : '';
+  const isManager = group?.myRole === 'manager';
+  const visibleCoordinations = coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
+  const headerTitle = group?.name || '모임';
 
   const sortedMembers = useMemo(
     () => [...members].sort((a, b) => {
-      if (a.role !== b.role) {
-        return a.role === 'manager' ? -1 : 1;
-      }
+      if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
       return a.joinedAt.localeCompare(b.joinedAt);
     }),
     [members],
   );
 
-  const previewMembers = sortedMembers.slice(0, MEMBER_PREVIEW_LIMIT);
-  const visibleSchedules = schedulesExpanded ? groupSchedules : groupSchedules.slice(0, GROUP_SCHEDULE_PREVIEW_LIMIT);
-  const visibleCoordinations = coordinationsExpanded ? coordinations : coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
-  const inviteLink = group ? `${env.webAppOrigin}/groups/join/${group.inviteCode}` : '';
+  const handlePostSubmit = async (data: { title: string; content: string; image?: PickedImageAsset | null }) => {
+    try {
+      const post = await createPost.mutateAsync({ title: data.title, content: data.content, memberOnly: memberOnlyPost });
+      if (data.image) {
+        const uploaded = await uploadProcessedImage('GROUP_POST', data.image, post.id);
+        await groupPostApi.updatePost(id, post.id, { imageId: uploaded.imageId });
+        await queryClient.invalidateQueries({ queryKey: ['groups', id, 'posts'] });
+      }
+      setComposerOpen(false);
+      setMemberOnlyPost(false);
+      navigation.navigate('CommunityPostDetail', { groupId: id, postId: post.id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '모임 글 작성에 실패했습니다.';
+      Alert.alert('작성 실패', message);
+    }
+  };
+
+  const handleDeleteSchedule = (schedule: Schedule) => {
+    Alert.alert('일정을 삭제할까요?', '작성자가 삭제하면 참여자의 캘린더에서도 제거됩니다.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => {
+          deleteSchedule.mutate(schedule.id);
+          setSelectedSchedule(null);
+        },
+      },
+    ]);
+  };
+
+  const handleLeaveParticipation = (schedule: Schedule) => {
+    Alert.alert('약속에서 빠질까요?', '내 캘린더에서만 이 약속이 사라집니다.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '빠지기',
+        style: 'destructive',
+        onPress: () => {
+          leaveParticipation.mutate(schedule.id);
+          setSelectedSchedule(null);
+        },
+      },
+    ]);
+  };
 
   if (isLoading) {
     return (
       <Screen>
-        <PageHeader title="나의 그룹" showBack />
+        <PageHeader title="모임" showBack />
         <LoadingState />
       </Screen>
     );
@@ -79,390 +128,441 @@ export function GroupDetailScreen({ navigation, route }: Props) {
   if (!group) {
     return (
       <Screen>
-        <PageHeader title="나의 그룹" showBack />
-        <EmptyState title="그룹을 찾을 수 없습니다" />
+        <PageHeader title="모임" showBack />
+        <EmptyState title="모임을 찾을 수 없습니다" />
       </Screen>
     );
   }
 
   return (
-    <Screen>
-      <PageHeader title="나의 그룹" showBack />
+    <Screen contentContainerStyle={{ paddingBottom: 156 }}>
+      <PageHeader
+        title={headerTitle}
+        showBack
+        rightElement={(
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => setMembersOpen(true)} style={styles.memberHeaderButton}>
+              <Users size={16} color={colors.mutedForeground} />
+              <Text style={styles.memberHeaderText}>{members.length > 99 ? '99+' : members.length}</Text>
+            </Pressable>
+            <Pressable onPress={() => setMenuOpen(true)} style={styles.iconButton}>
+              <EllipsisVertical size={20} color={colors.foreground} />
+            </Pressable>
+          </View>
+        )}
+      />
 
       <View style={styles.content}>
-        <SectionCard>
-          <View style={styles.groupHeader}>
-            <GroupAvatar image={group.imageUrl} name={group.name} size="lg" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text style={styles.groupDescription}>{group.description || '함께 일정을 관리하는 그룹입니다.'}</Text>
+        <Pressable onPress={() => navigation.navigate('GroupIntro', { id })} style={styles.groupSummary}>
+          <GroupAvatar image={group.imageUrl} thumbnail={group.thumbnailUrl} name={group.name} size="lg" />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.groupNameLine}>
+              <Text numberOfLines={1} style={styles.groupName}>{group.name}</Text>
+              <ChevronRight size={16} color={colors.mutedForeground} />
             </View>
-            <View style={styles.memberPill}>
-              <Text style={styles.memberPillText}>멤버 {members.length}명</Text>
-            </View>
+            <Text numberOfLines={2} style={styles.groupDescription}>{group.description || '함께 약속과 시간을 맞추는 모임입니다.'}</Text>
           </View>
+        </Pressable>
 
-          <View style={styles.actionRow}>
-            <AppButton
-              label="멤버 초대"
-              variant="secondary"
-              onPress={() => {
-                Clipboard.setStringAsync(inviteLink).then(() => {
-                  Alert.alert('복사 완료', '초대 링크를 복사했습니다.');
-                }).catch(() => {
-                  Alert.alert('복사 실패', '링크 복사에 실패했습니다.');
-                });
-              }}
-              style={{ flex: 1 }}
-            />
-            <AppButton
-              label="링크 공유"
-              onPress={async () => {
-                try {
-                  await Share.share({
-                    title: `${group.name} 그룹 초대`,
-                    message: `${group.name} 그룹에 참여하세요!\n${inviteLink}`,
-                    url: inviteLink,
-                  });
-                } catch {
-                  Alert.alert('공유 실패', '링크 공유에 실패했습니다.');
-                }
-              }}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </SectionCard>
-
-        <SectionCard>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>참여 멤버</Text>
-              <Text style={styles.sectionMeta}>({members.length}명)</Text>
-            </View>
-
-            <View style={styles.memberPreviewRow}>
-              {previewMembers.map((member) => (
-                <View key={member.id} style={styles.memberPreviewChip}>
-                  <PersonAvatar image={member.avatarUrl} name={member.nickname || member.userId} size={28} />
-                  <View style={{ minWidth: 0 }}>
-                    <Text numberOfLines={1} style={styles.memberPreviewName}>{member.nickname || member.userId}</Text>
-                    <Text style={styles.memberPreviewRole}>{member.role === 'manager' ? '관리자' : '멤버'}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {sortedMembers.length > MEMBER_PREVIEW_LIMIT ? (
-            <Pressable onPress={() => setMembersExpanded((prev) => !prev)} style={styles.moreButton}>
-              <Text style={styles.moreButtonLabel}>{membersExpanded ? '접기' : '더보기'}</Text>
+            <Text style={styles.sectionTitle}>일정 ({groupSchedules.length}개)</Text>
+            <Pressable onPress={() => setShowPastSchedules((prev) => !prev)} style={styles.inlineToggle}>
+              <Text style={[styles.inlineToggleText, showPastSchedules ? styles.inlineToggleTextActive : null]}>
+                {showPastSchedules ? '지난 약속 숨기기' : '지난 약속 보기'}
+              </Text>
             </Pressable>
-          ) : null}
-
-          {membersExpanded ? (
-            <View style={styles.expandedList}>
-              {sortedMembers.map((member) => (
-                <View key={member.id} style={styles.memberRow}>
-                  <PersonAvatar image={member.avatarUrl} name={member.nickname || member.userId} size={42} />
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.memberRowTitle}>
-                      <Text style={styles.memberRowName}>{member.nickname || member.userId}</Text>
-                      <Text style={styles.memberRoleBadge}>{member.role === 'manager' ? '관리자' : '멤버'}</Text>
-                      {member.userId === userId ? <Text style={styles.meBadge}>나</Text> : null}
-                    </View>
-                    <Text style={styles.memberJoined}>참여일 {member.joinedAt.slice(5, 10)}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </SectionCard>
-
-        <SectionCard>
-          <View style={styles.sectionHeaderSimple}>
-            <View>
-              <Text style={styles.sectionTitle}>그룹 일정 ({groupSchedules.length}개)</Text>
-              <Text style={styles.sectionMeta}>그룹원이 함께 확인하는 확정 일정입니다.</Text>
-            </View>
-            {groupSchedules.length > GROUP_SCHEDULE_PREVIEW_LIMIT ? (
-              <Pressable onPress={() => setSchedulesExpanded((prev) => !prev)} style={styles.moreButton}>
-                <Text style={styles.moreButtonLabel}>{schedulesExpanded ? '접기' : '더보기'}</Text>
-              </Pressable>
-            ) : null}
           </View>
-
-          {visibleSchedules.length === 0 ? (
-            <EmptyState title="그룹 일정이 없습니다" />
-          ) : (
-            <View style={styles.compactList}>
-              {visibleSchedules.map((schedule) => (
-                <Pressable key={schedule.id} style={styles.compactCard}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.compactMeta}>
-                      {formatDateTimeDuration(schedule.startTime, schedule.duration, schedule.endTime)}
-                    </Text>
-                    <Text style={styles.compactTitle}>{schedule.title}</Text>
-                    {schedulesExpanded && schedule.content ? <Text numberOfLines={2} style={styles.compactDesc}>{schedule.content}</Text> : null}
-                  </View>
-                  <View style={styles.categoryTag}>
-                    <Text style={styles.categoryTagLabel}>{getCategoryLabel(schedule.category)}</Text>
-                  </View>
+          {schedulesLoading ? (
+            <LoadingState />
+          ) : groupSchedules.length === 0 ? null : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scheduleStrip}>
+              {groupSchedules.map((schedule) => (
+                <Pressable key={schedule.id} onPress={() => setSelectedSchedule(schedule)} style={styles.scheduleCard}>
+                  <CalendarDays size={16} color={colors.categoryGroup} />
+                  <Text numberOfLines={1} style={styles.scheduleTitle}>{schedule.title}</Text>
+                  <Text style={styles.scheduleTime}>{formatDateTimeDuration(schedule.startTime, schedule.duration, schedule.endTime)}</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           )}
-        </SectionCard>
+        </View>
 
-        <SectionCard>
-          <View style={styles.sectionHeaderSimple}>
-            <View>
-              <Text style={styles.sectionTitle}>조율 중인 일정 ({coordinations.length}개)</Text>
-              <Text style={styles.sectionMeta}>가능한 시간을 모아 약속 시간을 정하는 공간입니다.</Text>
-            </View>
-            {coordinations.length > COORDINATION_PREVIEW_LIMIT ? (
-              <Pressable onPress={() => setCoordinationsExpanded((prev) => !prev)} style={styles.moreButton}>
-                <Text style={styles.moreButtonLabel}>{coordinationsExpanded ? '접기' : '더보기'}</Text>
-              </Pressable>
-            ) : null}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>시간 조율 ({coordinations.length}개)</Text>
+            <Pressable onPress={() => setShowClosedCoordinations((prev) => !prev)} style={styles.inlineToggle}>
+              <Text style={[styles.inlineToggleText, showClosedCoordinations ? styles.inlineToggleTextActive : null]}>
+                {showClosedCoordinations ? '닫힌 조율 숨기기' : '닫힌 조율 보기'}
+              </Text>
+            </Pressable>
           </View>
-
-          {visibleCoordinations.length === 0 ? (
-            <EmptyState title="조율 중인 일정이 없습니다" />
-          ) : (
-            <View style={styles.compactList}>
+          {visibleCoordinations.length === 0 ? null : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coordStrip}>
               {visibleCoordinations.map((coord) => (
                 <Pressable
                   key={coord.id}
                   onPress={() => navigation.navigate('CoordinationTimetable', { groupId: id, coordId: coord.id })}
-                  style={styles.compactCard}
+                  style={styles.coordCard}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.compactMeta}>{coord.mode === 'repeat' ? '반복 조율' : '일회성 조율'} · {coord.dates.length}일</Text>
-                    <Text style={styles.compactTitle}>{coord.title}</Text>
-                    <Text style={styles.compactDesc}>응답 {coord.responseCount}건 · {coord.startHour}:00 - {coord.endHour}:00</Text>
-                  </View>
+                  <Clock3 size={15} color={colors.primary} />
+                  <Text numberOfLines={1} style={styles.coordTitle}>{coord.title}</Text>
+                  <Text style={styles.coordMeta}>응답 {coord.responseCount}건 · {coord.dates.length}일</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           )}
-        </SectionCard>
+        </View>
 
-        <AppButton label="시간 조율하기" onPress={() => navigation.navigate('TimeCoordination', { groupId: id })} />
-        <AppButton label="그룹 일정 생성" variant="group" onPress={() => navigation.navigate('ScheduleForm', { groupId: id, groupName: group.name })} />
-        <AppButton
-          label="그룹 나가기"
-          variant="secondary"
-          onPress={() => {
-            Alert.alert('그룹을 나가시겠습니까?', '그룹에서 나가면 다시 초대받아야 합니다.', [
-              { text: '취소', style: 'cancel' },
-              {
-                text: '나가기',
-                style: 'destructive',
-                onPress: () => {
-                  groupApi.leaveGroup(id)
-                    .then(() => {
-                      queryClient.invalidateQueries({ queryKey: ['groups'] });
-                      queryClient.removeQueries({ queryKey: ['groups', id] });
-                      navigation.replace('MainTabs', { screen: 'Groups' });
-                    })
-                    .catch(() => Alert.alert('실패', '그룹 나가기에 실패했습니다.'));
-                },
-              },
-            ]);
-          }}
-        />
+        <View style={styles.postsSection}>
+          <Text style={styles.sectionTitle}>모임 글</Text>
+          {postsLoading ? (
+            <LoadingState />
+          ) : posts.length === 0 ? (
+            <EmptyState title="아직 모임 글이 없습니다" />
+          ) : posts.map((post) => (
+            <PostListItem
+              key={post.id}
+              post={post}
+              onPress={() => navigation.navigate('CommunityPostDetail', { groupId: id, postId: post.id })}
+            />
+          ))}
+        </View>
       </View>
+
+      <View style={styles.bottomActions}>
+        <AppButton label="일정 생성" variant="group" onPress={() => navigation.navigate('ScheduleForm', { groupId: id, groupName: group.name })} style={{ flex: 1, minHeight: 48 }} />
+        <AppButton label="시간 조율하기" onPress={() => navigation.navigate('TimeCoordination', { groupId: id })} style={{ flex: 1, minHeight: 48 }} />
+      </View>
+
+      <Pressable onPress={() => setComposerOpen(true)} style={styles.writeButton}>
+        <PenLine color={colors.primaryForeground} size={18} />
+        <Text style={styles.writeButtonText}>글쓰기</Text>
+      </Pressable>
+
+      <GroupMenu
+        visible={menuOpen}
+        isManager={isManager}
+        onClose={() => setMenuOpen(false)}
+        onIntro={() => { setMenuOpen(false); navigation.navigate('GroupIntro', { id }); }}
+        onMembers={() => { setMenuOpen(false); setMembersOpen(true); }}
+        onInvite={() => {
+          setMenuOpen(false);
+          if (!inviteLink) return;
+          Clipboard.setStringAsync(inviteLink)
+            .then(() => Alert.alert('복사 완료', '초대 링크를 복사했습니다.'))
+            .catch(() => Alert.alert('복사 실패', '링크 복사에 실패했습니다.'));
+        }}
+        onShare={() => {
+          setMenuOpen(false);
+          if (!inviteLink) return;
+          Share.share({ title: `${group.name} 모임 초대`, message: `${group.name} 모임에 참여하세요.\n${inviteLink}`, url: inviteLink }).catch(() => Alert.alert('공유 실패', '공유에 실패했습니다.'));
+        }}
+      />
+
+      <MembersSheet visible={membersOpen} members={sortedMembers} isManager={isManager} onClose={() => setMembersOpen(false)} />
+
+      <PostComposerModal
+        visible={composerOpen}
+        title="모임 글쓰기"
+        memberOnly={memberOnlyPost}
+        showMemberOnly
+        onMemberOnlyChange={setMemberOnlyPost}
+        loading={createPost.isPending}
+        onClose={() => setComposerOpen(false)}
+        onSubmit={handlePostSubmit}
+      />
+
+      <ScheduleDetailSheet
+        schedule={selectedSchedule}
+        open={Boolean(selectedSchedule)}
+        onClose={() => setSelectedSchedule(null)}
+        onDelete={selectedSchedule?.groupScheduleOwner !== false ? handleDeleteSchedule : undefined}
+        onLeaveParticipation={selectedSchedule?.groupScheduleOwner === false && selectedSchedule?.groupScheduleParticipant !== false ? handleLeaveParticipation : undefined}
+      />
     </Screen>
   );
 }
 
+function GroupMenu({
+  visible,
+  isManager,
+  onClose,
+  onIntro,
+  onMembers,
+  onInvite,
+  onShare,
+}: {
+  visible: boolean;
+  isManager: boolean;
+  onClose: () => void;
+  onIntro: () => void;
+  onMembers: () => void;
+  onInvite: () => void;
+  onShare: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.menuOverlay} onPress={onClose}>
+        <View style={styles.menu}>
+          <Pressable onPress={onIntro} style={styles.menuItem}><Text style={styles.menuText}>모임 소개</Text></Pressable>
+          <Pressable onPress={onMembers} style={styles.menuItem}><Text style={styles.menuText}>{isManager ? '멤버관리' : '멤버'}</Text></Pressable>
+          <Pressable onPress={onInvite} style={styles.menuItem}><Text style={styles.menuText}>멤버 초대</Text></Pressable>
+          <Pressable onPress={onShare} style={styles.menuItem}><Text style={styles.menuText}>공유하기</Text></Pressable>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function MembersSheet({ visible, members, isManager, onClose }: { visible: boolean; members: GroupMember[]; isManager: boolean; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.memberSheet}>
+          <View style={styles.handle} />
+          <Text style={styles.sheetTitle}>{isManager ? '멤버관리' : '멤버'}</Text>
+          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator>
+            {members.map((member) => (
+              <View key={member.id} style={styles.memberRow}>
+                <PersonAvatar image={member.avatarUrl} thumbnail={member.thumbnailUrl} name={member.nickname || member.userId} size={42} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={1} style={styles.memberName}>{member.nickname || member.userId}</Text>
+                  <Text style={styles.memberRole}>{member.role === 'manager' ? '관리자' : '멤버'} · 참여일 {member.joinedAt.slice(0, 10)}</Text>
+                </View>
+                {isManager && member.role !== 'manager' ? (
+                  <UserPlus size={16} color={colors.mutedForeground} />
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  memberHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  memberHeaderText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.mutedForeground,
+  },
+  iconButton: {
+    padding: 8,
+  },
   content: {
     padding: 20,
-    gap: 14,
+    gap: 18,
   },
-  groupHeader: {
+  groupSummary: {
     flexDirection: 'row',
-    gap: 14,
     alignItems: 'center',
+    gap: 14,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  groupNameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   groupName: {
-    fontSize: 17,
-    fontWeight: '700',
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '900',
     color: colors.foreground,
   },
   groupDescription: {
-    marginTop: 4,
+    marginTop: 5,
     fontSize: 12,
     lineHeight: 18,
     color: colors.mutedForeground,
   },
-  memberPill: {
-    borderRadius: 999,
-    backgroundColor: colors.muted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  memberPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.mutedForeground,
-  },
-  actionRow: {
-    flexDirection: 'row',
+  section: {
     gap: 10,
-    marginTop: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  sectionHeaderSimple: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '900',
     color: colors.foreground,
   },
-  sectionMeta: {
-    marginTop: 4,
+  inlineToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  inlineToggleText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.mutedForeground,
+  },
+  inlineToggleTextActive: {
+    color: colors.primary,
+  },
+  scheduleStrip: {
+    gap: 10,
+  },
+  scheduleCard: {
+    width: 150,
+    borderRadius: radius.lg,
+    backgroundColor: colors.categoryGroupLight,
+    padding: 13,
+    gap: 6,
+  },
+  scheduleTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: colors.foreground,
+  },
+  scheduleTime: {
     fontSize: 11,
     color: colors.mutedForeground,
   },
-  memberPreviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    flexWrap: 'nowrap',
-    flexShrink: 1,
+  coordStrip: {
+    gap: 9,
   },
-  memberPreviewChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.muted,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    maxWidth: 104,
+  coordCard: {
+    width: 136,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary + '10',
+    padding: 12,
+    gap: 5,
   },
-  memberPreviewName: {
-    fontSize: 11,
-    fontWeight: '700',
+  coordTitle: {
+    fontSize: 12,
+    fontWeight: '900',
     color: colors.foreground,
   },
-  memberPreviewRole: {
+  coordMeta: {
     fontSize: 10,
     color: colors.mutedForeground,
   },
-  moreButton: {
-    alignSelf: 'flex-end',
-    borderRadius: 999,
+  postsSection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 16,
+  },
+  bottomActions: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 86,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 8,
+    ...shadows.card,
+  },
+  writeButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 154,
+    minHeight: 44,
+    borderRadius: 17,
+    backgroundColor: colors.categoryGroup,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 15,
+    ...shadows.card,
+  },
+  writeButtonText: {
+    color: colors.primaryForeground,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(27,32,48,0.08)',
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: 16,
+  },
+  menu: {
+    width: 164,
+    borderRadius: radius.lg,
     backgroundColor: colors.card,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.card,
   },
-  moreButtonLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.mutedForeground,
+  menuItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  expandedList: {
-    marginTop: 12,
-    gap: 10,
+  menuText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.foreground,
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(27,32,48,0.24)',
+  },
+  memberSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 34,
+  },
+  handle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.foreground,
+    marginBottom: 10,
   },
   memberRow: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  memberRowTitle: {
-    flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
+    gap: 11,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  memberRowName: {
+  memberName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '900',
     color: colors.foreground,
   },
-  memberRoleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: colors.muted,
-    color: colors.mutedForeground,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  meBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: colors.primary + '16',
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  memberJoined: {
-    marginTop: 6,
+  memberRole: {
+    marginTop: 3,
     fontSize: 11,
-    color: colors.mutedForeground,
-  },
-  compactList: {
-    marginTop: 12,
-    gap: 10,
-  },
-  compactCard: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  compactMeta: {
-    fontSize: 11,
-    color: colors.mutedForeground,
-  },
-  compactTitle: {
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.foreground,
-  },
-  compactDesc: {
-    marginTop: 4,
-    fontSize: 11,
-    color: colors.mutedForeground,
-    lineHeight: 18,
-  },
-  categoryTag: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: colors.muted,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  categoryTagLabel: {
-    fontSize: 10,
-    fontWeight: '700',
     color: colors.mutedForeground,
   },
 });

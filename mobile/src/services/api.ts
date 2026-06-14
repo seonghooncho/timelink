@@ -74,6 +74,15 @@ function withPagination(path: string, pagination?: PaginationParams) {
   const [pathname, search = ''] = path.split('?');
   const params = new URLSearchParams(search);
 
+  Object.entries(pagination ?? {}).forEach(([key, value]) => {
+    if (key === 'cursor' || key === 'limit') return;
+    if (value === undefined || value === null || value === '') {
+      params.delete(key);
+      return;
+    }
+    params.set(key, String(value));
+  });
+
   if (pagination?.cursor) {
     params.set('cursor', pagination.cursor);
   } else {
@@ -138,7 +147,7 @@ export const authApi = {
   },
 };
 
-export type ImagePurpose = 'MEMBER' | 'GROUP' | 'SCHEDULE';
+export type ImagePurpose = 'MEMBER' | 'GROUP' | 'SCHEDULE' | 'GROUP_INTRO' | 'GROUP_POST' | 'COMMUNITY_POST';
 export type ImageStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface ScheduleResponse {
@@ -154,11 +163,25 @@ export interface ScheduleResponse {
   isCompleted: boolean;
   hasAlarm: boolean;
   groupId?: string;
+  groupScheduleId?: string;
+  groupScheduleCreatedBy?: string;
+  groupScheduleOwner?: boolean;
+  groupScheduleParticipant?: boolean;
   imageUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
+  participants?: ScheduleParticipantResponse[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleParticipantResponse {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
 }
 
 export interface ScheduleCreateRequest {
@@ -170,6 +193,7 @@ export interface ScheduleCreateRequest {
   duration: number;
   hasAlarm?: boolean;
   groupId?: string;
+  participantUserIds?: string[];
   imageUrl?: string;
   imageId?: string;
 }
@@ -209,12 +233,14 @@ export const scheduleApi = {
   create: (data: ScheduleCreateRequest) => request<ScheduleResponse>('POST', '/schedules', data),
   update: (id: string, data: ScheduleUpdateRequest) => request<ScheduleResponse>('PATCH', `/schedules/${id}`, data),
   delete: (id: string) => request<void>('DELETE', `/schedules/${id}`),
+  leaveParticipation: (id: string) => request<void>('DELETE', `/schedules/${id}/participation`),
 };
 
 export interface ProfileResponse {
   id: string;
   nickname: string;
   avatarUrl: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   termsVersion?: string;
@@ -238,11 +264,35 @@ export interface GroupListResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
-  inviteCode: string;
+  inviteCode?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   memberCount: number;
   myRole: string;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  nextSchedule?: {
+    id: string;
+    title: string;
+    startTime: string;
+    duration?: number;
+  } | null;
+  upcomingScheduleCount?: number;
+  activeCoordination?: GroupCoordinationSummaryResponse | null;
+  createdAt: string;
+}
+
+export interface GroupCoordinationSummaryResponse {
+  id: string;
+  title: string;
+  description?: string;
+  mode: string;
+  dates: string[];
+  startHour: number;
+  endHour: number;
+  status: string;
+  responseCount: number;
   createdAt: string;
 }
 
@@ -252,7 +302,22 @@ export interface GroupMemberResponse {
   role: string;
   nickname: string;
   avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   joinedAt: string;
+}
+
+export interface GroupMemberActivityResponse {
+  id: string;
+  type: 'POST' | string;
+  title?: string;
+  createdAt: string;
+}
+
+export interface GroupMemberProfileResponse extends GroupMemberResponse {
+  mine?: boolean;
+  recentActivities: GroupMemberActivityResponse[];
 }
 
 export interface GroupDetailResponse {
@@ -260,33 +325,249 @@ export interface GroupDetailResponse {
   name: string;
   description: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   inviteCode: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
+  myRole?: string;
   createdBy: string;
   members: GroupMemberResponse[];
   createdAt: string;
 }
 
+export interface GroupJoinRequestResponse {
+  id?: string;
+  groupId: string;
+  userId: string;
+  message?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  nickname?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+  decidedAt?: string;
+}
+
+export interface GroupIntroImageResponse {
+  imageId: string;
+  url?: string;
+  status?: ImageStatus;
+}
+
+export interface GroupIntroNoticeResponse {
+  id: string;
+  title: string;
+  content: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupIntroPostPreviewResponse {
+  id: string;
+  title?: string;
+  contentSnippet?: string;
+  authorNickname?: string;
+  memberOnly?: boolean;
+  locked?: boolean;
+  createdAt: string;
+}
+
+export interface GroupIntroPostResponse {
+  id: string;
+  title?: string;
+  content?: string;
+  contentSnippet?: string;
+  authorUserId?: string;
+  authorNickname?: string;
+  authorAvatarUrl?: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe?: boolean;
+  mine?: boolean;
+  memberOnly?: boolean;
+  locked?: boolean;
+  imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface GroupIntroResponse {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
+  visibility?: 'PRIVATE' | 'PUBLIC';
+  memberCount: number;
+  myRole?: string | null;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  introText?: string;
+  images: GroupIntroImageResponse[];
+  notices: GroupIntroNoticeResponse[];
+  postPreviews: GroupIntroPostPreviewResponse[];
+  memberPreviews?: GroupMemberResponse[];
+  member: boolean;
+  canEditIntro: boolean;
+  canWriteNotice: boolean;
+}
+
 export const groupApi = {
   getPage: (params?: PaginationParams) => requestPage<GroupListResponse>('/groups', params),
+  getPublicPage: (params?: PaginationParams & { q?: string }) => requestPage<GroupListResponse>('/groups/public', params),
   getAll: () => requestAllPages<GroupListResponse>('/groups', 20),
   getById: (id: string) => request<GroupDetailResponse>('GET', `/groups/${id}`),
-  create: (data: { name: string; description?: string; imageUrl?: string; imageId?: string }) =>
+  getIntro: (id: string) => request<GroupIntroResponse>('GET', `/groups/${id}/intro`),
+  getIntroPosts: (id: string, params?: PaginationParams) =>
+    requestPage<GroupIntroPostResponse>(`/groups/${id}/intro/posts`, params),
+  updateIntro: (id: string, data: { introText?: string; imageIds?: string[] }) =>
+    request<GroupIntroResponse>('PATCH', `/groups/${id}/intro`, data),
+  createNotice: (id: string, data: { title: string; content: string }) =>
+    request<GroupIntroNoticeResponse>('POST', `/groups/${id}/notices`, data),
+  getNotices: (id: string) => request<GroupIntroNoticeResponse[]>('GET', `/groups/${id}/notices`),
+  create: (data: { name: string; description?: string; imageUrl?: string; imageId?: string; visibility?: 'PRIVATE' | 'PUBLIC' }) =>
     request<GroupDetailResponse>('POST', '/groups', data),
-  update: (id: string, data: { name?: string; description?: string; imageUrl?: string; imageId?: string }) =>
+  update: (id: string, data: { name?: string; description?: string; imageUrl?: string; imageId?: string; visibility?: 'PRIVATE' | 'PUBLIC' }) =>
     request<GroupDetailResponse>('PATCH', `/groups/${id}`, data),
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
+  getSchedules: (groupId: string, params?: ScheduleListRequest) =>
+    requestPage<ScheduleResponse>(`/groups/${groupId}/schedules`, params),
+  getMemberProfile: (groupId: string, memberUserId: string) =>
+    request<GroupMemberProfileResponse>('GET', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}/profile`),
+  updateMyMemberProfile: (groupId: string, data: { nickname?: string; avatarUrl?: string; imageId?: string }) =>
+    request<GroupMemberProfileResponse>('PATCH', `/groups/${groupId}/members/me/profile`, data),
+  requestToJoin: (groupId: string, message?: string) =>
+    request<GroupJoinRequestResponse>('POST', `/groups/${groupId}/join-requests`, { message }),
+  getJoinRequests: (groupId: string) =>
+    request<GroupJoinRequestResponse[]>('GET', `/groups/${groupId}/join-requests`),
+  decideJoinRequest: (groupId: string, memberUserId: string, status: 'APPROVED' | 'REJECTED') =>
+    request<GroupJoinRequestResponse>('PATCH', `/groups/${groupId}/join-requests/${encodeURIComponent(memberUserId)}`, { status }),
   leaveGroup: (groupId: string) => request<void>('DELETE', `/groups/${groupId}/members/me`),
   removeMember: (groupId: string, memberUserId: string) =>
     request<void>('DELETE', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}`),
 };
 
+export interface CommunityPostResponse {
+  id: string;
+  title: string;
+  content: string;
+  groupId?: string;
+  memberOnly?: boolean;
+  locked?: boolean;
+  anonymous?: boolean;
+  imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
+  authorUserId?: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityActivityResponse {
+  id: string;
+  type: 'POST' | string;
+  title?: string;
+  createdAt: string;
+}
+
+export interface CommunityPublicGroupResponse {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  imageStatus?: ImageStatus;
+  memberCount: number;
+  myRole?: string | null;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+}
+
+export interface CommunityPublicProfileResponse {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
+  publicGroups: CommunityPublicGroupResponse[];
+  recentActivities: CommunityActivityResponse[];
+}
+
+export interface CommunityCommentResponse {
+  id: string;
+  postId: string;
+  content: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const communityApi = {
+  getPosts: (params?: PaginationParams) => requestPage<CommunityPostResponse>('/community/posts', params),
+  createPost: (data: { title: string; content: string; anonymous?: boolean }) =>
+    request<CommunityPostResponse>('POST', '/community/posts', data),
+  getPost: (postId: string) => request<CommunityPostResponse>('GET', `/community/posts/${postId}`),
+  updatePost: (postId: string, data: { title?: string; content?: string; imageId?: string }) =>
+    request<CommunityPostResponse>('PATCH', `/community/posts/${postId}`, data),
+  deletePost: (postId: string) => request<void>('DELETE', `/community/posts/${postId}`),
+  likePost: (postId: string) => request<CommunityPostResponse>('PUT', `/community/posts/${postId}/like`),
+  unlikePost: (postId: string) => request<CommunityPostResponse>('DELETE', `/community/posts/${postId}/like`),
+  getComments: (postId: string, params?: PaginationParams) =>
+    requestPage<CommunityCommentResponse>(`/community/posts/${postId}/comments`, params),
+  createComment: (postId: string, content: string) =>
+    request<CommunityCommentResponse>('POST', `/community/posts/${postId}/comments`, { content }),
+  updateComment: (postId: string, commentId: string, content: string) =>
+    request<CommunityCommentResponse>('PATCH', `/community/posts/${postId}/comments/${commentId}`, { content }),
+  deleteComment: (postId: string, commentId: string) =>
+    request<void>('DELETE', `/community/posts/${postId}/comments/${commentId}`),
+  getPublicProfile: (userId: string) =>
+    request<CommunityPublicProfileResponse>('GET', `/community/profiles/${encodeURIComponent(userId)}`),
+};
+
+export const groupPostApi = {
+  getPosts: (groupId: string, params?: PaginationParams) =>
+    requestPage<CommunityPostResponse>(`/groups/${groupId}/posts`, params),
+  createPost: (groupId: string, data: { title: string; content: string; memberOnly?: boolean }) =>
+    request<CommunityPostResponse>('POST', `/groups/${groupId}/posts`, data),
+  getPost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('GET', `/groups/${groupId}/posts/${postId}`),
+  updatePost: (groupId: string, postId: string, data: { title?: string; content?: string; imageId?: string }) =>
+    request<CommunityPostResponse>('PATCH', `/groups/${groupId}/posts/${postId}`, data),
+  deletePost: (groupId: string, postId: string) =>
+    request<void>('DELETE', `/groups/${groupId}/posts/${postId}`),
+  likePost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('PUT', `/groups/${groupId}/posts/${postId}/like`),
+  unlikePost: (groupId: string, postId: string) =>
+    request<CommunityPostResponse>('DELETE', `/groups/${groupId}/posts/${postId}/like`),
+  getComments: (groupId: string, postId: string, params?: PaginationParams) =>
+    requestPage<CommunityCommentResponse>(`/groups/${groupId}/posts/${postId}/comments`, params),
+  createComment: (groupId: string, postId: string, content: string) =>
+    request<CommunityCommentResponse>('POST', `/groups/${groupId}/posts/${postId}/comments`, { content }),
+  updateComment: (groupId: string, postId: string, commentId: string, content: string) =>
+    request<CommunityCommentResponse>('PATCH', `/groups/${groupId}/posts/${postId}/comments/${commentId}`, { content }),
+  deleteComment: (groupId: string, postId: string, commentId: string) =>
+    request<void>('DELETE', `/groups/${groupId}/posts/${postId}/comments/${commentId}`),
+};
+
 export interface CoordinationResponse {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -312,6 +593,7 @@ export interface SlotEntry {
 export interface CoordinationDetailResponse {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -340,7 +622,7 @@ export const coordinationApi = {
   },
   getById: (groupId: string, coordId: string) =>
     request<CoordinationDetailResponse>('GET', `/groups/${groupId}/coordinations/${coordId}`),
-  create: (groupId: string, data: { title: string; mode: string; dates: string[]; startHour: number; endHour: number }) =>
+  create: (groupId: string, data: { title: string; description?: string; mode: string; dates: string[]; startHour: number; endHour: number }) =>
     request<CoordinationResponse>('POST', `/groups/${groupId}/coordinations`, data),
   update: (groupId: string, coordId: string, data: { status: string }) =>
     request<CoordinationResponse>('PATCH', `/groups/${groupId}/coordinations/${coordId}`, data),
@@ -360,6 +642,9 @@ export interface NotificationResponse {
   title: string;
   content: string;
   category?: string;
+  targetType?: string;
+  targetId?: string;
+  targetUrl?: string;
   isImportant?: boolean;
   isRead: boolean;
   createdAt: string;
@@ -388,7 +673,7 @@ export const notificationApi = {
 
 export interface NotificationSettingsResponse {
   scheduleAlarm: boolean;
-  /** @deprecated 그룹 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
+  /** @deprecated 모임 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
   groupAlarm: boolean;
   pushAlarm: boolean;
   remindOneDayBefore: boolean;
@@ -432,6 +717,8 @@ export interface ImageUploadResponse {
   objectKey?: string;
   uploadKey?: string;
   publicKey?: string;
+  thumbnailKey?: string;
+  thumbnailUrl?: string;
   url?: string;
   status?: ImageStatus;
   failureReason?: string;

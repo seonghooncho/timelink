@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { CalendarDays, Home, User, Users } from 'lucide-react-native';
+import { CalendarDays, Home, MessageSquareText, User, Users } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
@@ -11,6 +11,9 @@ import { OAuthCallbackScreen } from '../screens/auth/OAuthCallbackScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { CalendarScreen } from '../screens/calendar/CalendarScreen';
 import { GroupsScreen } from '../screens/groups/GroupsScreen';
+import { GroupIntroScreen } from '../screens/groups/GroupIntroScreen';
+import { CommunityScreen } from '../screens/community/CommunityScreen';
+import { PostDetailScreen } from '../screens/community/PostDetailScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { ScheduleFormScreen } from '../screens/schedule/ScheduleFormScreen';
 import { GroupFormScreen } from '../screens/groups/GroupFormScreen';
@@ -61,13 +64,15 @@ function MainTabsNavigator() {
               return <CalendarDays color={color} size={22} strokeWidth={strokeWidth} />;
             case 'Groups':
               return <Users color={color} size={22} strokeWidth={strokeWidth} />;
+            case 'Community':
+              return <MessageSquareText color={color} size={22} strokeWidth={strokeWidth} />;
             case 'MyPage':
               return <User color={color} size={22} strokeWidth={strokeWidth} />;
           }
         },
         tabBarLabel: ({ focused }) => (
           <Text style={{ fontSize: 10, fontWeight: '600', color: focused ? colors.primary : colors.mutedForeground }}>
-            {route.name === 'MyPage' ? '마이' : route.name === 'Calendar' ? '캘린더' : route.name === 'Groups' ? '그룹' : '홈'}
+            {route.name === 'MyPage' ? '마이' : route.name === 'Calendar' ? '캘린더' : route.name === 'Groups' ? '모임' : route.name === 'Community' ? '커뮤니티' : '홈'}
           </Text>
         ),
       })}
@@ -75,6 +80,7 @@ function MainTabsNavigator() {
       <Tabs.Screen name="Home" component={HomeScreen} />
       <Tabs.Screen name="Calendar" component={CalendarScreen} />
       <Tabs.Screen name="Groups" component={GroupsScreen} />
+      <Tabs.Screen name="Community" component={CommunityScreen} />
       <Tabs.Screen name="MyPage" component={ProfileScreen} />
     </Tabs.Navigator>
   );
@@ -103,8 +109,10 @@ export function RootNavigator() {
             <RootStack.Screen name="GroupForm" component={GroupFormScreen} />
             <RootStack.Screen name="GroupDetail" component={GroupDetailScreen} />
             <RootStack.Screen name="GroupJoin" component={GroupJoinScreen} />
+            <RootStack.Screen name="GroupIntro" component={GroupIntroScreen} />
             <RootStack.Screen name="TimeCoordination" component={TimeCoordinationScreen} />
             <RootStack.Screen name="CoordinationTimetable" component={CoordinationTimetableScreen} />
+            <RootStack.Screen name="CommunityPostDetail" component={PostDetailScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </>
         )}

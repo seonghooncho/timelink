@@ -174,7 +174,7 @@ export function ProfileScreen() {
               setScheduleAlarm(previous);
             }
           }} />
-          <SettingRow label="푸시 알림" desc="등록된 브라우저/PWA 구독으로 일정과 그룹 알림을 함께 받습니다" value={pushAlarm} onChange={async (next) => {
+          <SettingRow label="푸시 알림" desc="등록된 브라우저/PWA 구독으로 일정과 모임 알림을 함께 받습니다" value={pushAlarm} onChange={async (next) => {
             const previous = pushAlarm;
             setPushAlarm(next);
             try {

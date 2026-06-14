@@ -82,7 +82,9 @@ npm run start
 
 ```sh
 npm run mobile:typecheck
+npm run mobile:test
 npm run mobile:prebuild:android
+npm run mobile:prebuild:ios
 npm run mobile:export:web
 ```
 

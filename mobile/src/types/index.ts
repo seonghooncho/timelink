@@ -13,7 +13,21 @@ export interface Schedule {
   isCompleted: boolean;
   hasAlarm: boolean;
   groupId?: string;
+  groupScheduleId?: string;
+  groupScheduleCreatedBy?: string;
+  groupScheduleOwner?: boolean;
+  groupScheduleParticipant?: boolean;
   imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
+  participants?: ScheduleParticipant[];
+}
+
+export interface ScheduleParticipant {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
 }
@@ -23,11 +37,22 @@ export interface Group {
   name: string;
   description: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
-  inviteCode: string;
+  inviteCode?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   memberCount: number;
   myRole: string;
+  joinRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  nextSchedule?: {
+    id: string;
+    title: string;
+    startTime: string;
+    duration?: number;
+  } | null;
+  upcomingScheduleCount?: number;
+  activeCoordination?: CoordinationSummary | null;
   createdAt: string;
 }
 
@@ -37,13 +62,29 @@ export interface GroupMember {
   role: string;
   nickname: string;
   avatarUrl?: string;
+  thumbnailUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
   joinedAt: string;
+}
+
+export interface GroupMemberActivity {
+  id: string;
+  type: 'POST' | string;
+  title?: string;
+  createdAt: string;
+}
+
+export interface GroupMemberProfile extends GroupMember {
+  mine?: boolean;
+  recentActivities: GroupMemberActivity[];
 }
 
 export interface Profile {
   id: string;
   nickname: string;
   avatarUrl?: string;
+  thumbnailUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
   requiredConsentCompleted?: boolean;
@@ -64,7 +105,7 @@ export interface NotificationItem {
 
 export interface NotificationSettings {
   scheduleAlarm: boolean;
-  /** @deprecated 그룹 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
+  /** @deprecated 모임 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
   groupAlarm: boolean;
   pushAlarm: boolean;
   remindOneDayBefore: boolean;
@@ -78,6 +119,7 @@ export interface NotificationSettings {
 export interface CoordinationSummary {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -103,6 +145,7 @@ export interface SlotEntry {
 export interface CoordinationDetail {
   id: string;
   title: string;
+  description?: string;
   mode: string;
   dates: string[];
   startHour: number;
@@ -113,3 +156,37 @@ export interface CoordinationDetail {
 }
 
 export type ImageStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface CommunityPost {
+  id: string;
+  title: string;
+  content: string;
+  groupId?: string;
+  memberOnly?: boolean;
+  locked?: boolean;
+  anonymous?: boolean;
+  imageUrl?: string;
+  imageId?: string;
+  imageStatus?: ImageStatus;
+  authorUserId?: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityComment {
+  id: string;
+  postId: string;
+  content: string;
+  authorUserId: string;
+  authorNickname: string;
+  authorAvatarUrl?: string;
+  mine: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

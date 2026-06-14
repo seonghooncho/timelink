@@ -21,7 +21,7 @@ export function GroupJoinScreen({ navigation, route }: Props) {
         navigation.replace('GroupDetail', { id: group.id });
       })
       .catch(() => {
-        Alert.alert('참여 실패', '초대 링크가 유효하지 않거나 이미 참여한 그룹입니다.');
+        Alert.alert('참여 실패', '초대 링크가 유효하지 않거나 이미 참여한 모임입니다.');
         navigation.replace('MainTabs');
       });
   }, [inviteCode, navigation, queryClient]);
@@ -29,7 +29,7 @@ export function GroupJoinScreen({ navigation, route }: Props) {
   return (
     <Screen hideTabSpacing contentContainerStyle={styles.container}>
       <View style={styles.spinner} />
-      <Text style={styles.title}>그룹에 참여하는 중입니다</Text>
+      <Text style={styles.title}>모임에 참여하는 중입니다</Text>
       <Text style={styles.desc}>초대 코드를 확인하고 있어요.</Text>
     </Screen>
   );
