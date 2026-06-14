@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
+import { buildGroupJoinPath } from '@/lib/navigationTargets';
 
 const InviteRedirectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,10 +14,7 @@ const InviteRedirectPage: React.FC = () => {
       return;
     }
 
-    const params = new URLSearchParams(location.search);
-    const coordId = params.get('coord');
-    const query = coordId ? `?coord=${encodeURIComponent(coordId)}` : '';
-    navigate(`/groups/join/${encodeURIComponent(inviteCode)}${query}`, { replace: true });
+    navigate(buildGroupJoinPath(inviteCode, location.search), { replace: true });
   }, [inviteCode, location.search, navigate]);
 
   return (

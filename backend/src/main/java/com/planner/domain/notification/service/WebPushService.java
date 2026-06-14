@@ -88,6 +88,8 @@ public class WebPushService {
             payload.put("title", StringUtils.hasText(notification.getTitle()) ? notification.getTitle() : "Timelink");
             payload.put("body", StringUtils.hasText(notification.getContent()) ? notification.getContent() : "새 알림이 도착했습니다");
             payload.put("url", StringUtils.hasText(notification.getTargetUrl()) ? notification.getTargetUrl() : "/notifications");
+            payload.put("targetType", notification.getTargetType());
+            payload.put("targetId", notification.getTargetId());
             payload.put("notificationId", notification.getId());
             payload.put("createdAt", notification.getCreatedAt() != null ? notification.getCreatedAt() : Instant.now().toString());
             return objectMapper.writeValueAsString(payload);

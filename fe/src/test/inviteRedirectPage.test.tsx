@@ -32,4 +32,20 @@ describe('InviteRedirectPage', () => {
       expect(mocks.navigate).toHaveBeenCalledWith('/groups/join/ABC123?coord=coord-1', { replace: true });
     });
   });
+
+  it('preserves safe redirect query for invite links', async () => {
+    mocks.navigate.mockReset();
+
+    render(
+      <MemoryRouter initialEntries={['/invite/ABC123?redirect=/groups/group-1/intro']}>
+        <Routes>
+          <Route path="/invite/:inviteCode" element={<InviteRedirectPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith('/groups/join/ABC123?redirect=%2Fgroups%2Fgroup-1%2Fintro', { replace: true });
+    });
+  });
 });

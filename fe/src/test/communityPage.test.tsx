@@ -31,7 +31,7 @@ function renderPage() {
     defaultOptions: { queries: { retry: false } },
   });
 
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <CommunityPage />
@@ -106,12 +106,13 @@ describe('CommunityPage', () => {
     }));
   });
 
-  it('renders post list item counts', () => {
+  it('renders post list item counts and stable image thumbnail area', () => {
     mocks.useCommunityPosts.mockReturnValue({
       data: [{
         id: 'post-1',
         title: '약속 잡는 팁',
-        content: '시간 후보를 너무 많이 열지 않는 것이 좋아요.',
+        content: '시간 후보를 너무 많이 열지 않는 것이 좋아요. 설명이 길어도 피드에서는 안정적인 높이로 보입니다.',
+        imageUrl: 'https://example.com/post.jpg',
         authorNickname: '민지',
         authorUserId: 'user-1',
         likeCount: 3,
@@ -127,11 +128,12 @@ describe('CommunityPage', () => {
       isFetchingNextPage: false,
     });
 
-    renderPage();
+    const { container } = renderPage();
 
     expect(screen.getByText('약속 잡는 팁')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '댓글 2개 보기' })).toBeInTheDocument();
+    expect(container.querySelector('img[src="https://example.com/post.jpg"]')).toHaveClass('aspect-[4/3]');
   });
 
   it('toggles like from the post list', async () => {

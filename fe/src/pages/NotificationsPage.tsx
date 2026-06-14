@@ -8,6 +8,7 @@ import { ListSkeleton } from '@/components/common/LoadingStates';
 import { notificationApi, NotificationResponse } from '@/services/api';
 import { ScheduleCategory } from '@/types/types';
 import { appToast } from '@/lib/appToast';
+import { resolveNotificationTarget } from '@/lib/navigationTargets';
 
 const TABS = [
   { key: 'schedule', label: '일정 알림' },
@@ -56,10 +57,9 @@ const NotificationsPage: React.FC = () => {
   }, [loadNotifications]);
 
   const handleNotificationClick = (notification: NotificationResponse) => {
+    const target = resolveNotificationTarget(notification);
     const afterRead = () => {
-      if (notification.targetUrl) {
-        navigate(notification.targetUrl);
-      }
+      navigate(target);
     };
 
     if (notification.isRead) {
@@ -98,10 +98,11 @@ const NotificationsPage: React.FC = () => {
           </div>
         ) : (
           notifications.map(n => (
-            <div
+            <button
+              type="button"
               key={n.id}
               onClick={() => handleNotificationClick(n)}
-              className={`p-4 rounded-2xl transition-all cursor-pointer ${
+              className={`w-full p-4 rounded-2xl text-left transition-all ${
                 n.isRead ? 'bg-card shadow-soft' : 'bg-card shadow-card border-l-[3px] border-l-primary'
               }`}
             >
@@ -119,7 +120,7 @@ const NotificationsPage: React.FC = () => {
                   {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary" />}
                 </div>
               </div>
-            </div>
+            </button>
           ))
         )}
         {!isLoading && nextCursor ? (

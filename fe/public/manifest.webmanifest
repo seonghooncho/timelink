@@ -5,6 +5,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#FDFBF7",
   "theme_color": "#13C296",
   "orientation": "portrait",
@@ -16,5 +17,19 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"]
+  "categories": ["productivity", "utilities", "social"],
+  "shortcuts": [
+    {
+      "name": "모임",
+      "short_name": "모임",
+      "url": "/groups",
+      "description": "내 모임과 공개 모임을 확인합니다."
+    },
+    {
+      "name": "알림",
+      "short_name": "알림",
+      "url": "/notifications",
+      "description": "일정과 모임 알림을 확인합니다."
+    }
+  ]
 }

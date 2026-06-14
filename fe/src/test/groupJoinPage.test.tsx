@@ -68,4 +68,44 @@ describe('GroupJoinPage', () => {
       expect(mocks.navigate).toHaveBeenCalledWith('/groups/group-1/coordination/coord-1/timetable', { replace: true });
     });
   });
+
+  it('uses a safe redirect after joining when one is provided', async () => {
+    vi.mocked(groupApi.join).mockResolvedValue({
+      id: 'group-1',
+      name: '스터디',
+      description: '',
+      inviteCode: 'ABC123',
+      createdBy: 'user-1',
+      members: [],
+      createdAt: '2026-06-14T00:00:00Z',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/groups/join/ABC123?redirect=/groups/group-1/intro']}>
+        <Routes>
+          <Route path="/groups/join/:inviteCode" element={<GroupJoinPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith('/groups/group-1/intro', { replace: true });
+    });
+  });
+
+  it('shows a friendly next action when invite join fails', async () => {
+    vi.mocked(groupApi.join).mockRejectedValue(new Error('expired'));
+
+    render(
+      <MemoryRouter initialEntries={['/groups/join/ABC123']}>
+        <Routes>
+          <Route path="/groups/join/:inviteCode" element={<GroupJoinPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('초대 링크를 사용할 수 없습니다')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모임 둘러보기' })).toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalledWith('/groups', { replace: true });
+  });
 });

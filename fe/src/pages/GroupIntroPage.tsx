@@ -8,6 +8,7 @@ import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ListSkeleton } from '@/components/common/LoadingStates';
 import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
+import PostListItem from '@/components/community/PostListItem';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -847,72 +848,76 @@ const IntroPostList: React.FC<{
 
   return (
     <div>
-      {posts.map((post) => (
-        <article
-          key={post.id}
-          className="border-b border-border/60 px-5 py-4 text-left"
-        >
-          {post.locked ? (
-            <button
-              type="button"
-              onClick={() => onPostClick(post)}
-              className="flex w-full items-center gap-3 rounded-2xl bg-muted px-3.5 py-3 text-left text-muted-foreground transition-opacity hover:opacity-85"
-            >
-              <Lock className="h-4 w-4 shrink-0 text-primary" />
-              <p className="text-xs font-semibold">모임에만 공개된 게시물이에요.</p>
-            </button>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                {post.authorUserId ? (
-                  <button
-                    type="button"
-                    onClick={() => onAuthorClick(post.authorUserId)}
-                    className="font-semibold text-foreground transition-colors hover:text-primary"
-                    aria-label={`${post.authorNickname || '멤버'} 프로필 보기`}
-                  >
-                    {post.authorNickname || '멤버'}
-                  </button>
-                ) : (
-                  <span className="font-semibold">{post.authorNickname || '멤버'}</span>
-                )}
-                {post.memberOnly ? (
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 font-semibold">모임 공개</span>
-                ) : null}
-              </div>
+      {posts.map((post) => {
+        if (post.locked) {
+          return (
+            <article key={post.id} className="border-b border-border/60 px-5 py-4 text-left">
               <button
                 type="button"
                 onClick={() => onPostClick(post)}
-                className="mt-1 w-full text-left transition-opacity hover:opacity-85"
+                className="flex w-full items-center gap-3 rounded-2xl bg-muted px-3.5 py-3 text-left text-muted-foreground transition-opacity hover:opacity-85"
               >
-                <h3 className="line-clamp-2 text-sm font-bold text-foreground">{post.title}</h3>
-                <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                  {post.content || post.contentSnippet}
-                </p>
-                {post.imageUrl ? (
-                  <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
-                ) : null}
-              </button>
-              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold text-muted-foreground">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="inline-flex items-center gap-1">
-                    <Heart className="h-3.5 w-3.5" />
-                    {post.likeCount}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    {post.commentCount}
-                  </span>
-                  {!member ? (
-                    <span className="truncate text-primary">가입 후 참여 가능</span>
-                  ) : null}
+                <Lock className="h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground">모임에만 공개된 게시물이에요.</p>
+                  <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">가입 요청 후 글과 댓글을 확인할 수 있습니다.</p>
                 </div>
-                <span className="shrink-0 font-medium">{formatRelativeTime(post.createdAt)}</span>
-              </div>
-            </>
-          )}
-        </article>
-      ))}
+              </button>
+            </article>
+          );
+        }
+
+        const renderedPost = {
+          id: post.id,
+          title: post.title || '제목 없는 글',
+          content: post.content || post.contentSnippet || '',
+          groupId: undefined,
+          memberOnly: post.memberOnly,
+          locked: post.locked,
+          anonymous: false,
+          imageUrl: post.imageUrl,
+          imageId: post.imageId,
+          imageStatus: post.imageStatus,
+          authorUserId: post.authorUserId,
+          authorNickname: post.authorNickname || '멤버',
+          authorAvatarUrl: post.authorAvatarUrl,
+          likeCount: post.likeCount,
+          commentCount: post.commentCount,
+          likedByMe: Boolean(post.likedByMe),
+          mine: Boolean(post.mine),
+          createdAt: post.createdAt,
+          updatedAt: post.updatedAt || post.createdAt,
+        };
+
+        return (
+          <PostListItem
+            key={post.id}
+            post={renderedPost}
+            onClick={() => onPostClick(post)}
+            onAuthorClick={post.authorUserId ? () => onAuthorClick(post.authorUserId) : undefined}
+            actions={(
+              <>
+                <span className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 text-[11px] font-bold text-muted-foreground">
+                  <Heart className="h-3.5 w-3.5" />
+                  {post.likeCount ?? 0}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onPostClick(post)}
+                  className="flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 text-[11px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={`댓글 ${post.commentCount ?? 0}개 보기`}
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  댓글 {post.commentCount ?? 0}개
+                </button>
+                {!member ? (
+                  <span className="truncate text-[11px] font-bold text-primary">가입 후 참여 가능</span>
+                ) : null}
+              </>
+            )}
+          />
+        );
+      })}
       {hasNextPage ? (
         <div className="px-5 pt-3">
           <button
