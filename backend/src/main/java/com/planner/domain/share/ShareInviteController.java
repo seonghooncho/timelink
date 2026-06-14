@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriUtils;
 
@@ -32,6 +34,17 @@ public class ShareInviteController {
 
     private final GroupRepository groupRepository;
     private final CoordinationRepository coordinationRepository;
+
+    @RequestMapping(value = "/invite/{inviteCode}", method = RequestMethod.HEAD)
+    public ResponseEntity<Void> inviteHead(
+            @PathVariable String inviteCode,
+            @RequestParam(required = false) String coord) {
+        resolvePreview(inviteCode, coord);
+        return ResponseEntity.ok()
+                .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                .cacheControl(CacheControl.noCache())
+                .build();
+    }
 
     @GetMapping(value = "/invite/{inviteCode}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> invite(
