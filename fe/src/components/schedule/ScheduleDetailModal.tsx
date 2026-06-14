@@ -38,7 +38,10 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
   }, [open, schedule?.id]);
 
   if (!schedule) return null;
-  const canEditSchedule = !schedule.groupScheduleId || schedule.groupScheduleOwner !== false;
+  const isGroupSchedule = Boolean(schedule.groupScheduleId);
+  const isGroupScheduleParticipant = schedule.groupScheduleParticipant !== false;
+  const canEditSchedule = !isGroupSchedule || schedule.groupScheduleOwner !== false;
+  const canLeaveGroupSchedule = isGroupSchedule && isGroupScheduleParticipant && !canEditSchedule;
 
   const handleEdit = () => {
     setEditTitle(schedule.title);
@@ -143,8 +146,14 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                   <DetailRow label="소요" value={formatDurationLabel(schedule.duration)} />
                 </div>
 
-                {schedule.groupScheduleId ? (
+                {isGroupSchedule ? (
                   <ParticipantStrip participants={schedule.participants} />
+                ) : null}
+
+                {isGroupSchedule && !isGroupScheduleParticipant ? (
+                  <p className="mt-5 rounded-2xl border border-border/70 bg-muted/50 px-4 py-3 text-xs font-semibold text-muted-foreground">
+                    참여자로 선택되지 않은 모임 약속입니다.
+                  </p>
                 ) : null}
 
                 {schedule.content && (
@@ -154,7 +163,7 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                 )}
 
                 <div className="mt-5 flex items-center gap-2">
-                  {!canEditSchedule ? (
+                  {canLeaveGroupSchedule ? (
                     <button
                       type="button"
                       onClick={handleLeaveGroupSchedule}

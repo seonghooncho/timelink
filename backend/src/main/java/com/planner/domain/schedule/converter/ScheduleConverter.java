@@ -62,6 +62,7 @@ public final class ScheduleConverter {
                 .groupScheduleId(s.getGroupScheduleId())
                 .groupScheduleCreatedBy(s.getGroupScheduleCreatedBy())
                 .groupScheduleOwner(s.getGroupScheduleCreatedBy() == null || s.getGroupScheduleCreatedBy().equals(s.getUserId()))
+                .groupScheduleParticipant(s.getGroupScheduleId() != null)
                 .imageUrl(s.getImageUrl())
                 .imageId(s.getImageId())
                 .imageStatus(s.getImageStatus())
@@ -72,6 +73,14 @@ public final class ScheduleConverter {
 
     public static void applyGroupScheduleIndex(Schedule schedule) {
         if (schedule.getGroupId() == null || schedule.getGroupId().isBlank()) {
+            schedule.setGsi4pk(null);
+            schedule.setGsi4sk(null);
+            return;
+        }
+        if (schedule.getGroupScheduleId() != null
+                && !schedule.getGroupScheduleId().isBlank()
+                && schedule.getGroupScheduleCreatedBy() != null
+                && !schedule.getGroupScheduleCreatedBy().equals(schedule.getUserId())) {
             schedule.setGsi4pk(null);
             schedule.setGsi4sk(null);
             return;

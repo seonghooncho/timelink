@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, ChevronRight, Copy, Heart, Info, LogOut, Menu, MessageCircle, Send, UserMinus, UserPlus, Users, X } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -28,7 +28,7 @@ import {
   useGroupPosts,
   useToggleGroupPostLike,
 } from '@/hooks/useCommunity';
-import { fetchScheduleDetail, useDeleteSchedule, useLeaveGroupSchedule, useSchedules, useUpdateSchedule } from '@/hooks/useSchedules';
+import { fetchScheduleDetail, mapScheduleResponse, useDeleteSchedule, useLeaveGroupSchedule, useUpdateSchedule } from '@/hooks/useSchedules';
 import {
   CommunityCommentResponse,
   CommunityPostResponse,
@@ -72,12 +72,19 @@ const GroupDetailPage: React.FC = () => {
     };
   }, []);
   const {
-    data: schedules = [],
-    fetchNextPage: fetchNextSchedulePage,
-    hasNextPage: hasNextSchedulePage,
-    isFetchingNextPage: isFetchingNextSchedulePage,
+    data: groupSchedules = [],
     isPending: isSchedulesPending,
-  } = useSchedules(groupScheduleRange);
+  } = useQuery({
+    queryKey: ['groups', id, 'schedules', groupScheduleRange],
+    queryFn: async () => {
+      const page = await groupApi.getSchedules(id as string, {
+        ...groupScheduleRange,
+        limit: groupScheduleRange.limit,
+      });
+      return page.data.map(mapScheduleResponse);
+    },
+    enabled: Boolean(id),
+  });
   const [showMenu, setShowMenu] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -122,7 +129,6 @@ const GroupDetailPage: React.FC = () => {
   const createGroupPost = useCreateGroupPost(id || '');
 
   const group = groups.find((item) => item.id === id);
-  const groupSchedules = schedules.filter((schedule) => schedule.groupId === id);
   const coordinationStatus = showClosedCoordinations ? 'closed' : 'active';
 
   const loadCoordinations = useCallback(async (cursor?: string | null) => {
@@ -201,7 +207,7 @@ const GroupDetailPage: React.FC = () => {
   const memberCountLabel = memberCount > 99 ? '99+' : String(memberCount);
   const currentMember = sortedMembers.find((member) => member.userId === userId);
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
-  const groupScheduleCountLabel = `${visibleGroupSchedules.length}${hasNextSchedulePage ? '+' : ''}개`;
+  const groupScheduleCountLabel = `${visibleGroupSchedules.length}개`;
   const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
   const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
 
@@ -380,11 +386,6 @@ const GroupDetailPage: React.FC = () => {
     }
   };
 
-  const handleLoadMoreGroupSchedules = useCallback(() => {
-    if (!hasNextSchedulePage || isFetchingNextSchedulePage) return;
-    fetchNextSchedulePage();
-  }, [fetchNextSchedulePage, hasNextSchedulePage, isFetchingNextSchedulePage]);
-
   const handleLoadMoreCoordinations = useCallback(() => {
     if (!coordinationNextCursor || isFetchingMoreCoordinations) return;
     loadCoordinations(coordinationNextCursor);
@@ -500,10 +501,10 @@ const GroupDetailPage: React.FC = () => {
     );
   }
 
-  const handleScheduleClick = (schedule: typeof schedules[number]) => {
+  const handleScheduleClick = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     setShowScheduleDetail(true);
-    if (schedule.groupScheduleId && !schedule.participants) {
+    if (schedule.groupScheduleId && schedule.groupScheduleParticipant !== false && !schedule.participants) {
       void fetchScheduleDetail(schedule.id)
         .then((detail) => {
           setSelectedSchedule((current) => current?.id === schedule.id ? detail : current);
@@ -686,18 +687,6 @@ const GroupDetailPage: React.FC = () => {
             {showPastSchedules ? '표시할 약속이 없습니다.' : '아직 예정된 약속이 없습니다.'}
           </p>
         )}
-        {hasNextSchedulePage ? (
-          <div className="px-5 pt-2">
-            <button
-              type="button"
-              onClick={() => fetchNextSchedulePage()}
-              disabled={isFetchingNextSchedulePage}
-              className="w-full border-y border-border/60 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-            >
-              {isFetchingNextSchedulePage ? '불러오는 중...' : '약속 더보기'}
-            </button>
-          </div>
-        ) : null}
       </section>
 
       <section className="mt-5 border-t border-border/50 pt-3">

@@ -13,6 +13,7 @@ interface ScheduleCardCompactProps {
 
 const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onClick, onComplete, selected = false }) => {
   const isImportant = schedule.isImportant;
+  const isGroupNonParticipant = Boolean(schedule.groupScheduleId) && schedule.groupScheduleParticipant === false;
   const cardColorStyle = getScheduleColorStyle(schedule, isImportant ? 'solid' : 'soft');
   const dotColorStyle = getScheduleColorStyle(schedule, 'line');
 
@@ -27,13 +28,18 @@ const ScheduleCardCompact: React.FC<ScheduleCardCompactProps> = ({ schedule, onC
     >
       {/* Top */}
       <div>
-        <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="mb-1.5 flex items-center gap-1.5">
           {!isImportant && (
             <div className="w-1.5 h-1.5 rounded-full" style={dotColorStyle} />
           )}
           <span className={`text-[10px] font-medium ${isImportant ? 'opacity-80' : 'opacity-75'}`}>
             {getCategoryLabel(schedule.category)}
           </span>
+          {isGroupNonParticipant ? (
+            <span className="ml-auto rounded-full bg-background/70 px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
+              미참여
+            </span>
+          ) : null}
         </div>
         <p className="font-num text-xs font-semibold opacity-70">{formatScheduleClock(schedule.startTime)}</p>
         <p className="text-[13px] font-bold mt-1 leading-snug line-clamp-2">

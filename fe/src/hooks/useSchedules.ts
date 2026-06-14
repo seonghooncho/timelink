@@ -19,6 +19,7 @@ export function mapScheduleResponse(r: ScheduleResponse): Schedule {
     groupScheduleId: r.groupScheduleId,
     groupScheduleCreatedBy: r.groupScheduleCreatedBy,
     groupScheduleOwner: r.groupScheduleOwner,
+    groupScheduleParticipant: r.groupScheduleParticipant,
     imageUrl: r.imageUrl,
     imageId: r.imageId,
     imageStatus: r.imageStatus,
@@ -68,7 +69,10 @@ export function useCreateSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: ScheduleCreateRequest) => scheduleApi.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
   });
 }
 
@@ -76,7 +80,10 @@ export function useUpdateSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ScheduleUpdateRequest }) => scheduleApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
   });
 }
 
@@ -84,7 +91,10 @@ export function useDeleteSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => scheduleApi.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
   });
 }
 
@@ -92,6 +102,9 @@ export function useLeaveGroupSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => scheduleApi.leaveParticipation(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
   });
 }

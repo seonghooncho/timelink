@@ -161,6 +161,7 @@ export interface ScheduleResponse {
   groupScheduleId?: string;
   groupScheduleCreatedBy?: string;
   groupScheduleOwner?: boolean;
+  groupScheduleParticipant?: boolean;
   imageUrl?: string;
   imageId?: string;
   imageStatus?: ImageStatus;
@@ -441,6 +442,8 @@ export const groupApi = {
   delete: (id: string) => request<void>('DELETE', `/groups/${id}`),
   join: (inviteCode: string) => request<GroupDetailResponse>('POST', '/groups/join', { inviteCode }),
   getMembers: (groupId: string) => request<GroupMemberResponse[]>('GET', `/groups/${groupId}/members`),
+  getSchedules: (groupId: string, params?: ScheduleListRequest) =>
+    requestPage<ScheduleResponse>(`/groups/${groupId}/schedules`, params),
   getMemberProfile: (groupId: string, memberUserId: string) =>
     request<GroupMemberProfileResponse>('GET', `/groups/${groupId}/members/${encodeURIComponent(memberUserId)}/profile`),
   updateMyMemberProfile: (groupId: string, data: { nickname?: string; avatarUrl?: string; imageId?: string }) =>

@@ -265,6 +265,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "title": "수강 신청",
     "group_id": "group-uuid",
     "group_schedule_id": "group-schedule-uuid",
+    "group_schedule_participant": true,
     "participants": [
       {
         "user_id": "user-1",
@@ -277,7 +278,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 }
 ```
 
-`participants`는 모임 일정 단건 조회와 모임 일정 생성/수정 응답에서만 내려온다. 일정 목록은 카드 렌더링 비용을 줄이기 위해 참여자 프로필을 포함하지 않는다.
+`participants`는 모임 일정 단건 조회, 모임 일정 생성/수정 응답, 모임 상세용 일정 조회에서 내려온다. 개인 일정 목록은 카드 렌더링 비용을 줄이기 위해 참여자 프로필을 포함하지 않는다. `group_schedule_participant=false`이면 현재 사용자는 모임 멤버이지만 해당 약속 참여자는 아니므로 읽기 전용으로 표시한다.
 
 ---
 
@@ -314,6 +315,7 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
     "group_schedule_id": "group-schedule-uuid",
     "group_schedule_created_by": "user-1",
     "group_schedule_owner": true,
+    "group_schedule_participant": true,
     "participants": [
       {
         "user_id": "user-1",
@@ -702,11 +704,53 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 #### `DELETE` /api/planner/v1/groups/:id
 
 모임 삭제. **manager만** 수행 가능.
-> 모임 삭제 시 모든 멤버 데이터도 함께 정리됩니다.
+> 모임 삭제 시 멤버십, 모임 약속, 시간 조율과 응답, 모임 게시글, 소개/공지/가입요청 데이터를 함께 정리합니다.
 
 **Response** `204 No Content`
 
 **Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
+
+---
+
+#### `GET` /api/planner/v1/groups/:id/schedules
+
+모임 상세 화면용 약속 목록. **모임 멤버만** 조회 가능하다. 홈/캘린더의 개인 일정 목록과 달리, 현재 사용자가 참여자로 선택되지 않은 모임 약속도 함께 내려온다.
+
+**Query Parameters**
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `startDate` | string (ISO) | 선택 | 범위 시작 시각 |
+| `endDate` | string (ISO) | 선택 | 범위 종료 시각 |
+| `limit` | integer | 선택 | 기본 20, 최대 100 |
+
+**Response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "schedule-uuid",
+      "title": "주말 러닝",
+      "category": "group",
+      "group_id": "group-uuid",
+      "group_schedule_id": "group-schedule-uuid",
+      "group_schedule_owner": false,
+      "group_schedule_participant": false,
+      "participants": [
+        {
+          "user_id": "user-1",
+          "nickname": "민지",
+          "avatar_url": "https://...",
+          "thumbnail_url": "https://..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+`group_schedule_participant=false`인 항목은 모임 약속의 존재와 참여자를 보여주되, 수정/삭제/약속 빠지기 액션은 제공하지 않는다.
+
+**Error** `403 NOT_GROUP_MEMBER` — 모임 멤버가 아닌 경우
 
 ---
 
@@ -855,9 +899,11 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 #### `DELETE` /api/planner/v1/groups/:groupId/members/me
 
-모임 나가기 (본인).
+모임 나가기 (본인). 미래 모임 약속 참여와 진행 중인 시간 조율 응답은 함께 제거됩니다. 해당 사용자가 만든 미래 모임 약속은 전체 참여자의 캘린더에서 제거됩니다. 마지막 manager는 모임을 나갈 수 없습니다.
 
 **Response** `204 No Content`
+
+**Error** `400 CANNOT_LEAVE_LAST_MANAGER` — 마지막 manager가 나가려는 경우
 
 ---
 
@@ -865,10 +911,12 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 모임 멤버 내보내기. **manager만** 수행 가능.
 자기 자신은 이 엔드포인트로 내보낼 수 없으며, 본인 탈퇴는 `/members/me`를 사용합니다.
+내보내진 멤버의 미래 모임 약속 참여와 진행 중인 시간 조율 응답은 함께 제거됩니다. 대상자가 만든 미래 모임 약속은 전체 참여자의 캘린더에서 제거됩니다.
 
 **Response** `204 No Content`
 
 **Error** `400 CANNOT_REMOVE_SELF` — 자기 자신을 내보내려는 경우
+**Error** `400 CANNOT_LEAVE_LAST_MANAGER` — 마지막 manager를 내보내려는 경우
 **Error** `403 NOT_GROUP_MANAGER` — 관리자가 아닌 경우
 **Error** `403 NOT_GROUP_MEMBER` — 요청자 또는 대상자가 모임 멤버가 아닌 경우
 
@@ -1901,8 +1949,9 @@ Community
 | `GET` | `/groups/:id/notices` | 모임 공지 목록 | 공개 모임 또는 멤버 | 구현됨 |
 | `POST` | `/groups/:id/notices` | 모임 공지 작성 | 멤버 | 구현됨 |
 | `POST` | `/groups` | 모임 생성 | 인증 | 구현됨 |
-| `PATCH` | `/groups/:id` | 모임 수정 | 멤버 | 구현됨 |
-| `DELETE` | `/groups/:id` | 모임 삭제 (멤버 cleanup 포함) | manager | 구현됨 |
+| `PATCH` | `/groups/:id` | 모임 수정 | manager | 구현됨 |
+| `DELETE` | `/groups/:id` | 모임 삭제 (연관 데이터 cleanup 포함) | manager | 구현됨 |
+| `GET` | `/groups/:id/schedules` | 모임 상세용 약속 목록 | 멤버 | 구현됨 |
 | `POST` | `/groups/join` | 초대코드 가입 | 인증 | 구현됨 |
 | `POST` | `/groups/:gid/join-requests` | 공개 모임 가입 요청 | 인증 | 구현됨 |
 | `GET` | `/groups/:gid/join-requests` | 가입 요청 목록 | manager | 구현됨 |
@@ -1960,4 +2009,4 @@ Community
 
 ---
 
-*마지막 업데이트: 2026-06-14 (모임 일정 상세 참여자 프로필 응답 반영)*
+*마지막 업데이트: 2026-06-14 (모임 약속 노출 정책과 멤버십 cleanup 반영)*

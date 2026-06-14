@@ -17,6 +17,8 @@ import com.planner.domain.group.dto.GroupNoticeCreateReqDTO;
 import com.planner.domain.group.dto.GroupResDTO;
 import com.planner.domain.group.dto.GroupUpdateReqDTO;
 import com.planner.domain.group.service.GroupService;
+import com.planner.domain.schedule.dto.ScheduleResDTO;
+import com.planner.domain.schedule.service.ScheduleService;
 import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.response.CustomResponse;
 import com.planner.global.security.AuthUtil;
@@ -36,6 +38,7 @@ public class GroupController {
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
     private final GroupService service;
+    private final ScheduleService scheduleService;
 
     @GetMapping
     public ResponseEntity<CustomResponse<List<GroupResDTO>>> getMyGroups(
@@ -146,6 +149,17 @@ public class GroupController {
     public ResponseEntity<CustomResponse<List<GroupMemberResDTO>>> getMembers(@PathVariable String id) {
         String userId = AuthUtil.getCurrentUserId();
         return ResponseEntity.ok(CustomResponse.ok(service.getMembers(userId, id)));
+    }
+
+    @GetMapping("/{id}/schedules")
+    public ResponseEntity<CustomResponse<List<ScheduleResDTO>>> getSchedules(
+            @PathVariable String id,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) Integer limit) {
+        String userId = AuthUtil.getCurrentUserId();
+        int size = resolveLimit(limit);
+        return ResponseEntity.ok(CustomResponse.ok(scheduleService.getGroupSchedules(userId, id, startDate, endDate, size)));
     }
 
     @GetMapping("/{id}/members/{memberUserId}/profile")
