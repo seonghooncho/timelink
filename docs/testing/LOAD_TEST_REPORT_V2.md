@@ -10,7 +10,7 @@ Lambda reserved concurrency `50`과 계정 quota `1,000` 적용 이후 운영 AP
 
 ## 측정 기준
 
-- 테스트 일시: 2026-06-14 04:50 ~ 06:09 KST
+- 테스트 일시: 2026-06-14 04:50 ~ 11:28 KST
 - 대상: 운영 도메인 `https://timelink.cloud`, AWS account `160885253413`, region `ap-northeast-2`
 - API Gateway: `sotr621lgc`, stage `$default`
 - CloudFront distribution: `E6SMS7ZNIN4ZI`
@@ -46,7 +46,7 @@ Playwright는 실제 브라우저 기준으로 모바일 overflow, 조율 추천
 | `group_scale_read` | 9,819 | 17.21 req/s | 0.020% | 790 ms | 1,930 ms | 60,006 ms | 0 | 28 | 0 |
 | `coordination_heatmap_scale` | 5,536 | 13.81 req/s | 0.018% | 1,074 ms | 3,370 ms | 60,002 ms | 0 | 27 | 0 |
 | `community_group_post_mix` | 4,424 | 11.40 req/s | 0.158% | 717 ms | 1,357 ms | 60,002 ms | 0 | 17 | 0 |
-| `write_burst_schedule_notification` | 91 | 2.35 req/s | 1.099% | 571 ms | 1,920 ms | 5,345 ms | 0 | 1 | 0 |
+| `write_burst_schedule_notification` | 1,961 | 6.15 req/s | 0.000% | 2,721 ms | 4,048 ms | 23,857 ms | 0 | 19 | 0 |
 | `probe_75vu_short` | 9,855 | 19.78 req/s | 0.660% | 850 ms | 2,430 ms | 60,001 ms | 61 | 50 | 0 |
 
 해석:
@@ -55,6 +55,7 @@ Playwright는 실제 브라우저 기준으로 모바일 overflow, 조율 추천
 - 50 VU 혼합 트래픽은 p95 761 ms, p99 1.78초로 사용할 수 있는 수준이지만, 일부 요청 timeout이 남아 있어 안정 한계에 가까운 상한으로 봅니다.
 - 75 VU probe는 Lambda 동시성 `50`에 정확히 닿으면서 API Gateway 5xx 61건과 Lambda throttle 61건이 발생했습니다. 이 구간은 현재 설정에서 안정 수용으로 보지 않습니다.
 - DynamoDB throttle은 모든 시나리오에서 0이었습니다. 이번 실험에서 1차 병목은 DynamoDB 용량보다 Lambda reserved concurrency와 일부 집계/목록 경로의 tail latency입니다.
+- write burst는 초대코드와 알림 스케줄링 병목을 수정한 뒤 HTTP 실패율 0%, Lambda/DynamoDB throttle 0건으로 통과했습니다. 다만 p95가 2.7초대라 일정 생성과 리마인더 예약이 섞이는 구간은 계속 관측해야 합니다.
 - 조율 heatmap은 다른 읽기 시나리오보다 p95/p99가 높습니다. 조율 응답 전체를 읽어 화면 집계를 구성하는 구조가 규모 증가 시 먼저 약해질 가능성이 큽니다.
 
 ## Playwright 결과
@@ -84,9 +85,26 @@ Playwright는 실제 브라우저 기준으로 모바일 overflow, 조율 추천
 검증:
 
 - Java 21 환경에서 `./gradlew test --tests com.planner.domain.group.service.GroupServiceTest`를 통과했습니다.
-- 운영 배포 후 `write_burst_schedule_notification`을 다시 실행해 write burst 기준을 확정해야 합니다.
+- 운영 배포 후 `write_burst_schedule_notification` setup이 정상 통과하는 것을 확인했습니다.
 
-### 2. 부하테스트 cleanup 스크립트가 큰 table scan 출력에서 실패
+### 2. 새 일정 생성 write burst의 불필요한 리마인더 재동기화
+
+초대코드 수정 후 1차 재실행에서는 setup은 통과했지만 `PATCH /settings/notifications`, `POST /schedules`에서 timeout 2건이 남았습니다. 새 일정 생성인데도 기존 reminder job 삭제 경로를 먼저 타고, 알림 설정 저장 시 reminder 관련 값이 바뀌지 않아도 전체 reminder sync를 수행하는 구조가 write burst에서 tail latency를 키웠습니다.
+
+현재 처리:
+
+- 새 일정 생성은 기존 reminder job 삭제 없이 `scheduleNewSchedule`로 바로 예약합니다.
+- 일정 수정은 기존처럼 삭제 후 재예약하는 `rescheduleSchedule`을 유지합니다.
+- 알림 설정 저장은 reminder 관련 필드가 실제 변경된 경우에만 사용자 reminder 전체 sync를 수행합니다.
+- cleanup 스크립트는 Scheduler 삭제를 병렬화해 테스트 리소스 정리 시간을 줄였습니다.
+
+검증:
+
+- `./gradlew test --tests com.planner.domain.schedule.service.ScheduleServiceTest --tests com.planner.domain.notification.service.NotificationServiceTest`를 통과했습니다.
+- 전체 `./gradlew test`를 통과했습니다.
+- 최종 run `tl-load-write_burst_schedule_notification-20260614T021349Z`에서 HTTP 실패율 0%, API Lambda error/throttle 0건, DynamoDB throttle 0건을 확인했습니다.
+
+### 3. 부하테스트 cleanup 스크립트가 큰 table scan 출력에서 실패
 
 baseline cleanup 중 AWS CLI scan 출력이 기본 buffer를 넘어서 `ENOBUFS`가 발생했습니다.
 
@@ -95,7 +113,7 @@ baseline cleanup 중 AWS CLI scan 출력이 기본 buffer를 넘어서 `ENOBUFS`
 - `test/scripts/cleanup-load-test.mjs`의 AWS CLI `maxBuffer`를 64 MB로 확장했습니다.
 - 테스트 게시글 댓글/좋아요까지 삭제되도록 `POST#...` cascade 수집을 강화했습니다.
 
-### 3. 게시판/목록 경로의 긴 tail latency
+### 4. 게시판/목록 경로의 긴 tail latency
 
 50 VU와 규모별 읽기 시나리오에서 `/groups`, `/groups/{id}/posts`, `/community/posts/{id}/comments`, `/schedules` 등 일부 요청이 60초 timeout까지 갔습니다. CloudWatch 기준 Lambda handler p95는 낮고 DynamoDB throttle은 없었으므로, 평균 처리시간보다 tail path와 연결 경로 문제가 더 큽니다.
 
@@ -105,7 +123,7 @@ baseline cleanup 중 AWS CLI scan 출력이 기본 buffer를 넘어서 `ENOBUFS`
 - 목록 표시용 값은 가능한 metadata/counter cache에 유지하고, 상세 진입 시에만 무거운 하위 목록을 읽습니다.
 - Cloudflare 경유 요청에서 `connection reset by peer`가 관측됐으므로, 반복되면 CloudFront 직접 경로와 비교해 앞단 프록시 영향 여부를 분리합니다.
 
-### 4. 조율 heatmap 집계 비용
+### 5. 조율 heatmap 집계 비용
 
 `coordination_heatmap_scale`은 실패율은 낮았지만 p95 1.07초, p99 3.37초로 가장 무거운 읽기 경로였습니다.
 
@@ -134,20 +152,24 @@ baseline cleanup 중 AWS CLI scan 출력이 기본 buffer를 넘어서 `ENOBUFS`
 
 - 초대코드 생성 재시도 로직을 랜덤 반복에서 deterministic attempt 기반으로 변경
 - 초대코드 충돌 단위 테스트 추가
+- 새 일정 생성 시 불필요한 reminder delete를 생략
+- 알림 설정 저장 시 reminder 관련 변경이 없으면 전체 reminder sync 생략
+- 일정 생성/알림 설정 단위 테스트 추가
 - k6 대규모 시나리오 추가와 제목/본문 길이 제한에 맞는 테스트 데이터 생성
 - Playwright 서버리스 흐름 시나리오 보강
-- cleanup 스크립트 buffer와 게시글 cascade 정리 강화
+- cleanup 스크립트 buffer, 게시글 cascade 정리, Scheduler 병렬 삭제 강화
 - AWS metric 수집 스크립트에 Lambda concurrency, API Gateway, CloudFront 지표 추가
 
-운영 배포 후 바로 재측정할 항목:
+추가 관측할 항목:
 
-- `write_burst_schedule_notification`: 이번 run은 초대코드 버그 때문에 setup 단계에서 실패해 write burst 자체를 측정하지 못했습니다.
+- `write_burst_schedule_notification`: 최종 run은 통과했지만 p95가 2.7초대입니다. 실제 일정 생성 피크에서 p99가 5초를 반복해서 넘으면 reminder 예약을 SQS fanout 또는 due-time polling 구조로 분리합니다.
 - `reserved_limit_50vu`: 초대코드 수정 후에도 50 VU 상한에서 오류율이 0.1% 아래인지 재확인합니다.
 
 ## 정리 확인
 
 - 모든 run id에 대해 cleanup 스크립트를 재실행했습니다.
 - 최종 재확인에서 각 run id의 `deletedItems`, `groupIds`, `coordinationIds`, `postIds`, `deletedSchedulers`는 모두 `0`이었습니다.
+- 최종 write burst run은 최초 cleanup에서 DynamoDB item 2,857개와 Scheduler 1,249개를 삭제했고, 재검증 cleanup에서 삭제 대상 0개를 확인했습니다.
 - EventBridge Scheduler group `planner-prod-notification-reminders`의 잔여 schedule 수는 `0`개였습니다.
 
 ## 근거 파일
