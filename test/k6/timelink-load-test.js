@@ -124,6 +124,20 @@ const profileConfigs = {
       write_burst: { executor: 'constant-vus', exec: 'writeBurstScheduleNotification', vus: 20, duration: '3m' },
     },
   },
+  boundary_contract_smoke: {
+    userCount: 12,
+    schedulesPerUser: 2,
+    communityPosts: 12,
+    groupPosts: 12,
+    groupSchedules: 3,
+    coordinationCount: 1,
+    responseUserLimit: 12,
+    commentsPerPostSeed: 1,
+    setupTimeout: '8m',
+    scenarios: {
+      boundary_contract: { executor: 'constant-vus', exec: 'boundaryContractSmoke', vus: 4, duration: '1m' },
+    },
+  },
 };
 
 profileConfigs.smoke = profileConfigs.smoke_prod;
@@ -658,4 +672,45 @@ export function writeBurstScheduleNotification(data) {
     }
   });
   sleep(1.4);
+}
+
+export function boundaryContractSmoke(data) {
+  const user = userFor(data);
+  const coordinationId = data.coordinationId;
+  const communityPostId = pick(data.communityPostIds);
+  const groupPostId = pick(data.groupPostIds, 2);
+
+  group('boundary contract smoke', () => {
+    api(user, 'GET', '/schedules?limit=0');
+    api(user, 'GET', `/schedules${qs({
+      startDate: isoDay(-1, 0),
+      endDate: isoDay(30, 23),
+      limit: 200,
+    })}`);
+    api(user, 'GET', '/groups?limit=-1');
+    api(user, 'GET', `/groups/public${qs({ limit: 200, q: RUN_SHORT })}`);
+    api(user, 'GET', `/groups/${data.groupId}/schedules${qs({
+      startDate: isoDay(-1, 0),
+      endDate: isoDay(30, 23),
+      limit: 200,
+    })}`);
+    api(user, 'GET', `/groups/${data.groupId}/members`);
+    api(user, 'GET', `/groups/${data.groupId}/coordinations?status=active&limit=200`);
+    api(user, 'GET', `/groups/${data.groupId}/coordinations/${coordinationId}`);
+    api(user, 'PUT', `/groups/${data.groupId}/coordinations/${coordinationId}/responses/me`, {
+      slots: [
+        { date: localDate(0), hour: profileConfig.coordinationStartHour || 9 },
+        { date: localDate(0), hour: profileConfig.coordinationStartHour || 9 },
+      ],
+    });
+    api(user, 'GET', '/community/posts?limit=200');
+    if (communityPostId) {
+      api(user, 'GET', `/community/posts/${communityPostId}/comments?limit=200`);
+    }
+    api(user, 'GET', `/groups/${data.groupId}/posts?limit=200`);
+    if (groupPostId) {
+      api(user, 'GET', `/groups/${data.groupId}/posts/${groupPostId}/comments?limit=200`);
+    }
+  });
+  sleep(1);
 }

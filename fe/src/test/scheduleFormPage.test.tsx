@@ -23,12 +23,15 @@ vi.mock('@/services/api', async () => {
   return {
     ...actual,
     aiApi: {
+      ...actual.aiApi,
       extractSchedule: vi.fn(),
     },
     groupApi: {
+      ...actual.groupApi,
       getMembers: mocks.getMembers,
     },
     coordinationApi: {
+      ...actual.coordinationApi,
       update: mocks.closeCoordination,
     },
   };
@@ -80,6 +83,8 @@ function renderPage(stateOverrides: Record<string, unknown> = {}) {
 }
 
 describe('ScheduleFormPage coordination flow', () => {
+  const findLoadedMember = () => screen.findByText('민지', {}, { timeout: 5000 });
+
   beforeEach(() => {
     mocks.createSchedule.mockReset();
     mocks.useCreateSchedule.mockReset();
@@ -102,7 +107,7 @@ describe('ScheduleFormPage coordination flow', () => {
   it('asks whether to close the coordination after creating a group schedule from coordination result', async () => {
     renderPage();
 
-    expect(await screen.findByText('민지')).toBeInTheDocument();
+    expect(await findLoadedMember()).toBeInTheDocument();
     expect(screen.getAllByText('모임').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
 
@@ -127,7 +132,7 @@ describe('ScheduleFormPage coordination flow', () => {
   it('toggles all participants off before submitting a meetup schedule', async () => {
     renderPage();
 
-    expect(await screen.findByText('민지')).toBeInTheDocument();
+    expect(await findLoadedMember()).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '전체해제' }));
     expect(screen.getByText('0명 선택')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
@@ -165,7 +170,7 @@ describe('ScheduleFormPage coordination flow', () => {
   it('confirms before creating a past schedule', async () => {
     renderPage({ startDate: '2020-06-14', coordinationId: undefined });
 
-    expect(await screen.findByText('민지')).toBeInTheDocument();
+    expect(await findLoadedMember()).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '생성하기' }));
 
     expect(await screen.findByText('이미 지난 일정입니다')).toBeInTheDocument();

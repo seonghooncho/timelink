@@ -40,6 +40,7 @@ export TIMELINK_CLOUDFRONT_DISTRIBUTION_ID=<distribution-id>
 | `coordination_heatmap_scale` | 조율 상세 heatmap 응답 전체 조회 병목 확인 | 50명 응답, 30 VU, 3분 |
 | `community_group_post_mix` | 커뮤니티/모임 게시판 읽기/댓글/좋아요 확인 | 40명, 25 VU, 3분 |
 | `write_burst_schedule_notification` | 일정 생성/완료/알림 설정 write burst 확인 | 30명, 20 VU, 3분 |
+| `boundary_contract_smoke` | limit 보정, 모임 약속 조회, 조율 중복 slot 같은 경계 계약 확인 | 12명, 4 VU, 1분 |
 
 기존 이름 `smoke`, `baseline`, `quota_probe`는 각각 `smoke_prod`, `baseline_20vu`, `probe_75vu_short` alias로 남겨둡니다.
 
@@ -63,7 +64,7 @@ node test/scripts/collect-aws-metrics.mjs "$START" "$END" > "test-results/aws/${
 node test/scripts/cleanup-load-test.mjs "$RUN_ID" > "test-results/cleanup/${RUN_ID}.json"
 ```
 
-권장 실행 순서는 `smoke_prod` → Playwright → `baseline_20vu` → `reserved_limit_50vu` → 규모별 세부 프로필 → `probe_75vu_short`입니다. `probe_75vu_short`에서 5xx나 Lambda throttle이 급증하면 즉시 중단합니다.
+권장 실행 순서는 `smoke_prod` → Playwright → `boundary_contract_smoke` → `baseline_20vu` → `reserved_limit_50vu` → 규모별 세부 프로필 → `probe_75vu_short`입니다. `probe_75vu_short`에서 5xx나 Lambda throttle이 급증하면 즉시 중단합니다.
 
 ## 판단 기준
 

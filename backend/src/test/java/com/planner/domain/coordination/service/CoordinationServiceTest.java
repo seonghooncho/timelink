@@ -144,6 +144,42 @@ class CoordinationServiceTest {
                     .isInstanceOf(CoordinationException.class);
             then(repository).should(never()).saveCoordination(any());
         }
+
+        @Test
+        @DisplayName("조율은 0시부터 24시까지의 전체 시간 범위를 허용한다")
+        void shouldAllowFullDayHourBoundary() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(groupRepository.findMembersByGroupId(GROUP_ID)).willReturn(List.of(mockMember(USER_ID)));
+
+            CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
+            req.setTitle("하루 전체");
+            req.setMode("once");
+            req.setDates(List.of("2025-03-15"));
+            req.setStartHour(0);
+            req.setEndHour(24);
+
+            CoordinationResDTO result = service.create(USER_ID, GROUP_ID, req);
+
+            assertThat(result.getStartHour()).isEqualTo(0);
+            assertThat(result.getEndHour()).isEqualTo(24);
+        }
+
+        @Test
+        @DisplayName("조율 날짜 형식이 올바르지 않으면 생성하지 않는다")
+        void shouldRejectInvalidDateFormat() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+
+            CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
+            req.setTitle("조율");
+            req.setMode("once");
+            req.setDates(List.of("2025/03/15"));
+            req.setStartHour(9);
+            req.setEndHour(18);
+
+            assertThatThrownBy(() -> service.create(USER_ID, GROUP_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).saveCoordination(any());
+        }
     }
 
     @Nested
@@ -325,6 +361,22 @@ class CoordinationServiceTest {
                     .isInstanceOf(CoordinationException.class);
             then(repository).should(never()).findUserResponses(anyString(), anyString());
             then(repository).should(never()).deleteResponse(anyString(), anyString());
+            then(repository).should(never()).saveResponse(any());
+        }
+
+        @Test
+        @DisplayName("응답 슬롯의 종료 시간 경계는 포함하지 않는다")
+        void shouldRejectEndHourBoundarySlot() {
+            given(groupRepository.findMember(GROUP_ID, USER_ID)).willReturn(Optional.of(mockMember()));
+            given(repository.findCoordination(GROUP_ID, COORD_ID))
+                    .willReturn(Optional.of(createCoordination("creator")));
+
+            CoordinationSubmitReqDTO req = new CoordinationSubmitReqDTO();
+            req.setSlots(List.of(new SlotEntryDTO("2025-03-15", 18)));
+
+            assertThatThrownBy(() -> service.submitResponses(USER_ID, GROUP_ID, COORD_ID, req))
+                    .isInstanceOf(CoordinationException.class);
+            then(repository).should(never()).findUserResponses(anyString(), anyString());
             then(repository).should(never()).saveResponse(any());
         }
 

@@ -40,7 +40,7 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
   if (!schedule) return null;
   const isGroupSchedule = Boolean(schedule.groupScheduleId);
   const isGroupScheduleParticipant = schedule.groupScheduleParticipant !== false;
-  const canEditSchedule = !isGroupSchedule || schedule.groupScheduleOwner !== false;
+  const canEditSchedule = !isGroupSchedule || (isGroupScheduleParticipant && schedule.groupScheduleOwner !== false);
   const canLeaveGroupSchedule = isGroupSchedule && isGroupScheduleParticipant && !canEditSchedule;
 
   const handleEdit = () => {
@@ -174,7 +174,7 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                         약속 빠지기
                       </span>
                     </button>
-                  ) : onDelete ? (
+                  ) : onDelete && canEditSchedule ? (
                     <button
                       type="button"
                       onClick={handleDelete}

@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   useCreateGroupPostComment: vi.fn(),
   useToggleGroupPostLike: vi.fn(),
   getMembers: vi.fn(),
+  getSchedules: vi.fn(),
   getMemberProfile: vi.fn(),
   updateMyMemberProfile: vi.fn(),
   getCoordinationPage: vi.fn(),
@@ -40,13 +41,17 @@ vi.mock('@/hooks/useGroups', () => ({
   useGroups: mocks.useGroups,
 }));
 
-vi.mock('@/hooks/useSchedules', () => ({
-  useSchedules: mocks.useSchedules,
-  useUpdateSchedule: mocks.useUpdateSchedule,
-  useDeleteSchedule: mocks.useDeleteSchedule,
-  useLeaveGroupSchedule: mocks.useLeaveGroupSchedule,
-  fetchScheduleDetail: mocks.fetchScheduleDetail,
-}));
+vi.mock('@/hooks/useSchedules', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useSchedules')>('@/hooks/useSchedules');
+  return {
+    ...actual,
+    useSchedules: mocks.useSchedules,
+    useUpdateSchedule: mocks.useUpdateSchedule,
+    useDeleteSchedule: mocks.useDeleteSchedule,
+    useLeaveGroupSchedule: mocks.useLeaveGroupSchedule,
+    fetchScheduleDetail: mocks.fetchScheduleDetail,
+  };
+});
 
 vi.mock('@/hooks/useCommunity', () => ({
   useGroupPosts: mocks.useGroupPosts,
@@ -62,6 +67,7 @@ vi.mock('@/services/api', async () => {
     ...actual,
     groupApi: {
       getMembers: mocks.getMembers,
+      getSchedules: mocks.getSchedules,
       getMemberProfile: mocks.getMemberProfile,
       updateMyMemberProfile: mocks.updateMyMemberProfile,
       update: vi.fn(),
@@ -124,6 +130,7 @@ describe('GroupDetailPage group posts', () => {
     mocks.useCreateGroupPostComment.mockReset();
     mocks.useToggleGroupPostLike.mockReset();
     mocks.getMembers.mockReset();
+    mocks.getSchedules.mockReset();
     mocks.getMemberProfile.mockReset();
     mocks.updateMyMemberProfile.mockReset();
     mocks.getCoordinationPage.mockReset();
@@ -144,6 +151,7 @@ describe('GroupDetailPage group posts', () => {
       hasNextPage: false,
       isFetchingNextPage: false,
     });
+    mocks.getSchedules.mockResolvedValue({ data: [], meta: { perPage: 80, nextCursor: null } });
     mocks.useUpdateSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
     mocks.useDeleteSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
     mocks.useLeaveGroupSchedule.mockReturnValue({ mutate: vi.fn(), isPending: false });
@@ -217,14 +225,12 @@ describe('GroupDetailPage group posts', () => {
 
   it('shows upcoming schedules and active coordinations as horizontal sections', async () => {
     const futureStart = new Date(Date.now() + 86_400_000).toISOString();
-    mocks.useSchedules.mockReturnValue({
+    mocks.getSchedules.mockResolvedValue({
       data: [makeGroupSchedule({
         title: '정기 스터디',
         startTime: futureStart,
       })],
-      fetchNextPage: vi.fn(),
-      hasNextPage: false,
-      isFetchingNextPage: false,
+      meta: { perPage: 80, nextCursor: null },
     });
     mocks.getCoordinationPage.mockResolvedValue({
       data: [{
@@ -245,6 +251,10 @@ describe('GroupDetailPage group posts', () => {
 
     renderPage();
 
+    await waitFor(() => expect(mocks.getSchedules).toHaveBeenCalledWith(
+      'group-1',
+      expect.objectContaining({ limit: 80 }),
+    ));
     expect(await screen.findByRole('heading', { name: /약속\(1개\)/ })).toBeInTheDocument();
     expect(screen.getByText('정기 스터디')).toBeInTheDocument();
     expect(await screen.findByText('회식 시간 조율')).toBeInTheDocument();
@@ -254,18 +264,20 @@ describe('GroupDetailPage group posts', () => {
   it('hides past group schedules by default and reveals them with the past toggle', async () => {
     const pastStart = new Date(Date.now() - 86_400_000).toISOString();
     const futureStart = new Date(Date.now() + 86_400_000).toISOString();
-    mocks.useSchedules.mockReturnValue({
+    mocks.getSchedules.mockResolvedValue({
       data: [
         makeGroupSchedule({ id: 'schedule-past', title: '지난 약속', startTime: pastStart }),
         makeGroupSchedule({ id: 'schedule-future', title: '예정 약속', startTime: futureStart }),
       ],
-      fetchNextPage: vi.fn(),
-      hasNextPage: false,
-      isFetchingNextPage: false,
+      meta: { perPage: 80, nextCursor: null },
     });
 
     renderPage();
 
+    await waitFor(() => expect(mocks.getSchedules).toHaveBeenCalledWith(
+      'group-1',
+      expect.objectContaining({ limit: 80 }),
+    ));
     expect(await screen.findByRole('heading', { name: '약속(1개)' })).toBeInTheDocument();
     expect(screen.getByText('예정 약속')).toBeInTheDocument();
     expect(screen.queryByText('지난 약속')).not.toBeInTheDocument();
@@ -275,6 +287,29 @@ describe('GroupDetailPage group posts', () => {
     expect(screen.getByRole('heading', { name: '약속(2개)' })).toBeInTheDocument();
     expect(screen.getByText('지난 약속')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지난 약속 숨기기' })).toBeInTheDocument();
+  });
+
+  it('shows non-participating group schedules as read-only items in the schedule section', async () => {
+    const futureStart = new Date(Date.now() + 86_400_000).toISOString();
+    mocks.getSchedules.mockResolvedValue({
+      data: [makeGroupSchedule({
+        id: 'schedule-non-participant',
+        title: '선택 멤버 약속',
+        startTime: futureStart,
+        groupScheduleId: 'group-schedule-1',
+        groupScheduleParticipant: false,
+      })],
+      meta: { perPage: 80, nextCursor: null },
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(mocks.getSchedules).toHaveBeenCalledWith(
+      'group-1',
+      expect.objectContaining({ limit: 80 }),
+    ));
+    expect(await screen.findByText('선택 멤버 약속')).toBeInTheDocument();
+    expect(screen.getByText('미참여')).toBeInTheDocument();
   });
 
   it('opens the role based member panel from the header member count', async () => {

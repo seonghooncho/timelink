@@ -163,6 +163,15 @@ class CommunityServiceTest {
     }
 
     @Test
+    @DisplayName("resolveLimit — 목록 조회 개수를 1~100 범위로 보정한다")
+    void resolveLimit_clampsBoundaries() {
+        assertThat(service.resolveLimit(null)).isEqualTo(20);
+        assertThat(service.resolveLimit(0)).isEqualTo(20);
+        assertThat(service.resolveLimit(1)).isEqualTo(1);
+        assertThat(service.resolveLimit(200)).isEqualTo(100);
+    }
+
+    @Test
     @DisplayName("createGroupPost — 그룹 멤버만 그룹 게시물 인덱스로 저장한다")
     void createGroupPost_savesGroupIndex() {
         CommunityPostCreateReqDTO req = new CommunityPostCreateReqDTO();

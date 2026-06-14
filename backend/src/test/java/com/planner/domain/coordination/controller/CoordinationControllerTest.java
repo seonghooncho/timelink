@@ -8,6 +8,7 @@ import com.planner.domain.coordination.service.CoordinationService;
 import com.planner.global.config.JwtProperties;
 import com.planner.global.cursor.CursorPageResult;
 import com.planner.global.error.GlobalExceptionHandler;
+import com.planner.global.response.CustomResponse;
 import com.planner.global.security.JwtAuthenticationFilter;
 import com.planner.global.security.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
@@ -82,6 +83,28 @@ class CoordinationControllerTest {
 
     @Test
     @WithMockUser(username = "user1")
+    @DisplayName("GET /coordinations — limit은 1~100 범위로 보정한다")
+    void getAll_clampsLimitBoundaries() throws Exception {
+        CursorPageResult<CoordinationResDTO> defaultPage = CursorPageResult.<CoordinationResDTO>builder().items(List.of()).build();
+        CursorPageResult<CoordinationResDTO> maxPage = CursorPageResult.<CoordinationResDTO>builder().items(List.of()).build();
+        when(service.getByGroupIdPaged("user1", "g1", "active", 20, null)).thenReturn(defaultPage);
+        when(service.toPageMeta(defaultPage, 20)).thenReturn(CustomResponse.PageMeta.builder().perPage(20).build());
+        when(service.getByGroupIdPaged("user1", "g1", "active", 100, "cursor-1")).thenReturn(maxPage);
+        when(service.toPageMeta(maxPage, 100)).thenReturn(CustomResponse.PageMeta.builder().perPage(100).build());
+
+        mockMvc.perform(get(BASE).param("limit", "-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.perPage").value(20));
+        mockMvc.perform(get(BASE).param("limit", "200").param("cursor", "cursor-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.perPage").value(100));
+
+        verify(service).getByGroupIdPaged("user1", "g1", "active", 20, null);
+        verify(service).getByGroupIdPaged("user1", "g1", "active", 100, "cursor-1");
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
     @DisplayName("GET /coordinations/{id} — 상세 200")
     void getDetail_returns200() throws Exception {
         CoordinationDetailResDTO dto = CoordinationDetailResDTO.builder()
@@ -120,6 +143,26 @@ class CoordinationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "user1")
+    @DisplayName("POST /coordinations — 제목과 설명 최대 길이를 넘으면 400")
+    void create_rejectsOverlongText() throws Exception {
+        CoordinationCreateReqDTO req = new CoordinationCreateReqDTO();
+        req.setTitle("가".repeat(41));
+        req.setDescription("나".repeat(301));
+        req.setMode("once");
+        req.setDates(List.of("2025-03-10"));
+        req.setStartHour(9);
+        req.setEndHour(18);
+
+        mockMvc.perform(post(BASE).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).create(anyString(), anyString(), any());
     }
 
     @Test
