@@ -16,6 +16,7 @@
 
 - 20 VU 혼합 트래픽은 안정 기준선입니다. 실패율 0.025%, Lambda/DynamoDB throttle 0건이었습니다.
 - 50 VU 혼합 트래픽은 운영 초기의 보수적 상한으로 봅니다. p95 761 ms, p99 1.78초였지만 일부 timeout이 남았습니다.
+- 일정 생성/알림 설정 write burst는 초대코드와 reminder sync 병목 수정 후 실패율 0%, Lambda/DynamoDB throttle 0건으로 통과했습니다. 다만 p95 2.7초대라 일정 생성 피크는 별도 모니터링 대상입니다.
 - 75 VU probe는 현재 설정에서 안정 수용으로 보지 않습니다. Lambda concurrency가 50에 닿으며 throttle 61건과 API Gateway 5xx 61건이 발생했습니다.
 - DynamoDB throttle은 모든 시나리오에서 0건이었습니다. 지금은 table capacity보다 Lambda reserved concurrency, 조율 heatmap 집계, 게시판/목록 tail latency를 먼저 봐야 합니다.
 
@@ -37,13 +38,14 @@
 
 - 초대코드는 `INVITE#code` mapping item과 조건부 쓰기로 유일성을 보장합니다.
 - 부하테스트에서 발견한 그룹 생성 초대코드 충돌은 attempt마다 다른 deterministic 후보 코드를 만들도록 수정했습니다.
+- 새 일정 생성은 기존 reminder job 삭제 없이 바로 예약하고, 알림 설정 저장은 reminder 필드 변경 시에만 전체 reminder sync를 수행하도록 수정했습니다.
 - k6/Playwright 시나리오는 모임, 조율, 게시판, 알림 설정, 모바일 overflow를 포함하도록 보강했습니다.
-- cleanup 스크립트는 테스트 게시글 cascade와 큰 table scan 출력을 처리하도록 보강했습니다.
+- cleanup 스크립트는 테스트 게시글 cascade, 큰 table scan 출력, Scheduler 병렬 삭제를 처리하도록 보강했습니다.
 
-다음 배포 후 바로 확인할 항목:
+계속 관측할 항목:
 
-- 초대코드 수정 배포 후 `write_burst_schedule_notification`을 재실행합니다.
 - 50 VU 혼합 트래픽에서 HTTP 실패율 0.1% 미만, Lambda throttle 0건이 유지되는지 확인합니다.
+- write burst에서 p99가 5초를 반복해서 넘는지 확인합니다.
 - Cloudflare 경유 connection reset이 반복되면 CloudFront 직접 경로와 비교합니다.
 
 ## 2단계: Lambda 동시성 여유 조정
@@ -116,8 +118,8 @@ v2 테스트에서 게시글/댓글 경로는 Lambda throttle 없이도 간헐�
 
 ## 당장 제안할 작업
 
-1. 초대코드 수정 배포 후 `write_burst_schedule_notification`을 재실행해 write burst 결과를 확정합니다.
-2. 운영 알람에서 API Lambda throttle이 1건이라도 반복되면 reserved concurrency를 80~100으로 올립니다.
+1. 운영 알람에서 API Lambda throttle이 1건이라도 반복되면 reserved concurrency를 80~100으로 올립니다.
+2. 일정 생성 write burst p99가 5초를 반복해서 넘으면 reminder 예약을 SQS fanout 또는 due-time polling 구조로 분리합니다.
 3. 모임 멤버 50명, 조율 응답 slot 500개 기준에 접근하면 조율 heatmap 집계 item 설계를 먼저 적용합니다.
 4. 게시판 timeout/connection reset이 반복되면 Cloudflare 경유와 CloudFront 직접 경로를 분리해서 앞단 프록시 영향을 확인합니다.
 5. 배포 전 수동 점검에는 `smoke_prod`, Playwright 서버리스 흐름, 필요한 경우 `baseline_20vu`만 우선 연결하고, 50/75 VU는 운영 시간 외 수동 실험으로 유지합니다.
