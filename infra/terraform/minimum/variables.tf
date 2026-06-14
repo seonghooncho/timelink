@@ -64,6 +64,12 @@ variable "backend_log_level" {
   default     = "INFO"
 }
 
+variable "backend_aws_sdk_log_level" {
+  description = "AWS SDK log level for the backend Lambda."
+  type        = string
+  default     = "WARN"
+}
+
 variable "push_vapid_public_key" {
   description = "URL-safe base64 VAPID public key for browser push subscriptions."
   type        = string
@@ -87,6 +93,12 @@ variable "monitoring_alert_email" {
   description = "Email endpoint for low-cost CloudWatch alarm notifications."
   type        = string
   default     = "sunghuncho127@gmail.com"
+}
+
+variable "monitoring_discord_webhook_parameter_name" {
+  description = "Optional SSM SecureString parameter name containing the Discord webhook URL for monitoring alerts. Leave blank to use /<project>/<environment>/monitoring/discord_webhook_url."
+  type        = string
+  default     = ""
 }
 
 # ── AI Lambda ──

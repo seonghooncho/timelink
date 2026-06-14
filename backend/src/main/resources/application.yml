@@ -50,8 +50,9 @@ cors:
 
 logging:
   level:
-    com.planner: DEBUG
-    software.amazon.awssdk: INFO
+    com.planner: INFO
+    com.amazonaws.serverless.proxy: WARN
+    software.amazon.awssdk: WARN
 
 spring.servlet.multipart:
   max-file-size: 15MB

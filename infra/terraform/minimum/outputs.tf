@@ -93,6 +93,11 @@ output "monitoring_alert_formatter_function_name" {
   value       = aws_lambda_function.monitoring_alert_formatter.function_name
 }
 
+output "monitoring_discord_webhook_parameter_name" {
+  description = "SSM SecureString parameter name for the monitoring Discord webhook URL"
+  value       = local.monitoring_discord_webhook_parameter_name
+}
+
 output "image_processor_function_name" {
   description = "Lambda function name for uploaded image WebP conversion"
   value       = aws_lambda_function.image_processor.function_name
