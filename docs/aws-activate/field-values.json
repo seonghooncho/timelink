@@ -38,7 +38,7 @@
   ],
   "contact": {
     "email": "contact@timelink.cloud",
-    "emailStatus": "AWS SES receiving pipeline and Cloudflare DNS records are configured; SES domain verification is still pending, so use the founder Gmail as fallback until timelink.cloud verification becomes SUCCESS",
+    "emailStatus": "Verified and operational. AWS SES domain identity and DKIM for timelink.cloud are SUCCESS; contact@timelink.cloud receives inbound mail and forwards test messages successfully.",
     "founderName": null,
     "businessAddress": null,
     "phone": null

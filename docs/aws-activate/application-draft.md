@@ -19,7 +19,7 @@ Timelink의 AWS Activate Founders 신청 답변을 사실에 기반한 보수적
 - Public website: https://timelink.cloud/
 - Public listing: https://disquiet.io/product/timelink
 - GitHub repository: https://github.com/seonghooncho/timelink
-- Contact email: `contact@timelink.cloud` after SES/DNS configuration
+- Contact email: `contact@timelink.cloud`
 
 ## Field Drafts
 

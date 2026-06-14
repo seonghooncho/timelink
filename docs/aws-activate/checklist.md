@@ -52,13 +52,13 @@ Sources:
 - [ ] Confirm AWS account is active and on Paid Tier Plan.
 - [ ] Confirm AWS Builder ID email and Activate profile email.
 - [x] Add Cloudflare DNS records for SES receiving, SPF, DMARC, and DKIM.
-- [ ] Wait until SES domain identity `timelink.cloud` changes from `PENDING` to `SUCCESS` before relying on `contact@timelink.cloud` as the primary contact.
+- [x] Confirm SES domain identity and DKIM for `timelink.cloud` are `SUCCESS`.
+- [x] Confirm `contact@timelink.cloud` receives and forwards test email successfully.
 - [ ] Confirm no prior Activate credit record exists in the AWS Activate application/status page.
 - [ ] Confirm the final application answers on the AWS review screen before manual submission.
 
 ## Missing Items
 
-- Public contact email operational status: `contact@timelink.cloud` is the intended address, but SES/DNS configuration must be completed before relying on it.
 - Legal entity name: unknown. Use individual/solo founder status unless a legal entity exists.
 - Legal address: unknown. Enter directly in AWS only if required; do not store it in this repository.
 - Exact user/traction numbers: unknown. Use "live MVP/beta with public listing" rather than fabricated metrics.
@@ -69,7 +69,6 @@ Sources:
 
 - The site is a client-side SPA, so some crawlers may only see the base HTML and not the rendered product explanation.
 - The public website should expose `/about`, `/contact`, `/privacy`, and `/terms` without requiring login.
-- If `contact@timelink.cloud` is displayed before SES/DNS is configured, AWS or users may send messages that bounce.
 - Application details cannot be edited after submission according to the official AWS guide; incorrect information may require cancellation and resubmission.
 - If an AWS account is already linked to another Builder ID, account linking can fail.
 - Cost controls should be enabled before scaling usage, because AWS Budgets and Cost Anomaly Detection can have notification delays.
