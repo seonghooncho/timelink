@@ -72,6 +72,12 @@ const TermsPage: React.FC = () => {
             중요한 변경은 적용 전에 합리적인 기간을 두고 고지합니다.
           </p>
         </Section>
+
+        <Section title="8. 문의">
+          <p>
+            서비스 이용, 계정, 모임 운영 관련 문의는 contact@timelink.cloud 또는 서비스 운영자가 안내한 문의 채널로 접수합니다.
+          </p>
+        </Section>
       </main>
     </MobileLayout>
   );

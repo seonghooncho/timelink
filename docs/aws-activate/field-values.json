@@ -1,0 +1,60 @@
+{
+  "productName": "Timelink",
+  "website": "https://timelink.cloud/",
+  "githubRepository": "https://github.com/seonghooncho/timelink",
+  "publicProductListing": "https://disquiet.io/product/timelink",
+  "oneLineDescriptionKo": "개인 일정은 한눈에 정리하고, 모임 시간은 함께 맞추는 일정 관리 및 모임 서비스",
+  "oneLineDescriptionEn": "Timelink helps people organize personal schedules at a glance and coordinate meeting times together with their groups.",
+  "description": "Timelink is a live web/PWA schedule management and group coordination service for personal schedules and group meeting coordination.",
+  "targetMarket": [
+    "Korean university students",
+    "study groups",
+    "team project teams",
+    "clubs",
+    "side-project teams",
+    "small communities",
+    "friend groups"
+  ],
+  "stage": "live MVP/beta",
+  "foundingOrProjectStart": "2026-06",
+  "legalEntityStatus": "individual_solo_founder",
+  "legalEntityName": null,
+  "teamSize": 1,
+  "fundingStatus": "self-funded",
+  "externalFunding": false,
+  "revenueStatus": "no revenue yet",
+  "businessModel": "currently free during MVP/beta; future freemium and paid group/community features possible",
+  "priorAwsActivateCredits": false,
+  "activatePath": "Founders Self-funded",
+  "activateProviderOrgId": null,
+  "awsAccountPaidTierConfirmed": null,
+  "awsUsagePlan": [
+    "production web/PWA hosting and CDN",
+    "serverless backend workloads",
+    "object storage for images and static assets",
+    "scheduled notifications and background jobs",
+    "monitoring and logs",
+    "future AI-assisted schedule extraction experiments"
+  ],
+  "contact": {
+    "email": "contact@timelink.cloud",
+    "emailStatus": "AWS SES receiving pipeline and Cloudflare DNS records are configured; SES domain verification is still pending, so use the founder Gmail as fallback until timelink.cloud verification becomes SUCCESS",
+    "founderName": null,
+    "businessAddress": null,
+    "phone": null
+  },
+  "manualSubmissionRequired": true,
+  "doNotStore": [
+    "AWS passwords",
+    "root credentials",
+    "MFA codes",
+    "access keys",
+    "secret access keys",
+    "billing card details",
+    "GitHub tokens",
+    "OAuth client secrets",
+    "database credentials",
+    ".env values",
+    "production secrets"
+  ]
+}

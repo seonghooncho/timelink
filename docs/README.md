@@ -66,7 +66,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 │       │   ├── ssm.tf           # 런타임 설정 SSM Parameter Store
 │       │   ├── monitoring.tf    # CloudWatch/SNS 운영 알림
 │       │   └── outputs.tf       # 배포 결과 출력
-│       ├── cloudflare_free/     # Workers.dev 기반 무료 프론트 서빙
+│       ├── cloudflare_dns/      # Cloudflare 운영 DNS 레코드 추적
 │       │   ├── main.tf
 │       │   ├── variables.tf
 │       │   ├── outputs.tf
@@ -128,7 +128,7 @@ Timelink 모노레포 구조로 프론트엔드, 백엔드, AI 서비스, 인프
 
 - `infra/terraform/init`은 Terraform 상태 저장소만 관리하고 앱 스택과 분리한다
 - `infra/terraform/minimum`은 현재 운영 최소 스택만 포함해 이후 상위 구조 변경 시 비교 기준점 역할을 한다
-- `infra/terraform/cloudflare_free`는 도메인 없이 `workers.dev`로 프론트를 무료 서빙할 때 쓰는 선택 스택이다
+- `infra/terraform/cloudflare_dns`는 운영 도메인 `timelink.cloud`의 Cloudflare DNS 레코드를 Terraform 상태에서 추적하는 선택 스택이다
 - `api_gateway.tf`에는 Backend/AI Lambda 라우팅을 모아 `CloudFront -> API Gateway -> Lambda` 경로를 한 파일에서 읽을 수 있게 유지한다
 - 앱 런타임 설정은 SSM Parameter Store에서 읽고, Lambda에는 SSM prefix만 전달한다
 
@@ -186,10 +186,11 @@ terraform apply
 
 보조 명령: `npm run infra:init:fmt`, `npm run infra:init:validate`, `npm run infra:fmt`, `npm run infra:validate`
 
-### Optional: Cloudflare Free Frontend
+### Optional: Cloudflare DNS
 ```bash
-cd infra/terraform/cloudflare_free
-terraform init
+cd infra/terraform/cloudflare_dns
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
@@ -219,10 +220,10 @@ secret 값은 SSM에 별도로 넣습니다.
 Lambda에는 APP_CONFIG_PREFIX만 주입합니다.
 ```
 
-### Cloudflare Free Frontend
+### Cloudflare DNS
 ```
-cloudflare_api_token, cloudflare_account_id, api_origin이 필요합니다.
-api_origin에는 AWS minimum 스택의 api_endpoint 값을 사용하면 됩니다.
+CLOUDFLARE_API_TOKEN과 cloudflare_zone_id가 필요합니다.
+DNS 레코드는 Terraform code와 state를 source of truth로 두며, SSM Parameter Store에는 중복 저장하지 않습니다.
 ```
 
 ### AI Service Local (ai/.env)

@@ -77,7 +77,7 @@ const PrivacyPolicyPage: React.FC = () => {
 
         <Section title="7. 문의">
           <p>
-            개인정보 관련 문의와 삭제 요청은 서비스 운영자가 안내한 문의 채널을 통해 접수합니다.
+            개인정보 관련 문의와 삭제 요청은 contact@timelink.cloud 또는 서비스 운영자가 안내한 문의 채널을 통해 접수합니다.
             접수된 요청은 본인 확인 후 처리합니다.
           </p>
         </Section>
