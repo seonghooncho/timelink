@@ -248,6 +248,25 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("updateSettings — 리마인드 설정이 그대로면 예약을 다시 동기화하지 않는다")
+    void updateSettings_skipsReminderSyncWhenReminderFieldsUnchanged() {
+        NotificationSettings settings = settings(true, true, false);
+        settings.setRemindSameDay(true);
+        when(repository.findSettings("user1")).thenReturn(Optional.of(settings));
+
+        NotificationSettingsUpdateReqDTO req = new NotificationSettingsUpdateReqDTO();
+        req.setScheduleAlarm(true);
+        req.setRemindSameDay(true);
+        req.setPushAlarm(true);
+
+        NotificationSettingsResDTO result = service.updateSettings("user1", req);
+
+        assertThat(result.getPushAlarm()).isTrue();
+        verify(repository).saveSettings(settings);
+        verify(reminderSchedulingService, never()).syncUserReminders(anyString(), any());
+    }
+
+    @Test
     @DisplayName("updateSettings — 일정 알림이 꺼져 있으면 리마인드를 새로 켤 수 없다")
     void updateSettings_rejectsReminderOnWhenScheduleAlarmOff() {
         when(repository.findSettings("user1")).thenReturn(Optional.of(settings(false, false)));
