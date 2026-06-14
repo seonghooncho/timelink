@@ -5,7 +5,7 @@ import PageHeader from '@/components/layout/PageHeader';
 
 const GroupDetailStub = () => (
   <>
-    <PageHeader title="나의 그룹" showBack backTo="/groups" />
+    <PageHeader title="나의 모임" showBack backTo="/groups" />
     <main>group-detail-page</main>
   </>
 );

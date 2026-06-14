@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bell, MessageCircle } from 'lucide-react';
+import { Bell, Heart, MessageCircle } from 'lucide-react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import PageHeader from '@/components/layout/PageHeader';
 import PostListItem from '@/components/community/PostListItem';
@@ -10,8 +10,8 @@ import CommunityProfileSheet from '@/components/community/CommunityProfileSheet'
 import FAB from '@/components/common/FAB';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ListSkeleton } from '@/components/common/LoadingStates';
-import { useCommunityPosts, useCreateCommunityPost } from '@/hooks/useCommunity';
-import { communityApi, CommunityPublicProfileResponse } from '@/services/api';
+import { useCommunityPosts, useCreateCommunityPost, useToggleCommunityLike } from '@/hooks/useCommunity';
+import { communityApi, CommunityPostResponse, CommunityPublicProfileResponse } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
@@ -171,7 +171,7 @@ const CommunityPage: React.FC = () => {
             </div>
           ) : (
             posts.map((post) => (
-              <PostListItem
+              <CommunityPostListItem
                 key={post.id}
                 post={post}
                 onClick={() => navigate(`/community/posts/${post.id}`)}
@@ -244,6 +244,54 @@ const CommunityPage: React.FC = () => {
         }}
       />
     </MobileLayout>
+  );
+};
+
+interface CommunityPostListItemProps {
+  post: CommunityPostResponse;
+  onClick: () => void;
+  onAuthorClick: () => void;
+}
+
+const CommunityPostListItem: React.FC<CommunityPostListItemProps> = ({ post, onClick, onAuthorClick }) => {
+  const toggleLike = useToggleCommunityLike(post.id);
+
+  const handleToggleLike = async () => {
+    try {
+      await toggleLike.mutateAsync(post.likedByMe);
+    } catch (error) {
+      appToast.error('좋아요 상태를 변경하지 못했습니다', error);
+    }
+  };
+
+  return (
+    <PostListItem
+      post={post}
+      onClick={onClick}
+      onAuthorClick={onAuthorClick}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={handleToggleLike}
+            disabled={toggleLike.isPending}
+            aria-label={post.likedByMe ? '좋아요 취소' : '좋아요'}
+            className={`flex h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-colors ${
+              post.likedByMe
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground hover:text-foreground'
+            } disabled:opacity-50`}
+          >
+            <Heart className={`h-3.5 w-3.5 ${post.likedByMe ? 'fill-primary' : ''}`} />
+            {post.likeCount ?? 0}
+          </button>
+          <span className="flex h-8 items-center gap-1.5 rounded-xl border border-transparent px-1 text-[11px] font-bold text-muted-foreground">
+            <MessageCircle className="h-3.5 w-3.5" />
+            {post.commentCount ?? 0}
+          </span>
+        </>
+      }
+    />
   );
 };
 

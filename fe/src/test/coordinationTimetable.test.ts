@@ -55,7 +55,7 @@ describe('coordination timetable slot helpers', () => {
     expect(scheduleOverlapsCoordinationSlot(schedule, date, 10)).toBe(false);
   });
 
-  it('선택한 결과 슬롯이 유효하면 그룹 일정 생성 후보로 우선 사용한다', () => {
+  it('선택한 결과 슬롯이 유효하면 모임 일정 생성 후보로 우선 사용한다', () => {
     const selected = { date: '2026-03-13', hour: 15, count: 1 };
 
     expect(getRecommendedCoordinationScheduleSlot(

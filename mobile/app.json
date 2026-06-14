@@ -21,7 +21,7 @@
         "applinks:www.timelink.cloud"
       ],
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "프로필, 그룹, 일정 이미지를 선택하고 업로드하기 위해 사진 접근이 필요합니다.",
+        "NSPhotoLibraryUsageDescription": "프로필, 모임, 일정 이미지를 선택하고 업로드하기 위해 사진 접근이 필요합니다.",
         "NSCameraUsageDescription": "일정 이미지를 촬영해 AI 분석과 업로드에 사용하기 위해 카메라 접근이 필요합니다."
       }
     },
@@ -67,7 +67,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "프로필, 그룹, 일정 이미지를 선택하고 업로드하기 위해 사진 접근이 필요합니다.",
+          "photosPermission": "프로필, 모임, 일정 이미지를 선택하고 업로드하기 위해 사진 접근이 필요합니다.",
           "cameraPermission": "일정 이미지를 촬영해 AI 분석과 업로드에 사용하기 위해 카메라 접근이 필요합니다."
         }
       ],

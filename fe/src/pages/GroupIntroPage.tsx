@@ -7,10 +7,18 @@ import PageHeader from '@/components/layout/PageHeader';
 import GroupAvatar from '@/components/common/GroupAvatar';
 import ImageCropModal from '@/components/common/ImageCropModal';
 import { ListSkeleton } from '@/components/common/LoadingStates';
+import GroupMemberProfileSheet from '@/components/group/GroupMemberProfileSheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { groupApi, GroupIntroImageResponse, GroupIntroPostResponse, GroupIntroResponse, GroupMemberResponse } from '@/services/api';
+import {
+  groupApi,
+  GroupIntroImageResponse,
+  GroupIntroPostResponse,
+  GroupIntroResponse,
+  GroupMemberProfileResponse,
+  GroupMemberResponse,
+} from '@/services/api';
 import { appToast } from '@/lib/appToast';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
@@ -40,6 +48,9 @@ const GroupIntroPage: React.FC = () => {
   const [noticeTitle, setNoticeTitle] = useState('');
   const [noticeContent, setNoticeContent] = useState('');
   const [feedTab, setFeedTab] = useState<IntroFeedTab>('all');
+  const [memberProfile, setMemberProfile] = useState<GroupMemberProfileResponse | null>(null);
+  const [showMemberProfileSheet, setShowMemberProfileSheet] = useState(false);
+  const [isMemberProfileLoading, setIsMemberProfileLoading] = useState(false);
 
   const { data: intro, isLoading } = useQuery({
     queryKey: ['groups', id, 'intro'],
@@ -149,6 +160,26 @@ const GroupIntroPage: React.FC = () => {
       return;
     }
     navigate(`/groups/${id}`);
+  };
+
+  const openMemberProfile = async (memberUserId?: string) => {
+    if (!memberUserId || !id) return;
+    if (!intro?.member) {
+      openJoinModal();
+      return;
+    }
+
+    setMemberProfile(null);
+    setShowMemberProfileSheet(true);
+    setIsMemberProfileLoading(true);
+    try {
+      setMemberProfile(await groupApi.getMemberProfile(id, memberUserId));
+    } catch (error) {
+      appToast.error('멤버 프로필을 불러오지 못했습니다', error);
+      setShowMemberProfileSheet(false);
+    } finally {
+      setIsMemberProfileLoading(false);
+    }
   };
 
   const handleMemberPreviewMore = () => {
@@ -330,6 +361,7 @@ const GroupIntroPage: React.FC = () => {
         <MemberPreviewStrip
           members={intro.memberPreviews || []}
           memberCount={intro.memberCount}
+          onMemberClick={openMemberProfile}
           onMore={handleMemberPreviewMore}
         />
 
@@ -387,6 +419,7 @@ const GroupIntroPage: React.FC = () => {
             isFetchingNextPage={isFetchingNextIntroPostPage}
             onLoadMore={() => fetchNextIntroPostPage()}
             onPostClick={handleIntroPostClick}
+            onAuthorClick={openMemberProfile}
           />
         )}
       </IntroSection>
@@ -403,6 +436,14 @@ const GroupIntroPage: React.FC = () => {
           onSubmit={handleSubmitJoin}
         />
       ) : null}
+
+      <GroupMemberProfileSheet
+        open={showMemberProfileSheet}
+        groupId={id || ''}
+        profile={memberProfile}
+        isLoading={isMemberProfileLoading}
+        onClose={() => setShowMemberProfileSheet(false)}
+      />
 
       {showEditIntro ? (
         <div className="fixed inset-x-0 top-0 app-layer-overlay flex items-end justify-center bg-black/50 app-bottom-sheet-root" onClick={() => setShowEditIntro(false)}>
@@ -553,8 +594,9 @@ const GroupIntroPage: React.FC = () => {
 const MemberPreviewStrip: React.FC<{
   members: GroupMemberResponse[];
   memberCount: number;
+  onMemberClick: (memberUserId?: string) => void;
   onMore: () => void;
-}> = ({ members, memberCount, onMore }) => {
+}> = ({ members, memberCount, onMemberClick, onMore }) => {
   if (memberCount <= 0) return null;
 
   const visibleMembers = members.slice(0, 5);
@@ -575,7 +617,13 @@ const MemberPreviewStrip: React.FC<{
         {visibleMembers.length > 0 ? visibleMembers.map((member) => {
           const name = member.nickname || member.userId;
           return (
-            <div key={member.id || member.userId} className="w-14 shrink-0 text-center">
+            <button
+              key={member.id || member.userId}
+              type="button"
+              onClick={() => onMemberClick(member.userId)}
+              className="w-14 shrink-0 rounded-xl text-center transition-opacity hover:opacity-80"
+              aria-label={`${name} 프로필 보기`}
+            >
               <Avatar className="mx-auto h-12 w-12 border border-border/70">
                 <AvatarImage src={member.thumbnailUrl || member.avatarUrl} alt={name} />
                 <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
@@ -583,7 +631,7 @@ const MemberPreviewStrip: React.FC<{
                 </AvatarFallback>
               </Avatar>
               <p className="mt-1.5 truncate text-[11px] font-semibold text-foreground">{name}</p>
-            </div>
+            </button>
           );
         }) : (
           <p className="text-xs text-muted-foreground">참여 중인 멤버가 있습니다.</p>
@@ -779,7 +827,8 @@ const IntroPostList: React.FC<{
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
   onPostClick: (post: GroupIntroPostResponse) => void;
-}> = ({ posts, member, isLoading, hasNextPage, isFetchingNextPage, onLoadMore, onPostClick }) => {
+  onAuthorClick: (memberUserId?: string) => void;
+}> = ({ posts, member, isLoading, hasNextPage, isFetchingNextPage, onLoadMore, onPostClick, onAuthorClick }) => {
   if (isLoading) {
     return (
       <div className="px-5">
@@ -799,32 +848,51 @@ const IntroPostList: React.FC<{
   return (
     <div>
       {posts.map((post) => (
-        <button
+        <article
           key={post.id}
-          type="button"
-          onClick={() => onPostClick(post)}
-          className="w-full border-b border-border/60 px-5 py-4 text-left transition-colors hover:bg-muted/25"
+          className="border-b border-border/60 px-5 py-4 text-left"
         >
           {post.locked ? (
-            <div className="flex items-center gap-3 rounded-2xl bg-muted px-3.5 py-3 text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => onPostClick(post)}
+              className="flex w-full items-center gap-3 rounded-2xl bg-muted px-3.5 py-3 text-left text-muted-foreground transition-opacity hover:opacity-85"
+            >
               <Lock className="h-4 w-4 shrink-0 text-primary" />
               <p className="text-xs font-semibold">모임에만 공개된 게시물이에요.</p>
-            </div>
+            </button>
           ) : (
             <>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span className="font-semibold">{post.authorNickname || '멤버'}</span>
+                {post.authorUserId ? (
+                  <button
+                    type="button"
+                    onClick={() => onAuthorClick(post.authorUserId)}
+                    className="font-semibold text-foreground transition-colors hover:text-primary"
+                    aria-label={`${post.authorNickname || '멤버'} 프로필 보기`}
+                  >
+                    {post.authorNickname || '멤버'}
+                  </button>
+                ) : (
+                  <span className="font-semibold">{post.authorNickname || '멤버'}</span>
+                )}
                 {post.memberOnly ? (
                   <span className="rounded-full bg-muted px-1.5 py-0.5 font-semibold">모임 공개</span>
                 ) : null}
               </div>
-              <h3 className="mt-1 line-clamp-2 text-sm font-bold text-foreground">{post.title}</h3>
-              <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                {post.content || post.contentSnippet}
-              </p>
-              {post.imageUrl ? (
-                <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
-              ) : null}
+              <button
+                type="button"
+                onClick={() => onPostClick(post)}
+                className="mt-1 w-full text-left transition-opacity hover:opacity-85"
+              >
+                <h3 className="line-clamp-2 text-sm font-bold text-foreground">{post.title}</h3>
+                <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+                  {post.content || post.contentSnippet}
+                </p>
+                {post.imageUrl ? (
+                  <img src={post.imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" loading="lazy" />
+                ) : null}
+              </button>
               <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold text-muted-foreground">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="inline-flex items-center gap-1">
@@ -843,7 +911,7 @@ const IntroPostList: React.FC<{
               </div>
             </>
           )}
-        </button>
+        </article>
       ))}
       {hasNextPage ? (
         <div className="px-5 pt-3">

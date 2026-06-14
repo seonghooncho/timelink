@@ -98,7 +98,7 @@ describe('ScheduleDetailModal', () => {
     );
   });
 
-  it('그룹 일정 작성자가 아니면 수정/삭제 대신 약속 빠지기를 보여준다', () => {
+  it('모임 일정 작성자가 아니면 수정/삭제 대신 약속 빠지기를 보여준다', () => {
     const onLeaveGroupSchedule = vi.fn();
     render(
       <ScheduleDetailModal
@@ -124,7 +124,7 @@ describe('ScheduleDetailModal', () => {
     expect(onLeaveGroupSchedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'schedule-1' }));
   });
 
-  it('참여자로 선택되지 않은 그룹 일정은 읽기 전용으로 보여준다', () => {
+  it('참여자로 선택되지 않은 모임 일정은 읽기 전용으로 보여준다', () => {
     render(
       <ScheduleDetailModal
         schedule={makeSchedule({
@@ -148,7 +148,7 @@ describe('ScheduleDetailModal', () => {
     expect(screen.queryByRole('button', { name: /약속 빠지기/ })).not.toBeInTheDocument();
   });
 
-  it('그룹 일정 상세에서 참여인원 프로필을 보여준다', () => {
+  it('모임 일정 상세에서 참여인원 프로필을 보여준다', () => {
     render(
       <ScheduleDetailModal
         schedule={makeSchedule({
@@ -170,5 +170,32 @@ describe('ScheduleDetailModal', () => {
     expect(screen.getByText('2명')).toBeInTheDocument();
     expect(screen.getByText('민지')).toBeInTheDocument();
     expect(screen.getByText('현우')).toBeInTheDocument();
+  });
+
+  it('참여인원 클릭 시 참여자와 일정을 전달한다', () => {
+    const onParticipantClick = vi.fn();
+    render(
+      <ScheduleDetailModal
+        schedule={makeSchedule({
+          groupId: 'group-1',
+          groupScheduleId: 'group-schedule-1',
+          category: 'group',
+          participants: [
+            { userId: 'user-1', nickname: '민지', avatarUrl: '' },
+          ],
+        })}
+        open
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        onParticipantClick={onParticipantClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '민지 프로필 보기' }));
+
+    expect(onParticipantClick).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', nickname: '민지' }),
+      expect.objectContaining({ id: 'schedule-1', groupId: 'group-1' }),
+    );
   });
 });

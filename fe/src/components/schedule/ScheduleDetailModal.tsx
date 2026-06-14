@@ -23,9 +23,18 @@ interface ScheduleDetailModalProps {
   onUpdate: (id: string, updates: Partial<Schedule>) => void;
   onDelete?: (schedule: Schedule) => void;
   onLeaveGroupSchedule?: (schedule: Schedule) => void;
+  onParticipantClick?: (participant: ScheduleParticipant, schedule: Schedule) => void;
 }
 
-const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, open, onClose, onUpdate, onDelete, onLeaveGroupSchedule }) => {
+const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
+  schedule,
+  open,
+  onClose,
+  onUpdate,
+  onDelete,
+  onLeaveGroupSchedule,
+  onParticipantClick,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -147,7 +156,10 @@ const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({ schedule, ope
                 </div>
 
                 {isGroupSchedule ? (
-                  <ParticipantStrip participants={schedule.participants} />
+                  <ParticipantStrip
+                    participants={schedule.participants}
+                    onParticipantClick={onParticipantClick ? (participant) => onParticipantClick(participant, schedule) : undefined}
+                  />
                 ) : null}
 
                 {isGroupSchedule && !isGroupScheduleParticipant ? (
@@ -310,7 +322,13 @@ function ScheduleEditForm({
   );
 }
 
-function ParticipantStrip({ participants }: { participants?: ScheduleParticipant[] }) {
+function ParticipantStrip({
+  participants,
+  onParticipantClick,
+}: {
+  participants?: ScheduleParticipant[];
+  onParticipantClick?: (participant: ScheduleParticipant) => void;
+}) {
   const {
     scrollRef,
     hasOverflow,
@@ -345,17 +363,11 @@ function ParticipantStrip({ participants }: { participants?: ScheduleParticipant
           <div ref={scrollRef} className="overflow-x-auto overscroll-x-contain scrollbar-hide">
             <div className="flex min-w-max gap-3 pr-2">
               {participants.map((participant) => (
-                <div key={participant.userId} className="flex w-14 shrink-0 flex-col items-center gap-1.5">
-                  <Avatar className="h-11 w-11 border border-border/70">
-                    <AvatarImage src={participant.thumbnailUrl || participant.avatarUrl} alt={participant.nickname || participant.userId} />
-                    <AvatarFallback className="bg-category-group-light text-sm font-bold text-category-group">
-                      {getParticipantFallback(participant)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="w-full truncate text-center text-[11px] font-semibold text-foreground">
-                    {participant.nickname || participant.userId}
-                  </span>
-                </div>
+                <ParticipantItem
+                  key={participant.userId}
+                  participant={participant}
+                  onClick={onParticipantClick}
+                />
               ))}
             </div>
           </div>
@@ -376,6 +388,48 @@ function ParticipantStrip({ participants }: { participants?: ScheduleParticipant
         </div>
       )}
     </section>
+  );
+}
+
+function ParticipantItem({
+  participant,
+  onClick,
+}: {
+  participant: ScheduleParticipant;
+  onClick?: (participant: ScheduleParticipant) => void;
+}) {
+  const name = participant.nickname || participant.userId;
+  const content = (
+    <>
+      <Avatar className="h-11 w-11 border border-border/70">
+        <AvatarImage src={participant.thumbnailUrl || participant.avatarUrl} alt={name} />
+        <AvatarFallback className="bg-category-group-light text-sm font-bold text-category-group">
+          {getParticipantFallback(participant)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="w-full truncate text-center text-[11px] font-semibold text-foreground">
+        {name}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={() => onClick(participant)}
+        className="flex w-14 shrink-0 flex-col items-center gap-1.5 rounded-xl text-center transition-opacity hover:opacity-80"
+        aria-label={`${name} 프로필 보기`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5">
+      {content}
+    </div>
   );
 }
 

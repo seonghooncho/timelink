@@ -1,7 +1,7 @@
 {
   "name": "Timelink",
   "short_name": "Timelink",
-  "description": "개인과 그룹 일정을 자연스럽게 연결하는 Timelink",
+  "description": "개인과 모임 일정을 자연스럽게 연결하는 Timelink",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
