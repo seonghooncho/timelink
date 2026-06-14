@@ -25,6 +25,7 @@ import ConsentPage from "./pages/ConsentPage";
 import DemoPage from "./pages/DemoPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import InviteRedirectPage from "./pages/InviteRedirectPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/demo" element={<DemoPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/invite/:inviteCode" element={<InviteRedirectPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />

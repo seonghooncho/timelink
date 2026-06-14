@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { groupApi } from '@/services/api';
 import { appToast } from '@/lib/appToast';
 
 const GroupJoinPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { inviteCode } = useParams<{ inviteCode: string }>();
 
   useEffect(() => {
@@ -14,16 +15,23 @@ const GroupJoinPage: React.FC = () => {
       return;
     }
 
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect');
+    const coordId = params.get('coord');
+
     groupApi.join(inviteCode)
       .then((group) => {
         appToast.success(`${group.name} 모임에 참여했습니다`);
-        navigate(`/groups/${group.id}`, { replace: true });
+        const safeRedirect = redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : null;
+        const destination = safeRedirect
+          || (coordId ? `/groups/${group.id}/coordination/${encodeURIComponent(coordId)}/timetable` : `/groups/${group.id}`);
+        navigate(destination, { replace: true });
       })
       .catch((error) => {
-        appToast.error('초대 링크가 유효하지 않거나 이미 참여한 모임입니다', error);
+        appToast.error('초대 링크가 유효하지 않거나 만료되었습니다', error);
         navigate('/groups', { replace: true });
       });
-  }, [inviteCode, navigate]);
+  }, [inviteCode, location.search, navigate]);
 
   return (
     <MobileLayout hideNav>

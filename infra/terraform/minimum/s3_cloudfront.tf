@@ -169,6 +169,17 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   ordered_cache_behavior {
+    path_pattern             = "/invite/*"
+    target_origin_id         = "http-api"
+    viewer_protocol_policy   = "redirect-to-https"
+    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
+    cached_methods           = ["GET", "HEAD"]
+    compress                 = true
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+  }
+
+  ordered_cache_behavior {
     path_pattern             = "/api/*"
     target_origin_id         = "http-api"
     viewer_protocol_policy   = "https-only"

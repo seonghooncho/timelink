@@ -209,7 +209,7 @@ const GroupDetailPage: React.FC = () => {
   const isManager = currentMember?.role === 'manager' || group?.myRole === 'manager';
   const groupScheduleCountLabel = `${visibleGroupSchedules.length}개`;
   const coordinationCountLabel = `${coordinations.length}${coordinationNextCursor ? '+' : ''}개`;
-  const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/groups/join/${group.inviteCode}` : '';
+  const inviteLink = group?.inviteCode ? `${getPublicAppOrigin()}/invite/${group.inviteCode}` : '';
 
   const loadJoinRequests = useCallback(async () => {
     if (!id || !isManager) return;
