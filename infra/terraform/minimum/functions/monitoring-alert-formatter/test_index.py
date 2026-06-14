@@ -90,6 +90,24 @@ class MonitoringAlertFormatterTest(unittest.TestCase):
         self.assertEqual(result["messageIds"][0]["sesMessageId"], "ses-message-1")
         self.assertEqual(result["messageIds"][0]["discord"]["status"], "failed")
 
+    def test_post_discord_uses_explicit_user_agent(self):
+        class SuccessfulResponse:
+            status = 204
+            headers = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        with patch.object(index.urllib.request, "urlopen", return_value=SuccessfulResponse()) as urlopen_mock:
+            index.post_discord("https://discord.test/webhook", {"content": "test"})
+
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(request.get_header("User-agent"), "TimelinkMonitor/1.0 (+https://timelink.cloud)")
+        self.assertEqual(request.get_header("Content-type"), "application/json")
+
 
 if __name__ == "__main__":
     unittest.main()

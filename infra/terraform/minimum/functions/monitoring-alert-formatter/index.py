@@ -174,6 +174,14 @@ def send_discord_alert(alert):
     try:
         post_discord(webhook_url, build_discord_payload(alert))
         return {"status": "sent"}
+    except urllib.error.HTTPError as exc:
+        print(json.dumps({
+            "event": "monitoring_alert_discord_failed",
+            "errorType": exc.__class__.__name__,
+            "httpStatus": exc.code,
+            "alarmName": alert["alarm_name"],
+        }, ensure_ascii=False))
+        return {"status": "failed", "errorType": exc.__class__.__name__, "httpStatus": exc.code}
     except Exception as exc:
         print(json.dumps({
             "event": "monitoring_alert_discord_failed",
@@ -208,7 +216,10 @@ def post_discord(webhook_url, payload):
     request = urllib.request.Request(
         webhook_url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "TimelinkMonitor/1.0 (+https://timelink.cloud)",
+        },
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=5) as response:
