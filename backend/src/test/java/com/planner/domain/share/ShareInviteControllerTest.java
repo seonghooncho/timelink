@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Optional;
@@ -61,5 +62,19 @@ class ShareInviteControllerTest {
                 .contains("Timelink | 일정과 모임 시간을 한 곳에서")
                 .contains("https://timelink.cloud/og/timelink-default.png")
                 .contains("window.location.replace(\"/groups\")");
+    }
+
+    @Test
+    @DisplayName("HEAD 요청은 본문 없이 성공 응답을 반환한다")
+    void inviteHead_returnsEmptySuccessResponse() {
+        ShareInviteController controller = new ShareInviteController(groupRepository, coordinationRepository);
+        when(groupRepository.findInvite("BAD")).thenReturn(Optional.empty());
+
+        ResponseEntity<Void> response = controller.inviteHead("BAD", null);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isNull();
+        assertThat(response.getHeaders().getContentType()).isNotNull();
+        assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_HTML)).isTrue();
     }
 }
