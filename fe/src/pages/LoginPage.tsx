@@ -103,7 +103,7 @@ const LoginPage: React.FC = () => {
           <BrandMark size="lg" className="justify-center mb-5" />
           <h1 className="text-[26px] font-bold text-foreground tracking-tight">Timelink</h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            개인과 그룹 일정을<br />자연스럽게 연결하세요
+            개인과 모임 일정을<br />자연스럽게 연결하세요
           </p>
         </div>
 

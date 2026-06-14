@@ -103,7 +103,7 @@ export const getRecommendedCoordinationScheduleSlot = (
     return selectedSlot;
   }
 
-  // 사용자가 고른 슬롯이 없으면 추천 구간의 첫 시간을 그룹 일정 후보로 사용한다.
+  // 사용자가 고른 슬롯이 없으면 추천 구간의 첫 시간을 모임 일정 후보로 사용한다.
   return getRecommendedCoordinationAvailabilityWindow(heatmap, dates)?.slots[0] ?? null;
 };
 

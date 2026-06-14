@@ -339,7 +339,7 @@ const ScheduleFormPage: React.FC = () => {
           )}
           {initialContext.groupId ? (
             <p className="text-[11px] text-muted-foreground mt-2">
-              현재 그룹: {initialContext.groupName || '선택된 그룹'}
+              현재 모임: {initialContext.groupName || '선택된 모임'}
             </p>
           ) : null}
         </div>

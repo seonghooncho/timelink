@@ -14,20 +14,20 @@ import { ensurePushSubscription, removePushSubscription, requestPushPermission }
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 
 const PROFILE_TIPS = [
-  '그룹에 가입하면 친구들과 가능한 약속 시간을 한눈에 비교할 수 있어요.',
+  '모임에 가입하면 친구들과 가능한 약속 시간을 한눈에 비교할 수 있어요.',
   '조율 중인 일정에서 타임슬롯을 선택하면 누가 투표했는지 바로 확인할 수 있어요.',
-  '모두 가능한 시간에서 추천 슬롯을 확인한 뒤 바로 그룹 일정으로 확정할 수 있어요.',
-  '그룹 상세 하단의 두 버튼으로 약속 확정과 시간 조율을 빠르게 시작할 수 있어요.',
+  '모두 가능한 시간에서 추천 슬롯을 확인한 뒤 바로 모임 일정으로 확정할 수 있어요.',
+  '모임 상세 하단의 두 버튼으로 약속 확정과 시간 조율을 빠르게 시작할 수 있어요.',
   '일정 알림을 켜두면 1일 전, 당일, 중요 일정 리마인드를 상황에 맞게 고를 수 있어요.',
   '중요한 약속은 중요 일정으로 표시해두면 알림과 카드에서 더 놓치기 어렵습니다.',
   '홈 일정 카드는 오늘 이후 일정부터 보이고, 옆으로 넘기면 지난 일정도 확인할 수 있어요.',
   '완료 버튼은 삭제와 별개라서 끝낸 일정만 체크하고 기록은 그대로 남길 수 있어요.',
-  '그룹 초대 링크를 공유하면 친구가 링크만 열어도 바로 참여 흐름으로 이동합니다.',
-  '프로필 사진과 닉네임을 바꾸면 그룹 멤버 목록에도 최신 정보가 표시돼요.',
+  '모임 초대 링크를 공유하면 친구가 링크만 열어도 바로 참여 흐름으로 이동합니다.',
+  '프로필 사진과 닉네임을 바꾸면 모임 멤버 목록에도 최신 정보가 표시돼요.',
   '캘린더에서 날짜를 누르면 그날 일정만 따로 모아 확인할 수 있어요.',
   '포스터나 안내문 사진으로 일정을 생성하면 AI가 제목과 시간을 먼저 채워줄 수 있어요.',
   '시간 조율 날짜가 많을 때는 5일 단위로 넘겨 보며 가능한 시간을 비교할 수 있어요.',
-  '푸시 권한을 나중에 켜도 그룹 활동은 알림센터에서 먼저 확인할 수 있어요.',
+  '푸시 권한을 나중에 켜도 모임 활동은 알림센터에서 먼저 확인할 수 있어요.',
 ];
 
 const MyPage: React.FC = () => {
@@ -101,7 +101,7 @@ const MyPage: React.FC = () => {
       return false;
     }
 
-    appToast.info('푸시 알림은 꺼진 상태로 둘게요', '알림센터에는 그룹 활동이 자동으로 쌓입니다.');
+    appToast.info('푸시 알림은 꺼진 상태로 둘게요', '알림센터에는 모임 활동이 자동으로 쌓입니다.');
     return false;
   };
 
@@ -347,7 +347,7 @@ const MyPage: React.FC = () => {
           <div className="px-5 pt-4 pb-2"><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">알림 설정</p></div>
           <div className="divide-y divide-border/60">
             <SettingRow label="일정 알림" desc="알림을 켠 일정의 시작 알림과 리마인드를 받습니다" checked={scheduleAlarm} onChange={handleScheduleAlarmChange} />
-            <SettingRow label="푸시 알림" desc="켜두면 일정과 그룹 알림을 기기 푸시로도 받습니다" checked={pushAlarm} onChange={handlePushAlarmChange} />
+            <SettingRow label="푸시 알림" desc="켜두면 일정과 모임 알림을 기기 푸시로도 받습니다" checked={pushAlarm} onChange={handlePushAlarmChange} />
           </div>
         </section>
 

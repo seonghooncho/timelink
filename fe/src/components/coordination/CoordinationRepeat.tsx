@@ -40,7 +40,7 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
 
   const handleCreate = async () => {
     if (!groupId) {
-      appToast.error('그룹 정보를 확인할 수 없습니다');
+      appToast.error('모임 정보를 확인할 수 없습니다');
       return;
     }
     if (!title.trim()) {
@@ -111,7 +111,7 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
 
       <div className="mt-5 rounded-xl border border-border bg-card px-4 py-3">
         <p className="text-[11px] font-semibold text-muted-foreground">대상</p>
-        <p className="mt-1 text-sm font-bold text-foreground">그룹 전체 · 생성자 포함</p>
+        <p className="mt-1 text-sm font-bold text-foreground">모임 전체 · 생성자 포함</p>
       </div>
 
       <div className="mt-5">

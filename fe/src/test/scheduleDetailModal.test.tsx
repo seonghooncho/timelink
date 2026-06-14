@@ -98,7 +98,7 @@ describe('ScheduleDetailModal', () => {
     );
   });
 
-  it('그룹 일정 작성자가 아니면 수정/삭제 대신 약속 빠지기를 보여준다', () => {
+  it('모임 일정 작성자가 아니면 수정/삭제 대신 약속 빠지기를 보여준다', () => {
     const onLeaveGroupSchedule = vi.fn();
     render(
       <ScheduleDetailModal
@@ -124,7 +124,7 @@ describe('ScheduleDetailModal', () => {
     expect(onLeaveGroupSchedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'schedule-1' }));
   });
 
-  it('참여자로 선택되지 않은 그룹 일정은 읽기 전용으로 보여준다', () => {
+  it('참여자로 선택되지 않은 모임 일정은 읽기 전용으로 보여준다', () => {
     render(
       <ScheduleDetailModal
         schedule={makeSchedule({
@@ -148,7 +148,7 @@ describe('ScheduleDetailModal', () => {
     expect(screen.queryByRole('button', { name: /약속 빠지기/ })).not.toBeInTheDocument();
   });
 
-  it('그룹 일정 상세에서 참여인원 프로필을 보여준다', () => {
+  it('모임 일정 상세에서 참여인원 프로필을 보여준다', () => {
     render(
       <ScheduleDetailModal
         schedule={makeSchedule({

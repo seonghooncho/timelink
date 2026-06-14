@@ -667,7 +667,7 @@ export const notificationApi = {
 
 export interface NotificationSettingsResponse {
   scheduleAlarm: boolean;
-  /** @deprecated 그룹 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
+  /** @deprecated 모임 알림센터 수신은 서버 기본 정책이며, 푸시 여부는 pushAlarm을 기준으로 봅니다. */
   groupAlarm: boolean;
   pushAlarm: boolean;
   remindOneDayBefore: boolean;

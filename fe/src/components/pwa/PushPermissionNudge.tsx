@@ -61,7 +61,7 @@ const PushPermissionNudge = () => {
     try {
       const permission = await requestPushPermission();
       if (permission !== 'granted') {
-        appToast.info('푸시 알림은 꺼진 상태로 둘게요', '알림센터에는 그룹 활동이 자동으로 쌓입니다.');
+        appToast.info('푸시 알림은 꺼진 상태로 둘게요', '알림센터에는 모임 활동이 자동으로 쌓입니다.');
         dismiss();
         return;
       }
@@ -101,7 +101,7 @@ const PushPermissionNudge = () => {
             약속 변경을 바로 알려드릴게요
           </p>
           <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
-            그룹 활동은 알림센터에 자동 저장됩니다. 푸시를 켜면 휴대폰과 브라우저에서도 바로 받아볼 수 있어요.
+            모임 활동은 알림센터에 자동 저장됩니다. 푸시를 켜면 휴대폰과 브라우저에서도 바로 받아볼 수 있어요.
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">

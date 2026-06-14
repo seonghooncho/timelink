@@ -27,7 +27,7 @@ const BrandMark: React.FC<BrandMarkProps> = ({
       {showWordmark ? (
         <div className="text-left">
           <div className="text-[26px] font-bold tracking-tight text-foreground">Timelink</div>
-          <div className="text-sm text-muted-foreground">개인과 그룹 일정을 자연스럽게 연결합니다</div>
+          <div className="text-sm text-muted-foreground">개인과 모임 일정을 자연스럽게 연결합니다</div>
         </div>
       ) : null}
     </div>

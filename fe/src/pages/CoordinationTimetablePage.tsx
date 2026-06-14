@@ -266,7 +266,7 @@ const CoordinationTimetablePage: React.FC = () => {
 
   const handleCreateGroupSchedule = () => {
     if (!groupId) {
-      appToast.error('그룹 정보를 찾을 수 없습니다');
+      appToast.error('모임 정보를 찾을 수 없습니다');
       return;
     }
 
@@ -279,7 +279,7 @@ const CoordinationTimetablePage: React.FC = () => {
 
     // 선택한 슬롯이 없으면 가장 많이, 가장 길게 겹친 추천 슬롯을 일정 후보로 쓴다.
     if (!slot) {
-      appToast.info('일정을 만들 수 있는 시간이 없습니다', '한 명 이상 가능한 시간이 생기면 그룹 일정을 만들 수 있습니다.');
+      appToast.info('일정을 만들 수 있는 시간이 없습니다', '한 명 이상 가능한 시간이 생기면 모임 일정을 만들 수 있습니다.');
       return;
     }
 
@@ -289,7 +289,7 @@ const CoordinationTimetablePage: React.FC = () => {
         coordinationId: coordId,
         returnTo: `/groups/${groupId}`,
         title,
-        content: '시간 조율 결과에서 생성한 그룹 일정입니다.',
+        content: '시간 조율 결과에서 생성한 모임 일정입니다.',
         startDate: slot.date,
         startTime: formatCoordinationHourTime(slot.hour),
         duration: '1',
@@ -524,7 +524,7 @@ const CoordinationTimetablePage: React.FC = () => {
               onClick={handleCreateGroupSchedule}
               className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-colors active:scale-[0.98]"
             >
-              그룹 일정 생성하기
+              모임 일정 생성하기
             </button>
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
               선택한 시간이 없으면 가장 많이 겹치는 시간으로 시작합니다.
