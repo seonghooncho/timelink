@@ -8,7 +8,7 @@ import GroupDetailPage from '@/pages/GroupDetailPage';
 const mocks = vi.hoisted(() => ({
   setSelectedSchedule: vi.fn(),
   setShowScheduleDetail: vi.fn(),
-  useGroups: vi.fn(),
+  useGroupDetail: vi.fn(),
   useSchedules: vi.fn(),
   useUpdateSchedule: vi.fn(),
   useDeleteSchedule: vi.fn(),
@@ -38,7 +38,7 @@ vi.mock('@/context/AuthContext', () => ({
 }));
 
 vi.mock('@/hooks/useGroups', () => ({
-  useGroups: mocks.useGroups,
+  useGroupDetail: mocks.useGroupDetail,
 }));
 
 vi.mock('@/hooks/useSchedules', async () => {
@@ -119,7 +119,7 @@ describe('GroupDetailPage group posts', () => {
   beforeEach(() => {
     mocks.setSelectedSchedule.mockReset();
     mocks.setShowScheduleDetail.mockReset();
-    mocks.useGroups.mockReset();
+    mocks.useGroupDetail.mockReset();
     mocks.useSchedules.mockReset();
     mocks.useUpdateSchedule.mockReset();
     mocks.useDeleteSchedule.mockReset();
@@ -136,15 +136,15 @@ describe('GroupDetailPage group posts', () => {
     mocks.updateMyMemberProfile.mockReset();
     mocks.getCoordinationPage.mockReset();
 
-    mocks.useGroups.mockReturnValue({
-      data: [{
+    mocks.useGroupDetail.mockReturnValue({
+      data: {
         id: 'group-1',
         name: '스터디',
         description: '주간 스터디',
         memberCount: 2,
         myRole: 'manager',
         schedules: [],
-      }],
+      },
     });
     mocks.useSchedules.mockReturnValue({
       data: [],

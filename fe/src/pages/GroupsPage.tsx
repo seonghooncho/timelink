@@ -79,6 +79,9 @@ const GroupsPage: React.FC = () => {
             isFetchingNextPage={isFetchingNextPage}
             onLoadMore={() => fetchNextPage()}
             onDiscover={() => setActiveTab('discover')}
+            discoverPreviewGroups={publicGroups.slice(0, 3)}
+            isDiscoverPreviewLoading={isPublicLoading || isPublicPending}
+            onOpenDiscoverGroup={(groupId) => navigate(`/groups/${groupId}/intro`)}
             onCreate={() => navigate('/groups/new')}
             onOpen={(groupId) => navigate(`/groups/${groupId}`)}
           />
@@ -116,6 +119,9 @@ interface MyGroupsTabProps {
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
   onDiscover: () => void;
+  discoverPreviewGroups: Group[];
+  isDiscoverPreviewLoading: boolean;
+  onOpenDiscoverGroup: (groupId: string) => void;
   onCreate: () => void;
   onOpen: (groupId: string) => void;
 }
@@ -127,11 +133,24 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
   isFetchingNextPage,
   onLoadMore,
   onDiscover,
+  discoverPreviewGroups,
+  isDiscoverPreviewLoading,
+  onOpenDiscoverGroup,
   onCreate,
   onOpen,
 }) => {
   if (isLoading) {
-    return <ListSkeleton className="mt-4" count={4} />;
+    return (
+      <div className="mt-4 space-y-4">
+        <ListSkeleton count={4} />
+        <DiscoverNudgeCard
+          groups={discoverPreviewGroups}
+          isLoading={isDiscoverPreviewLoading}
+          onDiscover={onDiscover}
+          onOpenGroup={onOpenDiscoverGroup}
+        />
+      </div>
+    );
   }
 
   if (groups.length === 0) {
@@ -169,6 +188,14 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
             초대를 받았다면 공유받은 링크를 열면 자동으로 모임 참여 화면으로 이동합니다.
           </p>
         </div>
+
+        <DiscoverNudgeCard
+          groups={discoverPreviewGroups}
+          isLoading={isDiscoverPreviewLoading}
+          onDiscover={onDiscover}
+          onOpenGroup={onOpenDiscoverGroup}
+          className="mt-4 w-full max-w-xs text-left"
+        />
       </div>
     );
   }
@@ -238,18 +265,82 @@ const MyGroupsTab: React.FC<MyGroupsTabProps> = ({
           {isFetchingNextPage ? '불러오는 중...' : '모임 더보기'}
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={onDiscover}
-          className="flex w-full items-center justify-center gap-2 border-t border-dashed border-primary/35 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
-        >
-          더 둘러보기
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <div className="border-t border-dashed border-primary/35 p-3">
+          <DiscoverNudgeCard
+            groups={discoverPreviewGroups}
+            isLoading={isDiscoverPreviewLoading}
+            onDiscover={onDiscover}
+            onOpenGroup={onOpenDiscoverGroup}
+          />
+        </div>
       )}
     </div>
   );
 };
+
+interface DiscoverNudgeCardProps {
+  groups: Group[];
+  isLoading: boolean;
+  onDiscover: () => void;
+  onOpenGroup: (groupId: string) => void;
+  className?: string;
+}
+
+const DiscoverNudgeCard: React.FC<DiscoverNudgeCardProps> = ({
+  groups,
+  isLoading,
+  onDiscover,
+  onOpenGroup,
+  className = '',
+}) => (
+  <section className={`rounded-2xl border border-primary/20 bg-primary/5 p-4 ${className}`}>
+    <div className="flex items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-card text-primary shadow-soft">
+        <UserPlus className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-bold text-foreground">다음 모임을 찾아볼까요?</h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          공개 모임에 인삿말을 남기면 관리자가 확인한 뒤 가입을 승인합니다.
+        </p>
+      </div>
+    </div>
+
+    {isLoading ? (
+      <div className="mt-3 flex gap-2">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="h-14 flex-1 animate-pulse rounded-2xl bg-card/80" />
+        ))}
+      </div>
+    ) : groups.length > 0 ? (
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {groups.map((group) => (
+          <button
+            key={group.id}
+            type="button"
+            onClick={() => onOpenGroup(group.id)}
+            className="min-w-0 rounded-2xl bg-card px-2 py-3 text-center shadow-soft transition-opacity hover:opacity-85"
+          >
+            <div className="mx-auto w-fit">
+              <GroupAvatar image={group.image} thumbnail={group.thumbnailImage} name={group.name} status={group.imageStatus} size="xs" />
+            </div>
+            <p className="mt-2 truncate text-[11px] font-bold text-foreground">{group.name}</p>
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{group.memberCount ?? 0}명</p>
+          </button>
+        ))}
+      </div>
+    ) : null}
+
+    <button
+      type="button"
+      onClick={onDiscover}
+      className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground transition-all active:scale-[0.98]"
+    >
+      공개 모임 둘러보기
+      <ChevronRight className="h-4 w-4" />
+    </button>
+  </section>
+);
 
 interface DiscoverGroupsTabProps {
   groups: Group[];

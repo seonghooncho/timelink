@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { groupApi, type GroupListResponse } from '@/services/api';
+import { groupApi, type GroupDetailResponse, type GroupListResponse } from '@/services/api';
 import { Group } from '@/types/types';
 import { useAuth } from '@/context/AuthContext';
 
@@ -26,16 +26,50 @@ function mapGroup(g: GroupListResponse): Group {
   };
 }
 
+function mapGroupDetail(g: GroupDetailResponse, userId?: string | null): Group {
+  const currentMember = g.members.find((member) => member.userId === userId);
+  return {
+    id: g.id,
+    name: g.name,
+    description: g.description || '',
+    image: g.imageUrl,
+    thumbnailImage: g.thumbnailUrl,
+    imageId: g.imageId,
+    imageStatus: g.imageStatus,
+    inviteCode: g.inviteCode,
+    visibility: g.visibility ?? 'PRIVATE',
+    memberCount: g.members.length,
+    myRole: currentMember?.role,
+    nextSchedule: null,
+    upcomingScheduleCount: 0,
+    activeCoordination: null,
+    schedules: [],
+  };
+}
+
 export function useGroups() {
   const { isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['groups', 'all'],
+    queryKey: ['groups', 'first-page', GROUP_PAGE_LIMIT],
     queryFn: async () => {
-      const data = await groupApi.getAll();
-      return data.map(mapGroup);
+      const page = await groupApi.getPage({ limit: GROUP_PAGE_LIMIT });
+      return page.data.map(mapGroup);
     },
     enabled: isAuthenticated,
+  });
+}
+
+export function useGroupDetail(groupId?: string) {
+  const { isAuthenticated, userId } = useAuth();
+
+  return useQuery({
+    queryKey: ['groups', groupId, 'detail'],
+    queryFn: async () => {
+      const detail = await groupApi.getById(groupId as string);
+      return mapGroupDetail(detail, userId);
+    },
+    enabled: isAuthenticated && Boolean(groupId),
   });
 }
 

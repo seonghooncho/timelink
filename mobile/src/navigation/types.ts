@@ -15,7 +15,8 @@ export type RootStackParamList = {
   ScheduleForm: { groupId?: string; groupName?: string } | undefined;
   GroupForm: undefined;
   GroupDetail: { id: string };
-  GroupJoin: { inviteCode: string };
+  GroupJoin: { inviteCode: string; coord?: string; redirect?: string };
+  InviteRedirect: { inviteCode: string; coord?: string; redirect?: string };
   GroupIntro: { id: string };
   TimeCoordination: { groupId: string };
   CoordinationTimetable: { groupId: string; coordId: string };

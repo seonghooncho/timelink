@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { colors, radius } from '../../constants/theme';
-import { Schedule } from '../../types';
+import { Schedule, ScheduleParticipant } from '../../types';
 import { CategoryBadge } from '../common/CategoryBadge';
 import { AppButton } from '../common/AppButton';
 import { PersonAvatar } from '../common/GroupAvatar';
@@ -13,9 +13,17 @@ interface ScheduleDetailSheetProps {
   onClose: () => void;
   onDelete?: (schedule: Schedule) => void;
   onLeaveParticipation?: (schedule: Schedule) => void;
+  onParticipantPress?: (participant: ScheduleParticipant, schedule: Schedule) => void;
 }
 
-export function ScheduleDetailSheet({ schedule, open, onClose, onDelete, onLeaveParticipation }: ScheduleDetailSheetProps) {
+export function ScheduleDetailSheet({
+  schedule,
+  open,
+  onClose,
+  onDelete,
+  onLeaveParticipation,
+  onParticipantPress,
+}: ScheduleDetailSheetProps) {
   if (!schedule) {
     return null;
   }
@@ -60,15 +68,20 @@ export function ScheduleDetailSheet({ schedule, open, onClose, onDelete, onLeave
               ) : (
                 <View style={styles.participantRow}>
                   {schedule.participants.map((participant) => (
-                    <View key={participant.userId} style={styles.participantItem}>
+                    <Pressable
+                      key={participant.userId}
+                      disabled={!onParticipantPress}
+                      onPress={() => onParticipantPress?.(participant, schedule)}
+                      style={styles.participantItem}
+                    >
                       <PersonAvatar
                         image={participant.avatarUrl}
                         thumbnail={participant.thumbnailUrl}
-                        name={participant.nickname || participant.userId}
+                        name={getParticipantDisplay(participant).name}
                         size={40}
                       />
-                      <Text numberOfLines={1} style={styles.participantName}>{participant.nickname || participant.userId}</Text>
-                    </View>
+                      <Text numberOfLines={1} style={styles.participantName}>{getParticipantDisplay(participant).name}</Text>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -95,6 +108,13 @@ export function ScheduleDetailSheet({ schedule, open, onClose, onDelete, onLeave
       </View>
     </Modal>
   );
+}
+
+export function getParticipantDisplay(participant: ScheduleParticipant) {
+  return {
+    name: participant.nickname?.trim() || participant.userId || '참여자',
+    canOpenProfile: Boolean(participant.userId),
+  };
 }
 
 const styles = StyleSheet.create({

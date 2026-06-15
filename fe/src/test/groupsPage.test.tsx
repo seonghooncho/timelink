@@ -185,6 +185,56 @@ describe('GroupsPage', () => {
     expect(screen.queryByText('예정된 모임 일정이 없습니다')).not.toBeInTheDocument();
   });
 
+  it('nudges users to discover public meetups with preview cards at the end of my meetups', () => {
+    mocks.useGroupPages.mockReturnValue({
+      data: [
+        {
+          id: 'group-1',
+          name: '스터디',
+          description: '',
+          memberCount: 3,
+          schedules: [],
+        },
+      ],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+    mocks.usePublicGroupPages.mockReturnValue({
+      data: [
+        {
+          id: 'public-1',
+          name: '주말 러닝',
+          description: '가볍게 뛰는 모임',
+          visibility: 'PUBLIC',
+          memberCount: 4,
+          schedules: [],
+        },
+        {
+          id: 'public-2',
+          name: '독서 모임',
+          description: '책 이야기를 나눠요',
+          visibility: 'PUBLIC',
+          memberCount: 6,
+          schedules: [],
+        },
+      ],
+      isLoading: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('다음 모임을 찾아볼까요?')).toBeInTheDocument();
+    expect(screen.getByText('주말 러닝')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /주말 러닝/ }));
+    expect(mocks.navigate).toHaveBeenCalledWith('/groups/public-1/intro');
+  });
+
   it('opens public meetup intro from query tab', () => {
     mocks.usePublicGroupPages.mockReturnValue({
       data: [{

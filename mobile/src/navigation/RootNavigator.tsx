@@ -109,6 +109,7 @@ export function RootNavigator() {
             <RootStack.Screen name="GroupForm" component={GroupFormScreen} />
             <RootStack.Screen name="GroupDetail" component={GroupDetailScreen} />
             <RootStack.Screen name="GroupJoin" component={GroupJoinScreen} />
+            <RootStack.Screen name="InviteRedirect" component={GroupJoinScreen} />
             <RootStack.Screen name="GroupIntro" component={GroupIntroScreen} />
             <RootStack.Screen name="TimeCoordination" component={TimeCoordinationScreen} />
             <RootStack.Screen name="CoordinationTimetable" component={CoordinationTimetableScreen} />
