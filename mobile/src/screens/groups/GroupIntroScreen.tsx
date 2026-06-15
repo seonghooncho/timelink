@@ -63,6 +63,23 @@ export function GroupIntroScreen({ navigation, route }: Props) {
     }
   };
 
+  const openMemberProfile = async (memberUserId?: string) => {
+    if (!memberUserId) return;
+    if (!intro?.member) {
+      Alert.alert('가입이 필요합니다', '가입 후 멤버 프로필과 글 전체를 확인할 수 있습니다.');
+      return;
+    }
+    try {
+      const profile = await groupApi.getMemberProfile(id, memberUserId);
+      Alert.alert(
+        profile.nickname || '멤버',
+        `${profile.role === 'manager' ? '관리자' : '멤버'} · 최근 활동 ${profile.recentActivities.length}개`,
+      );
+    } catch {
+      Alert.alert('프로필 오류', '멤버 프로필을 불러오지 못했습니다.');
+    }
+  };
+
   if (introQuery.isLoading) {
     return (
       <Screen>
@@ -222,6 +239,7 @@ export function GroupIntroScreen({ navigation, route }: Props) {
                 }
                 navigation.navigate('CommunityPostDetail', { groupId: id, postId: post.id });
               }}
+              onAuthorPress={() => openMemberProfile(post.authorUserId)}
             />
           ))
         )}

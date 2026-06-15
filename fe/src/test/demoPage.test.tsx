@@ -13,6 +13,7 @@ describe('DemoPage', () => {
     );
 
     expect(screen.getByText('Timelink 데모')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '사용하러 가기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다음 기능 둘러보기 >>' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이전 기능' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '일정등록' })).toBeInTheDocument();

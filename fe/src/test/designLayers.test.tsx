@@ -51,7 +51,7 @@ describe('design layers', () => {
 
   it('PWA 설치 안내는 notice 레이어를 사용한다', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/mypage']}>
         <PwaInstallPrompt />
       </MemoryRouter>,
     );

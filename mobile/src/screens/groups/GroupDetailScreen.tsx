@@ -58,7 +58,7 @@ export function GroupDetailScreen({ navigation, route }: Props) {
       .catch(() => setCoordinations([]));
   }, [id, showClosedCoordinations]);
 
-  const inviteLink = group?.inviteCode ? `${env.webAppOrigin}/groups/join/${group.inviteCode}` : '';
+  const inviteLink = group?.inviteCode ? `${env.webAppOrigin}/invite/${group.inviteCode}` : '';
   const isManager = group?.myRole === 'manager';
   const visibleCoordinations = coordinations.slice(0, COORDINATION_PREVIEW_LIMIT);
   const headerTitle = group?.name || '모임';
@@ -85,6 +85,19 @@ export function GroupDetailScreen({ navigation, route }: Props) {
     } catch (error) {
       const message = error instanceof Error ? error.message : '모임 글 작성에 실패했습니다.';
       Alert.alert('작성 실패', message);
+    }
+  };
+
+  const openMemberProfile = async (memberUserId?: string) => {
+    if (!memberUserId) return;
+    try {
+      const profile = await groupApi.getMemberProfile(id, memberUserId);
+      Alert.alert(
+        profile.nickname || '멤버',
+        `${profile.role === 'manager' ? '관리자' : '멤버'} · 최근 활동 ${profile.recentActivities.length}개`,
+      );
+    } catch {
+      Alert.alert('프로필 오류', '멤버 프로필을 불러오지 못했습니다.');
     }
   };
 
@@ -225,6 +238,7 @@ export function GroupDetailScreen({ navigation, route }: Props) {
               key={post.id}
               post={post}
               onPress={() => navigation.navigate('CommunityPostDetail', { groupId: id, postId: post.id })}
+              onAuthorPress={() => openMemberProfile(post.authorUserId)}
             />
           ))}
         </View>
@@ -260,7 +274,13 @@ export function GroupDetailScreen({ navigation, route }: Props) {
         }}
       />
 
-      <MembersSheet visible={membersOpen} members={sortedMembers} isManager={isManager} onClose={() => setMembersOpen(false)} />
+      <MembersSheet
+        visible={membersOpen}
+        members={sortedMembers}
+        isManager={isManager}
+        onClose={() => setMembersOpen(false)}
+        onMemberPress={(member) => openMemberProfile(member.userId)}
+      />
 
       <PostComposerModal
         visible={composerOpen}
@@ -279,6 +299,7 @@ export function GroupDetailScreen({ navigation, route }: Props) {
         onClose={() => setSelectedSchedule(null)}
         onDelete={selectedSchedule?.groupScheduleOwner !== false ? handleDeleteSchedule : undefined}
         onLeaveParticipation={selectedSchedule?.groupScheduleOwner === false && selectedSchedule?.groupScheduleParticipant !== false ? handleLeaveParticipation : undefined}
+        onParticipantPress={(participant) => openMemberProfile(participant.userId)}
       />
     </Screen>
   );
@@ -315,7 +336,19 @@ function GroupMenu({
   );
 }
 
-function MembersSheet({ visible, members, isManager, onClose }: { visible: boolean; members: GroupMember[]; isManager: boolean; onClose: () => void }) {
+function MembersSheet({
+  visible,
+  members,
+  isManager,
+  onClose,
+  onMemberPress,
+}: {
+  visible: boolean;
+  members: GroupMember[];
+  isManager: boolean;
+  onClose: () => void;
+  onMemberPress: (member: GroupMember) => void;
+}) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
@@ -325,7 +358,7 @@ function MembersSheet({ visible, members, isManager, onClose }: { visible: boole
           <Text style={styles.sheetTitle}>{isManager ? '멤버관리' : '멤버'}</Text>
           <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator>
             {members.map((member) => (
-              <View key={member.id} style={styles.memberRow}>
+              <Pressable key={member.id} onPress={() => onMemberPress(member)} style={styles.memberRow}>
                 <PersonAvatar image={member.avatarUrl} thumbnail={member.thumbnailUrl} name={member.nickname || member.userId} size={42} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text numberOfLines={1} style={styles.memberName}>{member.nickname || member.userId}</Text>
@@ -334,7 +367,7 @@ function MembersSheet({ visible, members, isManager, onClose }: { visible: boole
                 {isManager && member.role !== 'manager' ? (
                   <UserPlus size={16} color={colors.mutedForeground} />
                 ) : null}
-              </View>
+              </Pressable>
             ))}
           </ScrollView>
         </View>

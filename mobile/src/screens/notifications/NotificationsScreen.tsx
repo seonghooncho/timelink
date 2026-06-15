@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen } from '../../components/layout/Screen';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { TabBar } from '../../components/common/TabBar';
@@ -9,24 +11,99 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { colors, radius } from '../../constants/theme';
 import { NotificationResponse, notificationApi } from '../../services/api';
 import { timeAgoLabel } from '../../utils/date';
+import { RootStackParamList } from '../../navigation/types';
+import { MobileNavigationTarget, resolveNotificationTarget } from '../../navigation/navigationTargets';
 
 const TABS = [
   { key: 'schedule', label: '일정 알림' },
   { key: 'group', label: '모임 알림' },
 ];
+const NOTIFICATION_PAGE_LIMIT = 20;
+
+function navigateToTarget(navigation: NativeStackNavigationProp<RootStackParamList>, target: MobileNavigationTarget) {
+  switch (target.screen) {
+    case 'MainTabs':
+      navigation.navigate('MainTabs', target.params);
+      return;
+    case 'Notifications':
+      navigation.navigate('Notifications');
+      return;
+    case 'GroupDetail':
+      navigation.navigate('GroupDetail', target.params);
+      return;
+    case 'GroupIntro':
+      navigation.navigate('GroupIntro', target.params);
+      return;
+    case 'GroupJoin':
+      navigation.navigate('GroupJoin', target.params);
+      return;
+    case 'CommunityPostDetail':
+      navigation.navigate('CommunityPostDetail', target.params);
+      return;
+    case 'CoordinationTimetable':
+      navigation.navigate('CoordinationTimetable', target.params);
+      return;
+    case 'ScheduleForm':
+      navigation.navigate('ScheduleForm', target.params);
+      return;
+    case 'GroupForm':
+      navigation.navigate('GroupForm');
+      return;
+  }
+}
 
 export function NotificationsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [tab, setTab] = useState('schedule');
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  const loadNotifications = useCallback((cursor?: string | null) => {
+    if (cursor) {
+      setIsFetchingMore(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    notificationApi.getPage({ type: tab, limit: NOTIFICATION_PAGE_LIMIT, cursor })
+      .then((page) => {
+        setNotifications((prev) => cursor ? [...prev, ...page.data] : page.data);
+        setNextCursor(page.meta?.nextCursor ?? null);
+      })
+      .catch(() => {
+        if (!cursor) {
+          setNotifications([]);
+          setNextCursor(null);
+        }
+      })
+      .finally(() => {
+        setIsLoading(false);
+        setIsFetchingMore(false);
+      });
+  }, [tab]);
 
   useEffect(() => {
-    setIsLoading(true);
-    notificationApi.getAll({ type: tab })
-      .then(setNotifications)
-      .catch(() => setNotifications([]))
-      .finally(() => setIsLoading(false));
-  }, [tab]);
+    setNotifications([]);
+    setNextCursor(null);
+    loadNotifications(null);
+  }, [loadNotifications]);
+
+  const handleNotificationPress = (item: NotificationResponse) => {
+    const target = resolveNotificationTarget(item);
+    const go = () => navigateToTarget(navigation, target);
+
+    if (item.isRead) {
+      go();
+      return;
+    }
+
+    notificationApi.markRead(item.id).then(() => {
+      setNotifications((prev) => prev.map((entry) => entry.id === item.id ? { ...entry, isRead: true } : entry));
+      go();
+    }).catch(() => undefined);
+  };
 
   return (
     <Screen>
@@ -42,13 +119,7 @@ export function NotificationsScreen() {
           notifications.map((item) => (
             <Pressable
               key={item.id}
-              onPress={() => {
-                if (!item.isRead) {
-                  notificationApi.markRead(item.id).then(() => {
-                    setNotifications((prev) => prev.map((entry) => entry.id === item.id ? { ...entry, isRead: true } : entry));
-                  }).catch(() => undefined);
-                }
-              }}
+              onPress={() => handleNotificationPress(item)}
               style={[styles.card, !item.isRead ? styles.unreadCard : null]}
             >
               <View style={{ flex: 1 }}>
@@ -66,6 +137,15 @@ export function NotificationsScreen() {
             </Pressable>
           ))
         )}
+        {!isLoading && nextCursor ? (
+          <Pressable
+            onPress={() => loadNotifications(nextCursor)}
+            disabled={isFetchingMore}
+            style={[styles.moreButton, isFetchingMore ? styles.moreButtonDisabled : null]}
+          >
+            <Text style={styles.moreButtonText}>{isFetchingMore ? '불러오는 중...' : '알림 더보기'}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Screen>
   );
@@ -119,5 +199,22 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 999,
     backgroundColor: colors.primary,
+  },
+  moreButton: {
+    minHeight: 42,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreButtonDisabled: {
+    opacity: 0.55,
+  },
+  moreButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.mutedForeground,
   },
 });

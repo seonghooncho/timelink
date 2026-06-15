@@ -41,6 +41,16 @@ export function useGroupPosts(groupId?: string, params?: PaginationParams) {
   });
 }
 
+export function useGroupPost(groupId?: string, postId?: string) {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['groups', groupId, 'posts', postId],
+    queryFn: () => groupPostApi.getPost(groupId as string, postId as string),
+    enabled: isAuthenticated && Boolean(groupId) && Boolean(postId),
+  });
+}
+
 export function useCommunityComments(postId?: string) {
   const { isAuthenticated } = useAuth();
 
@@ -79,6 +89,22 @@ export function useCreateGroupPost(groupId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { title: string; content: string; memberOnly?: boolean }) => groupPostApi.createPost(groupId, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] }),
+  });
+}
+
+export function useDeleteCommunityPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => communityApi.deletePost(postId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['community', 'posts'] }),
+  });
+}
+
+export function useDeleteGroupPost(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => groupPostApi.deletePost(groupId, postId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] }),
   });
 }
@@ -145,6 +171,57 @@ export function useCreateGroupPostComment(groupId: string, postId: string) {
     mutationFn: (content: string) => groupPostApi.createComment(groupId, postId, content),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId, 'comments'] });
+    },
+  });
+}
+
+export function useUpdateCommunityComment(postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
+      communityApi.updateComment(postId, commentId, content),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['community', 'posts'] });
+      qc.invalidateQueries({ queryKey: ['community', 'posts', postId] });
+      qc.invalidateQueries({ queryKey: ['community', 'posts', postId, 'comments'] });
+    },
+  });
+}
+
+export function useUpdateGroupPostComment(groupId: string, postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
+      groupPostApi.updateComment(groupId, postId, commentId, content),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId, 'comments'] });
+    },
+  });
+}
+
+export function useDeleteCommunityComment(postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) => communityApi.deleteComment(postId, commentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['community', 'posts'] });
+      qc.invalidateQueries({ queryKey: ['community', 'posts', postId] });
+      qc.invalidateQueries({ queryKey: ['community', 'posts', postId, 'comments'] });
+    },
+  });
+}
+
+export function useDeleteGroupPostComment(groupId: string, postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) => groupPostApi.deleteComment(groupId, postId, commentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts'] });
+      qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId] });
       qc.invalidateQueries({ queryKey: ['groups', groupId, 'posts', postId, 'comments'] });
     },
   });

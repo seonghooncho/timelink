@@ -1,16 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { groupApi, ScheduleResponse } from '../services/api';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { groupApi, GroupListResponse, ScheduleResponse } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Group, Schedule } from '../types';
 
 const GROUP_PAGE_LIMIT = 20;
 
-function mapGroup(g: Group): Group {
+function mapGroup(g: GroupListResponse): Group {
   return {
     ...g,
     description: g.description || '',
+    imageUrl: g.imageUrl,
+    thumbnailUrl: g.thumbnailUrl,
     visibility: g.visibility ?? 'PRIVATE',
     upcomingScheduleCount: g.upcomingScheduleCount ?? (g.nextSchedule ? 1 : 0),
+    activeCoordination: g.activeCoordination ? {
+      ...g.activeCoordination,
+      createdBy: '',
+    } : null,
   };
 }
 
@@ -51,9 +57,28 @@ export function useGroups() {
   return useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      const groups = await groupApi.getAll();
-      return groups.map((group) => mapGroup(group as Group));
+      const page = await groupApi.getPage({ limit: GROUP_PAGE_LIMIT });
+      return page.data.map(mapGroup);
     },
+    enabled: isAuthenticated,
+  });
+}
+
+export function useGroupPages() {
+  const { isAuthenticated } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: ['groups', 'paged', GROUP_PAGE_LIMIT],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const page = await groupApi.getPage({ limit: GROUP_PAGE_LIMIT, cursor: pageParam });
+      return {
+        ...page,
+        data: page.data.map(mapGroup),
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.meta?.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap((page) => page.data),
     enabled: isAuthenticated,
   });
 }
@@ -66,7 +91,7 @@ export function usePublicGroups(query?: string) {
     queryKey: ['groups', 'public', trimmedQuery ?? ''],
     queryFn: async () => {
       const page = await groupApi.getPublicPage({ limit: GROUP_PAGE_LIMIT, q: trimmedQuery });
-      return page.data.map((group) => mapGroup(group as Group));
+      return page.data.map(mapGroup);
     },
     enabled: isAuthenticated,
   });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X } from 'lucide-react-native';
+import { Camera, Eye, Globe2, Tag, Users, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../../components/layout/Screen';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -23,6 +23,7 @@ export function GroupFormScreen({ navigation }: Props) {
   const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
   const [image, setImage] = useState<PickedImageAsset | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const isPublic = visibility === 'PUBLIC';
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -107,7 +108,9 @@ export function GroupFormScreen({ navigation }: Props) {
             value={description}
             onChangeText={setDescription}
             maxLength={GROUP_DESCRIPTION_MAX_LENGTH}
-            placeholder="모임에 대한 간단한 소개를 입력하세요"
+            placeholder={isPublic
+              ? '누가 참여하면 좋은지, 활동 방식과 승인 기준을 짧게 적어주세요'
+              : '모임에 대한 간단한 소개를 입력하세요'}
             multiline
           />
           <Text style={styles.countLabel}>{description.length}/{GROUP_DESCRIPTION_MAX_LENGTH}</Text>
@@ -121,12 +124,69 @@ export function GroupFormScreen({ navigation }: Props) {
               <Text style={[styles.visibilityLabel, visibility === 'PUBLIC' ? styles.visibilityLabelActive : null]}>공개</Text>
             </Pressable>
           </View>
-          <Text style={styles.visibilityHint}>{visibility === 'PUBLIC' ? '둘러보기에서 검색되고 가입요청을 받을 수 있어요.' : '초대 링크로만 참여할 수 있어요.'}</Text>
+          <Text style={styles.visibilityHint}>{isPublic ? '둘러보기에서 검색되고 가입요청을 받을 수 있어요.' : '초대 링크로만 참여할 수 있어요.'}</Text>
         </SectionCard>
 
+        {isPublic ? (
+          <>
+            <SectionCard>
+              <View style={styles.publicGuideHeader}>
+                <View style={styles.publicGuideIcon}>
+                  <Globe2 size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.publicGuideTitle}>공개 모임은 소개가 첫인상이에요</Text>
+                  <Text style={styles.publicGuideText}>대상, 활동 방식, 온라인/오프라인 여부, 참여 규칙을 짧게 적어두면 가입 요청 판단이 쉬워집니다.</Text>
+                </View>
+              </View>
+              <View style={styles.publicGuideTags}>
+                {['대상', '활동 방식', '장소/온라인', '참여 규칙'].map((label) => (
+                  <View key={label} style={styles.publicGuideTag}>
+                    <Tag size={12} color={colors.primary} />
+                    <Text style={styles.publicGuideTagText}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            </SectionCard>
+
+            <SectionCard>
+              <View style={styles.previewHeader}>
+                <Eye size={16} color={colors.primary} />
+                <Text style={styles.previewHeaderText}>둘러보기 미리보기</Text>
+              </View>
+              <View style={styles.publicPreviewRow}>
+                {preview ? (
+                  <Image source={{ uri: preview }} style={styles.publicPreviewImage} />
+                ) : (
+                  <View style={styles.publicPreviewFallback}>
+                    <Camera color={colors.mutedForeground} size={18} />
+                  </View>
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.publicPreviewTitleRow}>
+                    <Text numberOfLines={1} style={styles.publicPreviewTitle}>{name.trim() || '모임 이름'}</Text>
+                    <Text style={styles.publicBadge}>공개</Text>
+                  </View>
+                  <View style={styles.publicPreviewMeta}>
+                    <Users size={12} color={colors.mutedForeground} />
+                    <Text style={styles.publicPreviewMetaText}>멤버 1명 · 승인 후 참여</Text>
+                  </View>
+                  <Text numberOfLines={2} style={styles.publicPreviewDescription}>
+                    {description.trim() || '어떤 사람들이 어떤 방식으로 함께하는 모임인지 적으면 가입 요청이 더 쉬워집니다.'}
+                  </Text>
+                </View>
+              </View>
+            </SectionCard>
+          </>
+        ) : null}
+
         <SectionCard>
-          <Text style={styles.tipTitle}>모임 생성 후</Text>
-          <Text style={styles.tipText}>멤버를 초대하고, 약속과 시간 조율을 함께 관리할 수 있어요.</Text>
+          <Text style={styles.tipTitle}>{isPublic ? '공개 모임 운영 팁' : '모임 생성 후'}</Text>
+          <Text style={styles.tipText}>
+            {isPublic
+              ? '가입 요청은 관리자가 승인한 뒤 완료돼요. 첫 일정이나 시간 조율을 만들어두면 참여자가 이해하기 쉬워요.'
+              : '멤버를 초대하고, 약속과 시간 조율을 함께 관리할 수 있어요.'}
+          </Text>
         </SectionCard>
 
         <AppButton
@@ -237,6 +297,119 @@ const styles = StyleSheet.create({
   visibilityHint: {
     marginTop: 8,
     fontSize: 11,
+    color: colors.mutedForeground,
+  },
+  publicGuideHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  publicGuideIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  publicGuideTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.foreground,
+  },
+  publicGuideText: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.mutedForeground,
+  },
+  publicGuideTags: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  publicGuideTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: radius.sm,
+    backgroundColor: colors.muted,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  publicGuideTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.mutedForeground,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  previewHeaderText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  publicPreviewRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  publicPreviewImage: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+  },
+  publicPreviewFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  publicPreviewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  publicPreviewTitle: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.foreground,
+  },
+  publicBadge: {
+    borderRadius: 999,
+    backgroundColor: colors.primary + '12',
+    color: colors.primary,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  publicPreviewMeta: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  publicPreviewMetaText: {
+    fontSize: 11,
+    color: colors.mutedForeground,
+  },
+  publicPreviewDescription: {
+    marginTop: 7,
+    fontSize: 12,
+    lineHeight: 18,
     color: colors.mutedForeground,
   },
 });

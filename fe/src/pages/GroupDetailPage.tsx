@@ -19,7 +19,7 @@ import { ListSkeleton, ScheduleStripSkeleton } from '@/components/common/Loading
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
-import { useGroups } from '@/hooks/useGroups';
+import { useGroupDetail } from '@/hooks/useGroups';
 import {
   useCreateGroupPost,
   useGroupPosts,
@@ -56,7 +56,7 @@ const GroupDetailPage: React.FC = () => {
   const updateSchedule = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
   const leaveGroupSchedule = useLeaveGroupSchedule();
-  const { data: groups = [], isPending: isGroupsPending, isLoading: isGroupsLoading } = useGroups();
+  const { data: group, isPending: isGroupsPending, isLoading: isGroupsLoading } = useGroupDetail(id);
   const menuRef = useRef<HTMLDivElement>(null);
   const groupScheduleRange = useMemo(() => {
     const today = new Date();
@@ -123,7 +123,6 @@ const GroupDetailPage: React.FC = () => {
   } = useGroupPosts(id);
   const createGroupPost = useCreateGroupPost(id || '');
 
-  const group = groups.find((item) => item.id === id);
   const coordinationStatus = showClosedCoordinations ? 'closed' : 'active';
 
   const loadCoordinations = useCallback(async (cursor?: string | null) => {

@@ -39,7 +39,6 @@ const PostListItem: React.FC<PostListItemProps> = ({
       type="button"
       onClick={onAuthorClick}
       className="min-w-0 truncate text-xs font-bold text-foreground"
-      aria-label={`${authorName} 프로필 보기`}
     >
       {authorName}
     </button>

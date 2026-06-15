@@ -27,6 +27,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       GroupDetail: 'groups/:id',
       GroupIntro: 'groups/:id/intro',
       GroupJoin: 'groups/join/:inviteCode',
+      InviteRedirect: 'invite/:inviteCode',
       TimeCoordination: 'groups/:groupId/coordination',
       CoordinationTimetable: 'groups/:groupId/coordination/:coordId/timetable',
       CommunityPostDetail: 'community/posts/:postId',
