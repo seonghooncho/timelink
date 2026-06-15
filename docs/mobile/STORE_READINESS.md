@@ -46,7 +46,7 @@ npm run mobile:export:web
 
 ## 스토어 제출 기준
 
-- Google Play 신규/업데이트 앱은 Android 15(API 35) 이상 target이 필요하다. 현재 `expo-build-properties`로 `compileSdkVersion=35`, `targetSdkVersion=35`를 명시했다.
+- Google Play 신규/업데이트 앱은 Android 15(API 35) 이상 target이 필요하다. 현재 `expo-build-properties`로 `compileSdkVersion=36`, `targetSdkVersion=35`를 명시했다. `compileSdkVersion`은 AndroidX 최신 의존성 빌드 요구사항을 맞추기 위한 값이고, Play 정책 대상인 `targetSdkVersion`은 35로 유지한다.
 - App Store 제출에는 개인정보 처리방침 URL, 개인정보 라벨, SDK privacy manifest/signature 확인이 필요하다.
 - iOS 사진/카메라 권한 문구는 `app.json`에 한글로 설정했다.
 - EAS 빌드 프로필은 `mobile/eas.json`에 추가했다.
