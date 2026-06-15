@@ -34,6 +34,9 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
@@ -90,7 +93,11 @@
       "aiApiBaseUrl": "https://timelink.cloud/api/ai/v1",
       "webAppOrigin": "https://timelink.cloud",
       "mobileAppOrigin": "timelink://app",
-      "enableDevLogin": false
-    }
+      "enableDevLogin": false,
+      "eas": {
+        "projectId": "b7f38930-53b8-494b-9612-9ae94cbbea64"
+      }
+    },
+    "owner": "sunghuncho"
   }
 }
