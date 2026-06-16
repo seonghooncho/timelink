@@ -60,6 +60,14 @@ Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/aut
 - Android App Links는 `intentFilters`로 유지한다.
 - iOS Universal Links(`associatedDomains`)는 유료 Apple Developer 팀에서만 활성화한다. 무료 Personal Team으로 로컬 실기기 테스트할 때는 비활성화해야 서명이 된다.
 
+## Google Play 자산
+- 등록 문구: `store-assets/google-play/listing.json`
+- 고해상도 아이콘: `store-assets/google-play/icon.png` (`512x512`, RGB)
+- 피처 그래픽: `store-assets/google-play/feature-graphic.png` (`1024x500`, RGB)
+- 휴대전화 스크린샷: `store-assets/google-play/phone-screenshots/*.png` (`1080x1920`, RGB)
+
+위 규격은 `src/config/__tests__/storeReadiness.test.ts`에서 앱 패키지, App Links, 스토어 이미지와 함께 검증한다.
+
 ## 남은 외부 설정
 - `https://timelink.cloud/.well-known/apple-app-site-association`
 

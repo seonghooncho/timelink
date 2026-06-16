@@ -51,6 +51,8 @@ npm run mobile:export:web
 - App Store 제출에는 개인정보 처리방침 URL, 개인정보 라벨, SDK privacy manifest/signature 확인이 필요하다.
 - iOS 사진/카메라 권한 문구는 `app.json`에 한글로 설정했다.
 - EAS 빌드 프로필은 `mobile/eas.json`에 추가했다.
+- Google Play 등록정보는 앱 이름 `Timelink`, 기본 언어 `ko-KR`, 보조 언어 `en-US`를 기준으로 관리한다.
+- Google Play 자산은 `mobile/store-assets/google-play/`에 보관하고, `mobile/src/config/__tests__/storeReadiness.test.ts`로 치수와 앱 설정을 검증한다.
 
 참고:
 
@@ -61,8 +63,19 @@ npm run mobile:export:web
 ## 남은 외부 설정
 
 - Apple Developer Team ID 확보 후 `apple-app-site-association`을 운영 도메인에 배포해야 Universal Links 검증이 완료된다.
-- EAS project id와 스토어 자격증명은 계정 연결 후 확정한다.
 - 로컬 AAB 빌드는 현재 개발 머신에 Android SDK 경로가 없어 끝까지 검증하지 못했다. `ANDROID_HOME` 또는 `mobile/android/local.properties`의 `sdk.dir` 설정 후 `npm run mobile:build:android-release`로 확인한다.
+
+## Google Play 내부 테스트 상태
+
+- Play Console 앱: `Timelink` / `cloud.timelink.app`
+- 내부 테스트 트랙: version code `2`, version name `1.0.0`, status `completed`
+- 내부 테스트 링크: `https://play.google.com/apps/internaltest/4701418634335833982`
+- 서비스 계정: Android Publisher API로 `cloud.timelink.app` 내부 테스트 트랙 조회 성공
+- 등록정보 자산:
+  - 앱 이름/설명: `mobile/store-assets/google-play/listing.json`
+  - 아이콘: `mobile/store-assets/google-play/icon.png`
+  - 피처 그래픽: `mobile/store-assets/google-play/feature-graphic.png`
+  - 휴대전화 스크린샷 5장: `mobile/store-assets/google-play/phone-screenshots/`
 
 ## Android App Links
 
@@ -82,8 +95,10 @@ npm run mobile:export:web
 ## 검증 결과
 
 - `npm run mobile:typecheck`: 통과
-- `npm run mobile:test`: 통과
+- `npm run mobile:test`: 통과. 앱 패키지명, App Links, Play 등록 문구, 스토어 이미지 치수 검증을 포함한다.
 - `npm run mobile:export:web`: 통과
 - `npm run mobile:prebuild:android`: 통과
 - `npm run mobile:prebuild:ios`: 통과
-- `npm audit --omit=dev --audit-level=high`: high 이상 없음. Expo/Jest 하위 moderate 취약점은 `npm audit fix --force`가 주요 패키지 교체를 요구해 보류한다.
+- `npx --yes expo-doctor@latest`: 19개 검사 통과
+- `npm audit --omit=dev --audit-level=high`: high 이상 없음. Expo/Jest 하위 moderate 취약점은 `npm audit fix --force`가 Expo 또는 React Native 주요 버전 교체를 요구해 보류한다.
+- `npm ls react-native`: `react-native@0.83.6` 단일 버전으로 dedupe 완료
