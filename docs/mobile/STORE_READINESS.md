@@ -61,9 +61,17 @@ npm run mobile:export:web
 ## 남은 외부 설정
 
 - Apple Developer Team ID 확보 후 `apple-app-site-association`을 운영 도메인에 배포해야 Universal Links 검증이 완료된다.
-- 새 Play 앱(`cloud.timelink.app`)을 Play App Signing에 등록한 뒤, Play Console의 앱 서명 키 SHA-256 fingerprint와 패키지명을 사용해 `assetlinks.json`을 운영 도메인에 배포해야 Android App Links 검증이 완료된다.
 - EAS project id와 스토어 자격증명은 계정 연결 후 확정한다.
 - 로컬 AAB 빌드는 현재 개발 머신에 Android SDK 경로가 없어 끝까지 검증하지 못했다. `ANDROID_HOME` 또는 `mobile/android/local.properties`의 `sdk.dir` 설정 후 `npm run mobile:build:android-release`로 확인한다.
+
+## Android App Links
+
+- 정적 파일: `fe/public/.well-known/assetlinks.json`
+- 운영 URL: `https://timelink.cloud/.well-known/assetlinks.json`
+- Android 패키지명: `cloud.timelink.app`
+- Play Console 앱 서명 키 SHA-256: `F7:BA:DE:E0:FC:1C:1D:71:DF:53:B4:E2:A2:49:FD:11:63:1D:F3:8C:15:0D:C6:76:B7:5A:BB:A6:9E:74:AC:7F`
+
+업로드 키 인증서가 아니라 Google Play에서 출시 APK에 서명할 때 쓰는 앱 서명 키 인증서를 기준으로 한다.
 
 ## 네이티브 푸시 판단
 

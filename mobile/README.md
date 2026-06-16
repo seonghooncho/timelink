@@ -62,10 +62,10 @@ Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/aut
 
 ## 남은 외부 설정
 - `https://timelink.cloud/.well-known/apple-app-site-association`
-- `https://timelink.cloud/.well-known/assetlinks.json`
 
-위 두 파일은 배포 도메인에서 추가로 제공해야 Universal Links / Android App Links 검증이 완료된다.
-현재 저장소에는 Apple Team ID와 새 Play 앱(`cloud.timelink.app`)의 앱 서명 인증서 SHA256 fingerprint가 없어 정적 파일까지는 확정하지 않았다.
+위 파일은 배포 도메인에서 추가로 제공해야 iOS Universal Links 검증이 완료된다.
+
+Android App Links는 `https://timelink.cloud/.well-known/assetlinks.json`으로 제공한다. 패키지명은 `cloud.timelink.app`이고, 인증서 지문은 Play Console의 앱 서명 키 SHA-256 값을 사용한다.
 
 ## 제출 준비 문서
 [docs/mobile/STORE_READINESS.md](../docs/mobile/STORE_READINESS.md)를 먼저 확인한다.

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "cloud.timelink.app",
+      "sha256_cert_fingerprints": [
+        "F7:BA:DE:E0:FC:1C:1D:71:DF:53:B4:E2:A2:49:FD:11:63:1D:F3:8C:15:0D:C6:76:B7:5A:BB:A6:9E:74:AC:7F"
+      ]
+    }
+  }
+]
