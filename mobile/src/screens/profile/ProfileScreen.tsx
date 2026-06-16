@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
 import { settingsApi } from '../../services/api';
 import { processingImageLabel, uploadProcessedImage, validatePickedImage, waitForImageProcessing } from '../../utils/images';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 export function ProfileScreen() {
   const { signOut } = useAuth();
@@ -102,7 +103,12 @@ export function ProfileScreen() {
       await updateProfileMutation.mutateAsync({ nickname: draftNickname.trim() });
       setNickname(draftNickname.trim());
       setEditingNickname(false);
+      void trackProductEvent('settings_updated', {
+        feature: 'settings',
+        settings_type: 'profile',
+      });
     } catch {
+      trackMobileError('profile_error', 'settings');
       Alert.alert('수정 실패', '닉네임 변경에 실패했습니다.');
     }
   };
@@ -113,7 +119,12 @@ export function ProfileScreen() {
   ) => {
     try {
       await settingsApi.updateNotifications({ [key]: value });
+      void trackProductEvent('settings_updated', {
+        feature: 'settings',
+        settings_type: key,
+      });
     } catch {
+      trackMobileError('notification_error', 'settings');
       Alert.alert('저장 실패', '알림 설정 저장에 실패했습니다.');
       throw new Error('failed');
     }

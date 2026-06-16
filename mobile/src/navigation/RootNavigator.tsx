@@ -1,8 +1,9 @@
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CalendarDays, Home, MessageSquareText, User, Users } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
+import { useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
 import { MainTabParamList, RootStackParamList } from './types';
@@ -24,6 +25,7 @@ import { CoordinationTimetableScreen } from '../screens/coordination/Coordinatio
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 import { LoadingState } from '../components/common/LoadingState';
 import { linking } from './linking';
+import { trackMobilePageView } from '../services/analytics';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
@@ -88,13 +90,30 @@ function MainTabsNavigator() {
 
 export function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   if (isLoading) {
     return <LoadingState label="세션을 확인하고 있습니다" />;
   }
 
   return (
-    <NavigationContainer theme={navigationTheme} linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navigationTheme}
+      linking={linking}
+      onReady={() => {
+        routeNameRef.current = navigationRef.getCurrentRoute()?.name;
+        trackMobilePageView(routeNameRef.current);
+      }}
+      onStateChange={() => {
+        const routeName = navigationRef.getCurrentRoute()?.name;
+        if (routeName && routeNameRef.current !== routeName) {
+          routeNameRef.current = routeName;
+          trackMobilePageView(routeName);
+        }
+      }}
+    >
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <>

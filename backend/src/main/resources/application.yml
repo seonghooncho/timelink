@@ -32,7 +32,13 @@ push:
 
 jwt:
   secret: your-256-bit-secret-key-for-local-dev-only-change-in-production
-  expiration: 86400000
+  expiration: 900000
+  access-expiration: 900000
+  refresh-expiration: 1209600000
+  refresh-cookie-name: timelink_rt
+  refresh-cookie-path: /api/planner/v1/auth
+  refresh-cookie-same-site: Lax
+  refresh-cookie-secure: false
 
 oauth:
   google:
@@ -44,6 +50,13 @@ oauth:
 
 auth:
   dev-login-enabled: false
+
+analytics:
+  enabled: false
+  hmac-secret: local-analytics-secret-change-in-production
+  raw-bucket-name:
+  admin-user-ids:
+  api-metrics-enabled: true
 
 cors:
   allowed-origins: http://localhost:5173,http://localhost:3000

@@ -11,6 +11,7 @@ import { appToast } from '@/lib/appToast';
 import { Camera, Eye, Globe2, Tag, Users, X } from 'lucide-react';
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
 import { trackEvent } from '@/lib/analytics';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 const GroupFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -93,6 +94,11 @@ const GroupFormPage: React.FC = () => {
       });
 
       appToast.success('모임이 생성되었습니다');
+      trackProductEvent('link_created', {
+        feature: 'groups',
+        link_type: 'group_invite',
+        source: visibility === 'PUBLIC' ? 'public_group' : 'private_group',
+      });
       navigate(`/groups/${result.id}`);
     } catch (error) { appToast.error('모임 생성에 실패했습니다', error, '모임 생성 중 오류가 발생했습니다.'); } finally { setIsUploading(false); }
   };

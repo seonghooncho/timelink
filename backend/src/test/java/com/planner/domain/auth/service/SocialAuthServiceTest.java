@@ -277,7 +277,7 @@ class SocialAuthServiceTest {
         request.setServerName("api.example.com");
         request.setServerPort(443);
 
-        URI redirect = socialAuthService.buildFailureRedirect("google", null, "access_denied", request);
+        URI redirect = socialAuthService.buildFailureRedirect("google", null, "access_denied", request).location();
 
         assertThat(redirect.toString()).startsWith("https://timelink.example.com/login");
         assertThat(redirect.getQuery()).contains("error=google");

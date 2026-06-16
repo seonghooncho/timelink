@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { buildGroupJoinPath } from '@/lib/navigationTargets';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 const InviteRedirectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,11 @@ const InviteRedirectPage: React.FC = () => {
       return;
     }
 
+    trackProductEvent('link_opened', {
+      feature: 'groups',
+      link_type: location.search.includes('coord=') ? 'coordination' : 'group_invite',
+      source: 'invite_redirect',
+    });
     navigate(buildGroupJoinPath(inviteCode, location.search), { replace: true });
   }, [inviteCode, location.search, navigate]);
 

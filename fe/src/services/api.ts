@@ -1,7 +1,8 @@
-import { clearStoredSession, getAccessToken } from '@/services/session';
+import { clearStoredSession, getAccessToken, setStoredSession } from '@/services/session';
 
 const API_BASE = '/api/planner/v1';
 const AI_BASE = '/api/ai/v1';
+let refreshPromise: Promise<AuthSessionResponse> | null = null;
 
 export interface ApiPageMeta {
   perPage: number;
@@ -38,11 +39,27 @@ async function requestEnvelope<T>(
   requiresAuth = true,
 ): Promise<ApiEnvelope<T>> {
   const headers = requiresAuth ? getAuthHeaders() : { 'Content-Type': 'application/json' };
-  const res = await fetch(`${API_BASE}${path}`, {
+  const requestBody = body ? JSON.stringify(body) : undefined;
+  let res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    credentials: 'include',
+    ...(requestBody ? { body: requestBody } : {}),
   });
+
+  if (res.status === 401 && requiresAuth && path !== '/auth/refresh') {
+    try {
+      await refreshSession();
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        ...(requestBody ? { body: requestBody } : {}),
+      });
+    } catch {
+      clearStoredSession();
+    }
+  }
 
   if (res.status === 204) return { data: undefined as T };
 
@@ -59,15 +76,53 @@ async function requestEnvelope<T>(
   };
 }
 
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.error?.message || `API Error ${res.status}`);
+        }
+        const session = json.data as AuthSessionResponse;
+        setStoredSession(session);
+        return session;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 async function uploadFile<T>(path: string, file: File): Promise<T> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  let res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: getAuthHeaders(''),
+    credentials: 'include',
     body: formData,
   });
+
+  if (res.status === 401) {
+    try {
+      await refreshSession();
+      res = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: getAuthHeaders(''),
+        credentials: 'include',
+        body: formData,
+      });
+    } catch {
+      clearStoredSession();
+    }
+  }
 
   const json = await res.json();
   if (!res.ok) {
@@ -120,6 +175,7 @@ export interface AuthLoginRequest {
 
 export interface AuthSessionResponse {
   accessToken: string;
+  refreshToken?: string;
   userId: string;
 }
 
@@ -133,6 +189,8 @@ export interface AuthProvidersResponse {
 export const authApi = {
   login: (data: AuthLoginRequest) => request<AuthSessionResponse>('POST', '/auth/login', data, false),
   getMe: () => request<AuthSessionResponse>('GET', '/auth/me'),
+  refresh: () => request<AuthSessionResponse>('POST', '/auth/refresh', undefined, false),
+  logout: () => request<void>('POST', '/auth/logout', undefined, false),
   getProviders: () => request<AuthProvidersResponse>('GET', '/auth/providers', undefined, false),
   getOAuthStartUrl: (provider: SocialAuthProvider, frontendOrigin: string, redirectPath: string) => {
     const params = new URLSearchParams({
@@ -763,6 +821,66 @@ export const storageApi = {
     if (!res.ok) {
       throw new Error(`이미지 업로드에 실패했습니다 (${res.status})`);
     }
+  },
+};
+
+// ── Admin Analytics ──
+
+export interface AdminMeResponse {
+  admin: boolean;
+  userId: string;
+}
+
+export interface AnalyticsFeatureUsageResponse {
+  feature: string;
+  count: number;
+}
+
+export interface AnalyticsRecentErrorResponse {
+  eventId: string;
+  timestamp: string;
+  feature?: string;
+  route?: string;
+  errorCode?: string;
+  severity?: string;
+}
+
+export interface AnalyticsApiPerformanceResponse {
+  method: string;
+  route: string;
+  count: number;
+  averageMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  clientErrorCount: number;
+  serverErrorCount: number;
+}
+
+export interface AnalyticsSummaryResponse {
+  date: string;
+  totalUsers: number;
+  todaySignups: number;
+  todayActiveUsers: number;
+  activeUsers7d: number;
+  activeUsers30d: number;
+  todayLinksCreated: number;
+  todayLinksOpened: number;
+  averageActivitySeconds: number;
+  topFeatures: AnalyticsFeatureUsageResponse[];
+  apiPerformance: AnalyticsApiPerformanceResponse[];
+  recentErrors: AnalyticsRecentErrorResponse[];
+}
+
+export const adminApi = {
+  getMe: () => request<AdminMeResponse>('GET', '/admin/me'),
+};
+
+export const adminAnalyticsApi = {
+  getSummary: (date?: string) => {
+    const query = new URLSearchParams();
+    if (date) query.set('date', date);
+    const qs = query.toString();
+    return request<AnalyticsSummaryResponse>('GET', `/admin/analytics/summary${qs ? `?${qs}` : ''}`);
   },
 };
 

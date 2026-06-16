@@ -8,6 +8,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { groupApi } from '../../services/api';
 import { colors, radius } from '../../constants/theme';
 import { isSafeInternalPath, MobileNavigationTarget, resolveInternalPathTarget } from '../../navigation/navigationTargets';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
@@ -53,6 +54,11 @@ export function GroupJoinScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     setStatus('joining');
+    void trackProductEvent('link_opened', {
+      feature: 'groups',
+      link_type: coord ? 'coordination' : 'group_invite',
+      source: 'group_join',
+    });
     groupApi.join(inviteCode)
       .then((group) => {
         queryClient.invalidateQueries({ queryKey: ['groups'] });
@@ -68,6 +74,7 @@ export function GroupJoinScreen({ navigation, route }: Props) {
         navigation.replace('GroupDetail', { id: group.id });
       })
       .catch(() => {
+        trackMobileError('join_error', 'groups');
         setStatus('error');
       });
   }, [coord, inviteCode, navigation, queryClient, redirect]);

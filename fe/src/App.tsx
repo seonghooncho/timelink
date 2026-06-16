@@ -1,10 +1,11 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
+import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import MainPage from "./pages/MainPage";
 import CalendarPage from "./pages/CalendarPage";
 import CommunityPage from "./pages/CommunityPage";
@@ -24,6 +25,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import ConsentPage from "./pages/ConsentPage";
 import DemoPage from "./pages/DemoPage";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import InviteRedirectPage from "./pages/InviteRedirectPage";
@@ -50,12 +52,12 @@ const App = () => (
         <AppProvider>
           <Sonner />
           <BrowserRouter>
-            <AnalyticsRouteTracker />
-            <PwaInstallPrompt />
-            <PushPermissionNudge />
+            <AppRouteEffects />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/demo" element={<DemoPage />} />
+              <Route path="/admin" element={<Navigate to="/admin/analytics" replace />} />
+              <Route path="/admin/analytics" element={<AdminProtectedRoute><AdminAnalyticsPage /></AdminProtectedRoute>} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/invite/:inviteCode" element={<InviteRedirectPage />} />
@@ -86,5 +88,22 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
+
+const AppRouteEffects = () => {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  if (isAdminRoute) {
+    return null;
+  }
+
+  return (
+    <>
+      <AnalyticsRouteTracker />
+      <PwaInstallPrompt />
+      <PushPermissionNudge />
+    </>
+  );
+};
 
 export default App;

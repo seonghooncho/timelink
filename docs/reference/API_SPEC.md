@@ -101,15 +101,19 @@ api/planner/v1/{resource}/{id?}/{sub-resource?}/{sub-id?}
 
 ## 2. 인증 (Auth)
 
-> 인증은 백엔드 `POST /api/planner/v1/auth/login`으로 세션 토큰을 발급받는 방식입니다.
-> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 토큰을 검증하여 `userId`를 추출합니다.
+> 인증은 짧은 access token과 긴 refresh token으로 구성합니다.
+> 백엔드(Spring Boot)는 `JwtAuthenticationFilter`에서 access token을 검증하여 `userId`를 추출합니다.
+> 웹 access token은 메모리에만 보관하고, refresh token은 `HttpOnly` cookie(`timelink_rt`)로만 전달합니다. 모바일은 앱 SecureStore 저장을 위해 refresh token을 모바일 client 응답 body에만 포함합니다.
 
 | 기능 | 클라이언트 호출 | 설명 |
 |------|----------------|------|
-| 로그인 | `POST /auth/login` | `userId`, `nickname`으로 JWT 발급 |
-| 세션 복원 | `GET /auth/me` | 저장된 JWT 재검증 및 세션 복원 |
-| 로그아웃 | 클라이언트 세션 삭제 | 서버 세션 저장소 없음 |
+| 로그인 | `POST /auth/login` | access token 발급 및 refresh token 발급 |
+| 세션 복원 | `GET /auth/me` | 유효한 access token으로 세션 복원 및 refresh token 전환 |
+| 토큰 재발급 | `POST /auth/refresh` | refresh token 검증 후 access token과 refresh token 회전 |
+| 로그아웃 | `POST /auth/logout` | 현재 refresh token 폐기 및 웹 refresh cookie 삭제 |
 | API 호출 시 | `Authorization: Bearer <access_token>` | 모든 백엔드 요청에 포함 |
+
+Refresh token 원문은 서버에 저장하지 않고 SHA-256 hash만 DynamoDB main table에 저장합니다. 저장 항목에는 `ttl` epoch seconds를 포함하며 DynamoDB TTL로 자동 정리합니다. TTL 삭제는 지연될 수 있으므로 `/auth/refresh`는 저장 항목의 `ttl`도 직접 검사합니다.
 
 ---
 

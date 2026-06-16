@@ -60,7 +60,9 @@ OAuth 설정은 배포 때 가장 자주 깨지는 지점입니다. 프론트 �
 /planner/prod/backend/oauth.kakao.scope
 ```
 
-비로그인 상태에서 아래 경로가 로그인 화면으로 이어지고, 로그인 후 `/auth/callback#accessToken=...`을 거쳐 원래 경로로 복귀하는지 확인합니다.
+비로그인 상태에서 아래 경로가 로그인 화면으로 이어지고, 로그인 후 `/auth/callback#accessToken=...`을 거쳐 원래 경로로 복귀하는지 확인합니다. 웹 refresh token은 URL에 노출되지 않고 `timelink_rt` HttpOnly cookie로 설정되어야 합니다.
+
+Refresh token hash는 DynamoDB main table에 `ttl` 속성과 함께 저장됩니다. DynamoDB TTL은 삭제가 지연될 수 있으므로 만료 직후에도 항목이 잠시 보일 수 있지만, 백엔드는 refresh 요청 시 `ttl`을 직접 검사해 만료 토큰을 거부합니다.
 
 ```text
 https://timelink.cloud/login

@@ -99,6 +99,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     signOut: async () => {
       queryClient.clear();
+      await authApi.logout().catch(() => undefined);
       await clearStoredSession();
       setIsAuthenticated(false);
       setUserId(null);

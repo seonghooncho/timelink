@@ -8,6 +8,7 @@ type MainTabRoute = keyof MainTabParamList;
 
 interface ParsedAuthCallback {
   accessToken: string;
+  refreshToken: string;
   userId: string;
   redirect: string;
   error: string;
@@ -25,6 +26,7 @@ export function parseAuthCallbackUrl(url: string): ParsedAuthCallback {
 
   return {
     accessToken: params.get('accessToken') || '',
+    refreshToken: params.get('refreshToken') || '',
     userId: params.get('userId') || '',
     redirect: params.get('redirect') || '/',
     error: params.get('error') || '',
@@ -50,6 +52,7 @@ export async function completeOAuthSession(
 
   await completeSession({
     accessToken: parsed.accessToken,
+    refreshToken: parsed.refreshToken || undefined,
     userId: parsed.userId,
   });
 

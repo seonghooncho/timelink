@@ -5,6 +5,7 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import { useAuth } from '@/context/AuthContext';
 import { clearStoredSession } from '@/services/session';
 import { appToast } from '@/lib/appToast';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 const OAuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +29,10 @@ const OAuthCallbackPage: React.FC = () => {
     }
 
     completeSession({ accessToken, userId });
+    trackProductEvent('login_completed', {
+      feature: 'auth',
+      source: 'oauth_callback',
+    });
     navigate(redirect.startsWith('/') ? redirect : '/', { replace: true });
   }, [completeSession, navigate]);
 

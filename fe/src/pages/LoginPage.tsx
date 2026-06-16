@@ -8,6 +8,7 @@ import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { Loader2, PlayCircle } from 'lucide-react';
 import { appToast } from '@/lib/appToast';
 import { trackEvent } from '@/lib/analytics';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 type LoginMode = SocialAuthProvider | 'guest' | null;
 
@@ -87,6 +88,10 @@ const LoginPage: React.FC = () => {
       await signIn({
         userId: createGuestUserId(nickname),
         nickname,
+      });
+      trackProductEvent('login_completed', {
+        feature: 'auth',
+        source: 'guest_login',
       });
       navigate(redirectPath, { replace: true });
     } catch (err) {

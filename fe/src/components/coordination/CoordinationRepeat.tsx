@@ -4,6 +4,7 @@ import { coordinationApi } from '@/services/api';
 import TimePicker from '@/components/common/TimePicker';
 import { appToast } from '@/lib/appToast';
 import { trackEvent } from '@/lib/analytics';
+import { trackProductEvent } from '@/lib/productAnalytics';
 import {
   COORDINATION_DESCRIPTION_MAX_LENGTH,
   COORDINATION_TITLE_MAX_LENGTH,
@@ -82,6 +83,11 @@ const CoordinationRepeat: React.FC<CoordinationRepeatProps> = ({ groupId }) => {
         dates,
         startHour,
         endHour,
+      });
+      trackProductEvent('link_created', {
+        feature: 'schedule',
+        link_type: 'coordination',
+        source: 'coordination_repeat',
       });
       navigate(`/groups/${groupId}/coordination/${result.id}/timetable`);
     } catch (error) {

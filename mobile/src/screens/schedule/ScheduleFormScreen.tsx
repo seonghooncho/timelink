@@ -23,6 +23,7 @@ import {
 } from '../../utils/scheduleTime';
 import { uploadProcessedImage, validatePickedImage, type PickedImageAsset } from '../../utils/images';
 import { SCHEDULE_CONTENT_MAX_LENGTH, SCHEDULE_TITLE_MAX_LENGTH } from '../../constants/textLimits';
+import { trackMobileError } from '../../services/analytics';
 
 const categories: Array<{ value: ScheduleCategory; label: string }> = [
   { value: 'task', label: '할 일' },
@@ -164,6 +165,7 @@ export function ScheduleFormScreen({ navigation, route }: Props) {
       navigation.replace('MainTabs');
     } catch (error) {
       const message = error instanceof Error ? error.message : '일정 생성에 실패했습니다.';
+      trackMobileError('schedule_create_error', 'schedule');
       Alert.alert('등록 실패', message);
     }
   };

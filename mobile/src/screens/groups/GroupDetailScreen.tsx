@@ -24,6 +24,7 @@ import { coordinationApi } from '../../services/api';
 import { formatDateTimeDuration } from '../../utils/date';
 import { uploadProcessedImage, type PickedImageAsset } from '../../utils/images';
 import { env } from '../../config/env';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
@@ -264,13 +265,34 @@ export function GroupDetailScreen({ navigation, route }: Props) {
           setMenuOpen(false);
           if (!inviteLink) return;
           Clipboard.setStringAsync(inviteLink)
-            .then(() => Alert.alert('복사 완료', '초대 링크를 복사했습니다.'))
-            .catch(() => Alert.alert('복사 실패', '링크 복사에 실패했습니다.'));
+            .then(() => {
+              void trackProductEvent('link_copied', {
+                feature: 'groups',
+                link_type: 'group_invite',
+                source: 'group_detail',
+              });
+              Alert.alert('복사 완료', '초대 링크를 복사했습니다.');
+            })
+            .catch(() => {
+              trackMobileError('link_copy_error', 'groups');
+              Alert.alert('복사 실패', '링크 복사에 실패했습니다.');
+            });
         }}
         onShare={() => {
           setMenuOpen(false);
           if (!inviteLink) return;
-          Share.share({ title: `${group.name} 모임 초대`, message: `${group.name} 모임에 참여하세요.\n${inviteLink}`, url: inviteLink }).catch(() => Alert.alert('공유 실패', '공유에 실패했습니다.'));
+          Share.share({ title: `${group.name} 모임 초대`, message: `${group.name} 모임에 참여하세요.\n${inviteLink}`, url: inviteLink })
+            .then(() => {
+              void trackProductEvent('link_shared', {
+                feature: 'groups',
+                link_type: 'group_invite',
+                source: 'group_detail',
+              });
+            })
+            .catch(() => {
+              trackMobileError('link_share_error', 'groups');
+              Alert.alert('공유 실패', '공유에 실패했습니다.');
+            });
         }}
       />
 

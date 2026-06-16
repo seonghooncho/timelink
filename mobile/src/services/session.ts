@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 export interface AuthSession {
   accessToken: string;
+  refreshToken?: string;
   userId: string;
 }
 
@@ -40,6 +41,11 @@ export async function clearStoredSession() {
 export async function getAccessToken() {
   const session = await getStoredSession();
   return session?.accessToken ?? null;
+}
+
+export async function getRefreshToken() {
+  const session = await getStoredSession();
+  return session?.refreshToken ?? null;
 }
 
 export function subscribeSession(listener: (session: AuthSession | null) => void) {

@@ -46,6 +46,8 @@ API 요청은 `X-Request-Id`가 있으면 재사용하고 없으면 생성합니
 
 로그에는 Authorization header, JWT/OAuth/refresh token, request/response body 전체, 이메일, 전화번호, 초대코드 원문을 남기지 않습니다. path는 가능한 route template을 사용하고, fallback에서도 invite code와 주요 id segment를 마스킹합니다. AWS serverless container의 원문 access log는 `WARN`으로 낮추고, 서버 예외는 `ERROR` stack trace로 CloudWatch Logs에 남깁니다.
 
+관리자 대시보드의 `/admin/analytics`에는 날짜별 느린 API 섹션도 제공합니다. API Lambda가 `/api/planner/v1/**` 요청을 완료한 뒤 route template 단위로 DynamoDB histogram을 갱신하고, summary API가 p50/p95/평균/호출 수/4xx/5xx count를 계산합니다. `/api/planner/v1/analytics/track` 자체는 page_view마다 호출되어 노이즈가 크므로 이 latency 집계에서는 제외합니다.
+
 ## 알람 기준
 
 | 알람 | 기준 | 이유 |
@@ -153,7 +155,7 @@ npm run ops:backfill-metadata -- --fix-duplicate-invites
 
 - SES/Discord 알림은 확인과 대응 자동화가 없습니다. 알림이 하루 3회 이상 반복되면 Incident Manager 같은 대응 흐름을 검토합니다.
 - SES sandbox 상태에서는 인증된 주소로만 보낼 수 있습니다. 운영 알림 수신자를 늘리거나 도메인 발신 품질을 높일 때는 `timelink.cloud` 도메인 identity와 DKIM/SPF/DMARC를 Terraform/Cloudflare로 관리합니다.
-- CloudWatch 기본 지표는 어떤 API가 느린지까지 알려주지 않습니다. API Gateway p95가 2일 연속 2초를 넘거나 5xx가 반복되면 구조화 로그와 CloudWatch Logs Insights 쿼리를 문서화합니다.
+- CloudWatch 기본 지표는 Lambda/API Gateway 전체 p95만 보여줍니다. 어떤 API가 느린지는 관리자 대시보드의 route별 histogram으로 먼저 확인하고, 원인 분석이 더 필요하면 구조화 로그와 CloudWatch Logs Insights 쿼리를 함께 사용합니다.
 - Lambda throttle이 운영 중 1회라도 재발하면 예약 동시성/계정 동시성/비동기 큐 분리 여부를 검토합니다.
 - DynamoDB scan 알람이 앱 트래픽 중 울리면 해당 repository 경로를 즉시 query/get 기반으로 바꿉니다.
 - 그룹당 멤버 수가 100명 이상이거나 조율당 응답 슬롯이 1,000개 이상으로 늘면 counter cache만으로 부족하므로 집계 아이템 또는 스트림 기반 비동기 집계로 전환합니다.

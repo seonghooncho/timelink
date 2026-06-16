@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { clearStoredSession, getAccessToken } from './session';
+import { clearStoredSession, getAccessToken, getRefreshToken, setStoredSession } from './session';
 
 export interface ApiPageMeta {
   perPage: number;
@@ -10,6 +10,8 @@ interface ApiEnvelope<T> {
   data: T;
   meta?: ApiPageMeta;
 }
+
+let refreshPromise: Promise<AuthSessionResponse> | null = null;
 
 export interface PaginationParams {
   cursor?: string | null;
@@ -28,8 +30,16 @@ export class ApiError extends Error {
 async function getAuthHeaders(contentType = 'application/json') {
   const token = await getAccessToken();
   return {
+    'X-Timelink-Client': 'mobile',
     ...(contentType ? { 'Content-Type': contentType } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function getBaseHeaders(contentType = 'application/json') {
+  return {
+    'X-Timelink-Client': 'mobile',
+    ...(contentType ? { 'Content-Type': contentType } : {}),
   };
 }
 
@@ -40,12 +50,26 @@ async function requestEnvelope<T>(
   body?: unknown,
   requiresAuth = true,
 ): Promise<ApiEnvelope<T>> {
-  const headers = requiresAuth ? await getAuthHeaders() : { 'Content-Type': 'application/json' };
-  const res = await fetch(`${baseUrl}${path}`, {
+  const requestBody = body ? JSON.stringify(body) : undefined;
+  const headers = requiresAuth ? await getAuthHeaders() : getBaseHeaders();
+  let res = await fetch(`${baseUrl}${path}`, {
     method,
     headers,
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(requestBody ? { body: requestBody } : {}),
   });
+
+  if (res.status === 401 && requiresAuth && path !== '/auth/refresh') {
+    try {
+      await refreshSession();
+      res = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: await getAuthHeaders(),
+        ...(requestBody ? { body: requestBody } : {}),
+      });
+    } catch {
+      await clearStoredSession();
+    }
+  }
 
   if (res.status === 204) {
     return { data: undefined as T };
@@ -63,6 +87,35 @@ async function requestEnvelope<T>(
     data: json.data as T,
     meta: json.meta as ApiPageMeta | undefined,
   };
+}
+
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = getRefreshToken()
+      .then(async (refreshToken) => {
+        if (!refreshToken) {
+          throw new ApiError(401, 'refresh token이 없습니다');
+        }
+
+        const res = await fetch(`${env.plannerApiBaseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: getBaseHeaders(),
+          body: JSON.stringify({ refreshToken }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new ApiError(res.status, json?.error?.message || json?.detail || `API Error ${res.status}`);
+        }
+
+        const session = json.data as AuthSessionResponse;
+        await setStoredSession(session);
+        return session;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
 }
 
 async function request<T>(method: string, path: string, body?: unknown, requiresAuth = true) {
@@ -124,6 +177,7 @@ export interface AuthLoginRequest {
 
 export interface AuthSessionResponse {
   accessToken: string;
+  refreshToken?: string;
   userId: string;
 }
 
@@ -137,6 +191,11 @@ export interface AuthProvidersResponse {
 export const authApi = {
   login: (data: AuthLoginRequest) => request<AuthSessionResponse>('POST', '/auth/login', data, false),
   getMe: () => request<AuthSessionResponse>('GET', '/auth/me'),
+  refresh: () => refreshSession(),
+  logout: async () => {
+    const refreshToken = await getRefreshToken();
+    return request<void>('POST', '/auth/logout', refreshToken ? { refreshToken } : undefined, false);
+  },
   getProviders: () => request<AuthProvidersResponse>('GET', '/auth/providers', undefined, false),
   getOAuthStartUrl: (provider: SocialAuthProvider, frontendOrigin: string, redirectPath: string) => {
     const params = new URLSearchParams({
