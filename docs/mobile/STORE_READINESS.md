@@ -13,7 +13,8 @@ Timelink 모바일 앱을 `main/mobile`에서 운영 웹/백엔드와 같은 API
 - 앱 위치: `mobile/`
 - 프레임워크: Expo managed React Native
 - 네이티브 폴더: `mobile/android`, `mobile/ios`는 커밋하지 않고 `expo prebuild`로 생성한다.
-- 패키지명과 번들 ID: `cloud.timelink.mobile`
+- Android 패키지명: `cloud.timelink.app`
+- iOS 번들 ID: `cloud.timelink.mobile`
 - 운영 API: `https://timelink.cloud/api/planner/v1`
 - OAuth 모바일 콜백 origin: `timelink://app`
 - Universal/App Links 대상: `https://timelink.cloud`, `https://www.timelink.cloud`
@@ -60,7 +61,7 @@ npm run mobile:export:web
 ## 남은 외부 설정
 
 - Apple Developer Team ID 확보 후 `apple-app-site-association`을 운영 도메인에 배포해야 Universal Links 검증이 완료된다.
-- Play App Signing 등록 후 Android SHA256 fingerprint를 사용해 `assetlinks.json`을 운영 도메인에 배포해야 Android App Links 검증이 완료된다.
+- 새 Play 앱(`cloud.timelink.app`)을 Play App Signing에 등록한 뒤, Play Console의 앱 서명 키 SHA-256 fingerprint와 패키지명을 사용해 `assetlinks.json`을 운영 도메인에 배포해야 Android App Links 검증이 완료된다.
 - EAS project id와 스토어 자격증명은 계정 연결 후 확정한다.
 - 로컬 AAB 빌드는 현재 개발 머신에 Android SDK 경로가 없어 끝까지 검증하지 못했다. `ANDROID_HOME` 또는 `mobile/android/local.properties`의 `sdk.dir` 설정 후 `npm run mobile:build:android-release`로 확인한다.
 
