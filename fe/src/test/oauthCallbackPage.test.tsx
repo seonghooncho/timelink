@@ -7,6 +7,7 @@ import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
 const mocks = vi.hoisted(() => ({
   completeSession: vi.fn(),
   clearStoredSession: vi.fn(),
+  getAccessToken: vi.fn(),
   toastError: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock('@/context/AuthContext', () => ({
 
 vi.mock('@/services/session', () => ({
   clearStoredSession: mocks.clearStoredSession,
+  getAccessToken: mocks.getAccessToken,
 }));
 
 vi.mock('sonner', () => ({
@@ -30,6 +32,7 @@ describe('OAuthCallbackPage', () => {
   beforeEach(() => {
     mocks.completeSession.mockReset();
     mocks.clearStoredSession.mockReset();
+    mocks.getAccessToken.mockReset();
     mocks.toastError.mockReset();
   });
 

@@ -38,6 +38,7 @@ import {
 } from '@/services/api';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
 import { appToast } from '@/lib/appToast';
+import { trackProductEvent } from '@/lib/productAnalytics';
 import { addLocalDays, toLocalDateTimeParam } from '@/lib/dateRange';
 import { useGroupedSchedules } from '@/hooks/useGroupedSchedules';
 import { uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
@@ -257,6 +258,11 @@ const GroupDetailPage: React.FC = () => {
       await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
       appToast.success('링크가 복사되었습니다');
+      trackProductEvent('link_copied', {
+        feature: 'groups',
+        link_type: 'group_invite',
+        source: 'group_detail',
+      });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       appToast.error('링크 복사에 실패했습니다', error);
@@ -270,6 +276,11 @@ const GroupDetailPage: React.FC = () => {
           title: `${group?.name} 모임 초대`,
           text: `${group?.name} 모임에 참여하세요!`,
           url: inviteLink,
+        });
+        trackProductEvent('link_shared', {
+          feature: 'groups',
+          link_type: 'group_invite',
+          source: 'group_detail',
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {

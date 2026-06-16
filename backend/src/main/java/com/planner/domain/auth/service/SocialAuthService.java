@@ -101,7 +101,7 @@ public class SocialAuthService {
         return builder.build(true).toUri();
     }
 
-    public URI buildCallbackRedirect(String providerName, String code, String stateToken, HttpServletRequest request) {
+    public OAuthRedirectResult buildCallbackRedirect(String providerName, String code, String stateToken, HttpServletRequest request) {
         Provider provider = Provider.from(providerName);
         OAuthState state = parseState(provider, stateToken);
         OAuthProperties.Provider config = getConfig(provider);
@@ -124,11 +124,14 @@ public class SocialAuthService {
                 + "&userId=" + encode(session.getUserId())
                 + "&redirect=" + encode(state.redirectPath())
                 + "&provider=" + encode(provider.id());
+        if (isNativeFrontendOrigin(state.frontendOrigin())) {
+            destination += "&refreshToken=" + encode(session.getRefreshToken());
+        }
 
-        return URI.create(destination);
+        return new OAuthRedirectResult(URI.create(destination), session.getRefreshToken());
     }
 
-    public URI buildFailureRedirect(String providerName, String stateToken, String errorMessage, HttpServletRequest request) {
+    public OAuthRedirectResult buildFailureRedirect(String providerName, String stateToken, String errorMessage, HttpServletRequest request) {
         Provider provider = Provider.from(providerName);
         OAuthState state = parseStateOrNull(provider, stateToken);
         String frontendOrigin = state != null ? state.frontendOrigin() : defaultFrontendOrigin(request);
@@ -142,7 +145,7 @@ public class SocialAuthService {
                 .build(true)
                 .toUriString();
 
-        return URI.create(destination);
+        return new OAuthRedirectResult(URI.create(destination), null);
     }
 
     private ProviderUser fetchGoogleUser(OAuthProperties.Provider config, String code, String callbackUri) {
@@ -473,6 +476,17 @@ public class SocialAuthService {
 
     private String encode(String value) {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    private boolean isNativeFrontendOrigin(String frontendOrigin) {
+        if (!StringUtils.hasText(frontendOrigin)) {
+            return false;
+        }
+        String normalized = frontendOrigin.trim().toLowerCase();
+        return !normalized.startsWith("http://") && !normalized.startsWith("https://");
+    }
+
+    public record OAuthRedirectResult(URI location, String refreshToken) {
     }
 
     private record OAuthState(String frontendOrigin, String redirectPath) {

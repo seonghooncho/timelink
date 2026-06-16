@@ -89,6 +89,43 @@ variable "push_subject" {
   default     = "mailto:sunghuncho127@gmail.com"
 }
 
+variable "analytics_enabled" {
+  description = "Enable low-cost first-party product analytics. Requires analytics_hmac_secret to be non-empty."
+  type        = bool
+  default     = false
+}
+
+variable "analytics_hmac_secret" {
+  description = "Secret used to HMAC raw backend user IDs into analytics user_key values."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "analytics_admin_user_ids" {
+  description = "Backend user IDs allowed to open the analytics admin dashboard, for example google_<sub>. Do not put email addresses here."
+  type        = list(string)
+  default     = ["google_117924700620020287535"]
+}
+
+variable "analytics_raw_retention_days" {
+  description = "Retention period for raw analytics S3 events."
+  type        = number
+  default     = 30
+}
+
+variable "jwt_access_expiration_ms" {
+  description = "Access token lifetime in milliseconds."
+  type        = number
+  default     = 900000
+}
+
+variable "jwt_refresh_expiration_ms" {
+  description = "Refresh token lifetime in milliseconds."
+  type        = number
+  default     = 1209600000
+}
+
 variable "monitoring_alert_email" {
   description = "Email endpoint for low-cost CloudWatch alarm notifications."
   type        = string

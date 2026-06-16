@@ -8,6 +8,7 @@ import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
 import com.planner.domain.profile.util.GeneratedProfileDefaults;
+import com.planner.domain.analytics.service.AnalyticsService;
 import com.planner.domain.storage.model.ImagePurpose;
 import com.planner.domain.storage.model.ImageStatus;
 import com.planner.domain.storage.model.ImageUpload;
@@ -27,6 +28,7 @@ public class ProfileService {
 
     private final ProfileRepository repository;
     private final StorageService storageService;
+    private final AnalyticsService analyticsService;
 
     public ProfileResDTO getOrCreate(String userId) {
         return getOrCreate(userId, null);
@@ -37,11 +39,15 @@ public class ProfileService {
     }
 
     public ProfileResDTO getOrCreate(String userId, String nicknameHint, String avatarUrlHint) {
-        Profile profile = repository.findByUserId(userId).orElseGet(() -> {
+        var existing = repository.findByUserId(userId);
+        Profile profile = existing.orElseGet(() -> {
             Profile p = ProfileConverter.createDefault(userId, nicknameHint);
             repository.save(p);
             return p;
         });
+        if (existing.isEmpty()) {
+            analyticsService.recordSignupCompleted(userId);
+        }
 
         if (shouldApplyNicknameHint(profile, nicknameHint)) {
             profile.setNickname(ProfileConverter.resolveNickname(nicknameHint));
@@ -72,8 +78,8 @@ public class ProfileService {
     }
 
     public ProfileResDTO agreeRequiredConsents(String userId) {
-        Profile profile = repository.findByUserId(userId)
-                .orElseGet(() -> ProfileConverter.createDefault(userId, null));
+        var existing = repository.findByUserId(userId);
+        Profile profile = existing.orElseGet(() -> ProfileConverter.createDefault(userId, null));
 
         String now = Instant.now().toString();
         profile.setTermsVersion(ProfileConverter.CURRENT_TERMS_VERSION);
@@ -83,6 +89,9 @@ public class ProfileService {
         profile.setUpdatedAt(now);
 
         repository.save(profile);
+        if (existing.isEmpty()) {
+            analyticsService.recordSignupCompleted(userId);
+        }
         return ProfileConverter.toResponse(userId, profile);
     }
 

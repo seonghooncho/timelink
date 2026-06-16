@@ -148,6 +148,15 @@ resource "aws_iam_role_policy" "dynamodb_access" {
       {
         Effect = "Allow"
         Action = [
+          "s3:PutObject"
+        ]
+        Resource = [
+          "${aws_s3_bucket.analytics_raw.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters",
           "ssm:GetParametersByPath"

@@ -21,7 +21,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedSession = getStoredSession();
     if (!storedSession) {
-      setIsLoading(false);
+      authApi.refresh()
+        .then((session) => {
+          setStoredSession(session);
+          setIsAuthenticated(true);
+          setUserId(session.userId);
+        })
+        .catch(() => {
+          clearStoredSession();
+          setIsAuthenticated(false);
+          setUserId(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
       return;
     }
 
@@ -56,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    await authApi.logout().catch(() => undefined);
     clearStoredSession();
     setIsAuthenticated(false);
     setUserId(null);

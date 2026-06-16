@@ -12,6 +12,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { coordinationApi, groupApi } from '../../services/api';
 import { GroupMember } from '../../types';
 import { COORDINATION_DESCRIPTION_MAX_LENGTH, COORDINATION_TITLE_MAX_LENGTH } from '../../constants/textLimits';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TimeCoordination'>;
 
@@ -102,8 +103,14 @@ export function TimeCoordinationScreen({ navigation, route }: Props) {
         endHour,
       });
 
+      void trackProductEvent('link_created', {
+        feature: 'schedule',
+        link_type: 'coordination',
+        source: tab === 'once' ? 'coordination_once' : 'coordination_repeat',
+      });
       navigation.replace('CoordinationTimetable', { groupId, coordId: created.id });
     } catch {
+      trackMobileError('coordination_create_error', 'schedule');
       Alert.alert('생성 실패', '조율 생성에 실패했습니다.');
     } finally {
       setIsCreating(false);

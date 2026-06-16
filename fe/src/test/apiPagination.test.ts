@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { coordinationApi, groupApi, notificationApi, scheduleApi } from '@/services/api';
 
-const { clearStoredSession } = vi.hoisted(() => ({
+const { clearStoredSession, setStoredSession } = vi.hoisted(() => ({
   clearStoredSession: vi.fn(),
+  setStoredSession: vi.fn(),
 }));
 
 vi.mock('@/services/session', () => ({
   clearStoredSession,
   getAccessToken: () => 'test-token',
+  setStoredSession,
 }));
 
 function mockJsonResponse(body: unknown, ok = true, status = 200): Response {
@@ -24,6 +26,7 @@ describe('API cursor pagination', () => {
   beforeEach(() => {
     fetchMock.mockReset();
     clearStoredSession.mockReset();
+    setStoredSession.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
 
@@ -167,5 +170,40 @@ describe('API cursor pagination', () => {
       '/api/planner/v1/groups?cursor=cursor-3&limit=20',
       expect.any(Object),
     );
+  });
+
+  it('reissues access token once and retries an authenticated request after 401', async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockJsonResponse({ error: { message: '만료된 토큰입니다' } }, false, 401))
+      .mockResolvedValueOnce(mockJsonResponse({
+        data: {
+          accessToken: 'fresh-token',
+          userId: 'user-1',
+        },
+      }))
+      .mockResolvedValueOnce(mockJsonResponse({
+        data: [],
+        meta: {
+          perPage: 20,
+          nextCursor: null,
+        },
+      }));
+
+    const result = await groupApi.getPage({ limit: 20 });
+
+    expect(result.data).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/planner/v1/auth/refresh',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      }),
+    );
+    expect(setStoredSession).toHaveBeenCalledWith({
+      accessToken: 'fresh-token',
+      userId: 'user-1',
+    });
   });
 });

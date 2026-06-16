@@ -13,6 +13,7 @@ import { env } from '../../config/env';
 import { AuthProvidersResponse, SocialAuthProvider, authApi } from '../../services/api';
 import { completeOAuthSession } from '../../navigation/authRedirect';
 import { RootStackParamList } from '../../navigation/types';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -75,8 +76,13 @@ export function LoginScreen({ navigation }: Props) {
         return;
       }
       await completeOAuthSession(result.url, completeSession, navigation);
+      void trackProductEvent('login_completed', {
+        feature: 'auth',
+        source: 'oauth_callback',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : '소셜 로그인에 실패했습니다';
+      trackMobileError('auth_error', 'auth');
       Alert.alert('로그인 실패', message);
     } finally {
       setIsLoading(null);
@@ -91,8 +97,13 @@ export function LoginScreen({ navigation }: Props) {
         userId: createGuestUserId(nickname),
         nickname,
       });
+      void trackProductEvent('login_completed', {
+        feature: 'auth',
+        source: 'guest_login',
+      });
       navigation.replace('MainTabs');
     } catch {
+      trackMobileError('auth_error', 'auth');
       Alert.alert('임시 로그인 실패', '임시 로그인에 실패했습니다.');
     } finally {
       setIsLoading(null);

@@ -2,6 +2,7 @@ package com.planner.domain.profile.service;
 
 import com.planner.domain.profile.dto.ProfileResDTO;
 import com.planner.domain.profile.dto.ProfileUpdateReqDTO;
+import com.planner.domain.analytics.service.AnalyticsService;
 import com.planner.domain.profile.error.ProfileException;
 import com.planner.domain.profile.model.Profile;
 import com.planner.domain.profile.repository.ProfileRepository;
@@ -25,6 +26,9 @@ class ProfileServiceTest {
 
     @Mock
     private ProfileRepository repository;
+
+    @Mock
+    private AnalyticsService analyticsService;
 
     @InjectMocks
     private ProfileService service;
@@ -65,6 +69,7 @@ class ProfileServiceTest {
 
             assertThat(result.getNickname()).isEqualTo("사용자");
             then(repository).should().save(any(Profile.class));
+            then(analyticsService).should().recordSignupCompleted(USER_ID);
         }
 
         @Test

@@ -12,6 +12,7 @@ import { LogOut, Camera, Pencil, Check, X, Info, UserRound } from 'lucide-react'
 import { appToast } from '@/lib/appToast';
 import { ensurePushSubscription, removePushSubscription, requestPushPermission } from '@/pwa/pushNotifications';
 import { getProcessingImageLabel, uploadProcessedImage, validateImageFile, waitForImageProcessing } from '@/lib/images';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 const PROFILE_TIPS = [
   '모임에 가입하면 친구들과 가능한 약속 시간을 한눈에 비교할 수 있어요.',
@@ -144,6 +145,10 @@ const MyPage: React.FC = () => {
       const settings = await settingsApi.updateNotifications({ [key]: value });
       applyNotificationSettings(settings);
       await syncPushSubscription(settings);
+      trackProductEvent('settings_updated', {
+        feature: 'settings',
+        settings_type: key,
+      });
     } catch (error) {
       rollback();
       appToast.error('알림 설정 저장에 실패했습니다', error);
@@ -168,6 +173,10 @@ const MyPage: React.FC = () => {
       );
       applyNotificationSettings(settings);
       await syncPushSubscription(settings);
+      trackProductEvent('settings_updated', {
+        feature: 'settings',
+        settings_type: 'schedule_alarm',
+      });
     } catch (error) {
       setScheduleAlarm(previous.scheduleAlarm);
       setRemindOneDayBefore(previous.remindOneDayBefore);
@@ -251,6 +260,10 @@ const MyPage: React.FC = () => {
         await updateProfileMutation.mutateAsync({ nickname: trimmed });
         setNickname(trimmed);
         appToast.success('닉네임이 변경되었습니다');
+        trackProductEvent('settings_updated', {
+          feature: 'settings',
+          settings_type: 'profile',
+        });
       } catch (error) { appToast.error('닉네임 변경에 실패했습니다', error); }
     }
     setIsEditingNickname(false);

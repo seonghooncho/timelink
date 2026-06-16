@@ -131,6 +131,11 @@ resource "aws_dynamodb_table" "main" {
     enabled = true
   }
 
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
   tags = {
     Name = "${var.project_name}-main-table"
   }

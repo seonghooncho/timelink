@@ -58,6 +58,11 @@ output "backend_jwt_secret_parameter_name" {
   value       = "${local.backend_ssm_prefix}/jwt.secret"
 }
 
+output "backend_jwt_refresh_secret_parameter_name" {
+  description = "Backend JWT refresh secret parameter name"
+  value       = "${local.backend_ssm_prefix}/jwt.refresh-secret"
+}
+
 output "backend_google_oauth_client_id_parameter_name" {
   description = "Backend Google OAuth client ID parameter name"
   value       = "${local.backend_ssm_prefix}/oauth.google.client-id"

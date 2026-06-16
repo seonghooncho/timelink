@@ -11,6 +11,7 @@ import { appToast } from '@/lib/appToast';
 import { getScheduleColorStyle } from '@/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPublicAppOrigin } from '@/lib/appOrigin';
+import { trackProductEvent } from '@/lib/productAnalytics';
 import { maxLocalDate, minLocalDate, toLocalDateTimeParam } from '@/lib/dateRange';
 import {
   buildCoordinationSlotKey,
@@ -246,6 +247,11 @@ const CoordinationTimetablePage: React.FC = () => {
           text: shareText,
           url: coordinationShareUrl,
         });
+        trackProductEvent('link_shared', {
+          feature: 'schedule',
+          link_type: 'coordination',
+          source: 'coordination_timetable',
+        });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -259,6 +265,11 @@ const CoordinationTimetablePage: React.FC = () => {
     try {
       await navigator.clipboard.writeText(coordinationShareUrl);
       appToast.success('공유 링크가 복사되었습니다');
+      trackProductEvent('link_copied', {
+        feature: 'schedule',
+        link_type: 'coordination',
+        source: 'coordination_timetable',
+      });
     } catch (error) {
       appToast.error('공유 링크 복사에 실패했습니다', error);
     }

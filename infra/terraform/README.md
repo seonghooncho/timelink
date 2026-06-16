@@ -48,7 +48,7 @@ terraform apply
 
 - Backend Lambda는 `APP_CONFIG_PREFIX=/planner/<env>/backend`를 기준으로 런타임 설정을 읽습니다.
 - AI Lambda는 `APP_CONFIG_PREFIX=/planner/<env>/ai`를 기준으로 런타임 설정을 읽습니다.
-- `jwt.secret`, `GEMINI_API_KEY`는 Terraform이 만들지 않습니다. 실제 secret 값은 SSM에 별도로 넣어야 합니다.
+- `jwt.secret`, `jwt.refresh-secret`, `GEMINI_API_KEY`는 Terraform이 만들지 않습니다. 실제 secret 값은 SSM에 별도로 넣어야 합니다. `jwt.refresh-secret`을 비워두면 백엔드는 `jwt.secret`을 refresh token 서명에도 사용합니다.
 - 실제 비밀값과 `backend.hcl`은 Git에 커밋하지 않습니다.
 
 ## Cloudflare DNS

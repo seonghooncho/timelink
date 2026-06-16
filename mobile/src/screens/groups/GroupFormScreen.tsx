@@ -13,6 +13,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { useCreateGroup } from '../../hooks/useGroups';
 import { uploadProcessedImage, validatePickedImage, type PickedImageAsset } from '../../utils/images';
 import { GROUP_DESCRIPTION_MAX_LENGTH, GROUP_NAME_MAX_LENGTH } from '../../constants/textLimits';
+import { trackMobileError, trackProductEvent } from '../../services/analytics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupForm'>;
 
@@ -66,9 +67,15 @@ export function GroupFormScreen({ navigation }: Props) {
         visibility,
         imageId: uploadedImage?.imageId,
       });
+      void trackProductEvent('link_created', {
+        feature: 'groups',
+        link_type: 'group_invite',
+        source: visibility === 'PUBLIC' ? 'public_group' : 'private_group',
+      });
       navigation.replace('GroupDetail', { id: created.id });
     } catch (error) {
       const message = error instanceof Error ? error.message : '모임 생성 중 오류가 발생했습니다.';
+      trackMobileError('group_create_error', 'groups');
       Alert.alert('생성 실패', message);
     }
   };
