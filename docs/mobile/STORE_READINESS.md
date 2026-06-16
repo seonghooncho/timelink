@@ -68,9 +68,13 @@ npm run mobile:export:web
 ## Google Play 내부 테스트 상태
 
 - Play Console 앱: `Timelink` / `cloud.timelink.app`
-- 내부 테스트 트랙: version code `2`, version name `1.0.0`, status `completed`
+- 내부 테스트 트랙: version code `3`, version name `1.0.0`, status `completed`
 - 내부 테스트 링크: `https://play.google.com/apps/internaltest/4701418634335833982`
 - 서비스 계정: Android Publisher API로 `cloud.timelink.app` 내부 테스트 트랙 조회 성공
+- 최신 EAS Android build: `https://expo.dev/accounts/sunghuncho/projects/timelink-mobile/builds/1bfc4cec-9809-4b59-b7b0-182c17856b7c`
+- 최신 AAB artifact: `https://expo.dev/artifacts/eas/ZS2uKqDlUHRQCD9XvaHbodPaDL1PghOLOZ-vHl_YOsc.aab`
+- 로컬 복사본: `C:\Users\CHO\Downloads\timelink-cloud-timelink-app-v3.aab`
+- AAB SHA-256: `db1ac68a636c13a2e634dd045fa0e4b2f975f9c1a81fcaf41367ab1937b4b0b6`
 - 등록정보 자산:
   - 앱 이름/설명: `mobile/store-assets/google-play/listing.json`
   - 아이콘: `mobile/store-assets/google-play/icon.png`
