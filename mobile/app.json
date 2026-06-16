@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "package": "cloud.timelink.mobile",
+      "package": "cloud.timelink.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

@@ -39,6 +39,7 @@ npm run prebuild:ios
 - 웹 기준 origin: `https://timelink.cloud`
 - 모바일 OAuth callback origin: `timelink://app`
 - 앱 링크 prefix: `timelink://app`, `https://timelink.cloud`, `https://www.timelink.cloud`
+- Android Play 패키지명: `cloud.timelink.app`
 
 현재 소셜 로그인은 앱 쪽 구현이 준비되어 있으며, 서버에서 `timelink://app` origin을 허용해야 한다.
 Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/auth/oauth/{provider}/callback` 을 사용한다.
@@ -64,7 +65,7 @@ Google/Kakao provider redirect URI는 `https://timelink.cloud/api/planner/v1/aut
 - `https://timelink.cloud/.well-known/assetlinks.json`
 
 위 두 파일은 배포 도메인에서 추가로 제공해야 Universal Links / Android App Links 검증이 완료된다.
-현재 저장소에는 Apple Team ID와 Android 서명 인증서 SHA256 fingerprint가 없어 정적 파일까지는 확정하지 않았다.
+현재 저장소에는 Apple Team ID와 새 Play 앱(`cloud.timelink.app`)의 앱 서명 인증서 SHA256 fingerprint가 없어 정적 파일까지는 확정하지 않았다.
 
 ## 제출 준비 문서
 [docs/mobile/STORE_READINESS.md](../docs/mobile/STORE_READINESS.md)를 먼저 확인한다.
