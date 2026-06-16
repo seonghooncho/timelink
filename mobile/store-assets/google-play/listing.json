@@ -1,0 +1,12 @@
+{
+  "ko-KR": {
+    "title": "Timelink",
+    "shortDescription": "개인 일정과 모임 시간을 한곳에서 관리하세요",
+    "fullDescription": "Timelink는 개인 일정 관리와 모임 시간 조율을 한곳에서 이어주는 일정 서비스입니다.\n\n- 다가오는 개인 일정과 모임 약속을 한눈에 확인\n- 사진과 안내문 속 약속 정보를 일정 초안으로 정리\n- 모임 멤버가 가능한 시간을 모아 겹치는 시간 확인\n- 공개 모임 탐색, 가입 요청, 모임 글 관리\n- 일정 리마인드와 모임 활동 알림센터 제공\n\n대학생 스터디, 팀 프로젝트, 동아리, 사이드프로젝트, 친구 모임처럼 여러 사람이 가능한 시간을 맞춰야 하는 상황에 맞춰 설계했습니다."
+  },
+  "en-US": {
+    "title": "Timelink",
+    "shortDescription": "Manage personal schedules and meetup times in one place",
+    "fullDescription": "Timelink brings personal schedule management and group time coordination into one app.\n\n- See upcoming personal schedules and meetup plans at a glance\n- Turn photos and notices into schedule drafts\n- Compare member availability and find overlapping time slots\n- Discover public meetups, send join requests, and manage group posts\n- Keep reminders and meetup activity in one notification center\n\nTimelink is designed for study groups, team projects, clubs, side projects, friend groups, and any small community that needs to agree on a time together."
+  }
+}
